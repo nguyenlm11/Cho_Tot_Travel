@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Modal, TouchableOpacity, Button } from 'react-native';
 import { FontAwesome6, Ionicons } from 'react-native-vector-icons';
 import { colors } from '../constants/Colors';
+import { useNavigation } from '@react-navigation/native';
 
 const bookings = [
     {
@@ -52,6 +53,7 @@ const bookings = [
 ];
 
 export default function BookingListScreen() {
+    const navigation = useNavigation();
     const [filterStatus, setFilterStatus] = useState(null);
     const [isModalVisible, setModalVisible] = useState(false);
 
@@ -66,7 +68,19 @@ export default function BookingListScreen() {
     }, {});
 
     const renderBookingItem = ({ item }) => (
-        <View style={styles.bookingCard}>
+        <TouchableOpacity
+            style={styles.bookingCard}
+            onPress={() =>
+                navigation.navigate('BookingDetail', {
+                    id: item.id,
+                    hotelName: item.hotelName,
+                    bookingCode: item.bookingCode,
+                    price: item.price,
+                    status: item.status,
+                    statusColor: item.statusColor,
+                })
+            }
+        >
             <View style={[styles.statusBadge, { backgroundColor: item.statusColor }]}>
                 <Text style={styles.statusText}>{item.status}</Text>
             </View>
@@ -79,7 +93,7 @@ export default function BookingListScreen() {
                 <Text style={styles.bookingCode}>Mã đặt chỗ: {item.bookingCode}</Text>
                 <Text style={styles.price}>{item.price}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     const renderMonthSection = ({ item: month }) => (
