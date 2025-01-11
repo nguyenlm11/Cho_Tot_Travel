@@ -4,6 +4,7 @@ import BottomTabNavigator from './BottomTabNavigator';
 import ResultScreen from '../screens/ResultScreen';
 import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import BookingDetailScreen from '../screens/BookingDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -12,7 +13,7 @@ const RootNavigator = () => {
         <Stack.Navigator
             initialRouteName="Splash"
             screenOptions={{
-                gestureEnabled: true,  // Bật hiệu ứng kéo để quay lại
+                gestureEnabled: true,
             }}
         >
             <Stack.Screen
@@ -39,6 +40,13 @@ const RootNavigator = () => {
             <Stack.Screen
                 name="Results"
                 component={ResultScreen}
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
+                name="BookingDetail"
+                component={BookingDetailScreen}
                 options={{
                     headerShown: false,
                 }}
