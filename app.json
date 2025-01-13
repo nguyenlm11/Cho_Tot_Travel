@@ -1,5 +1,9 @@
 {
   "expo": {
+    "permissions": [
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION"
+    ],
     "name": "cho_tot_travel",
     "slug": "cho_tot_travel",
     "version": "1.0.0",
@@ -13,9 +17,16 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Ứng dụng cần truy cập vị trí của bạn để gợi ý địa điểm gần nhất."
+      },
       "supportsTablet": true
     },
     "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

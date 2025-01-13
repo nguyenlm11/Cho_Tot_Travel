@@ -10,6 +10,7 @@ import {
     Modal,
     Platform,
     KeyboardAvoidingView,
+    Linking,
 } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons } from "react-native-vector-icons";
@@ -32,22 +33,50 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
     };
 
     const handleGetCurrentLocation = async () => {
-        const { status } = await Location.getForegroundPermissionsAsync();
-        if (status !== "granted") {
-            Alert.alert("Quyền bị từ chối", "Vui lòng cấp quyền truy cập vị trí.");
-            return;
-        }
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
 
-        const currentLocation = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = currentLocation.coords;
-        if (onLocationSelected) {
-            onLocationSelected({
-                description: "Vị trí gần bạn",
-                latitude,
-                longitude,
-            });
+            if (status !== "granted") {
+                Alert.alert(
+                    "Quyền bị từ chối",
+                    "Ứng dụng cần quyền truy cập vị trí để hoạt động. Vui lòng cấp quyền trong cài đặt.",
+                    [
+                        { text: "Hủy", style: "cancel" },
+                        {
+                            text: "Mở Cài đặt",
+                            onPress: () => Linking.openSettings(),
+                        },
+                    ]
+                );
+                return;
+            }
+
+            const servicesEnabled = await Location.hasServicesEnabledAsync();
+            if (!servicesEnabled) {
+                Alert.alert(
+                    "Dịch vụ vị trí bị tắt",
+                    "Vui lòng bật Dịch vụ vị trí trên thiết bị của bạn để tiếp tục."
+                );
+                return;
+            }
+
+            const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+            const { latitude, longitude } = currentLocation.coords;
+            if (onLocationSelected) {
+                onLocationSelected({
+                    description: "Vị trí gần bạn",
+                    latitude,
+                    longitude,
+                });
+            }
+            onClose();
+        } catch (error) {
+            Alert.alert(
+                "Lỗi lấy vị trí",
+                "Đã xảy ra lỗi khi lấy vị trí. Vui lòng thử lại."
+            );
+            console.error("Error getting location:", error);
         }
-        onClose();
     };
 
     const handleSearch = async (text) => {

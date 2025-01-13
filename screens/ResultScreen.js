@@ -17,6 +17,8 @@ export default function ResultScreen({ route }) {
         priceFrom: initialPriceFrom,
         priceTo: initialPriceTo,
         selectedStar: initialSelectedStar,
+        latitude: initialLatitude,
+        longitude: initialLongitude,
     } = route.params;
 
     const [location, setLocation] = useState(initialLocation);
@@ -29,30 +31,47 @@ export default function ResultScreen({ route }) {
     const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
     const [priceTo, setPriceTo] = useState(initialPriceTo);
     const [selectedStar, setSelectedStar] = useState(initialSelectedStar);
+    const [latitude, setLatitude] = useState(initialLatitude);
+    const [longitude, setLongitude] = useState(initialLongitude);
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const navigation = useNavigation();
 
     const mockData = [
         {
             id: '1',
-            name: 'Khách sạn Pullman Vũng Tàu',
-            rating: 5,
-            price: '2.000.000 đ',
             image: 'https://images.ctfassets.net/wv75stsetqy3/3YYXFh9btLYusTPBXVSkKB/8524b1f010e3a1ef770b1a7909dc9113/Best_Things_to_Do_in_Vung_Tau.jpg?q=60&fit=fill&fm=webp',
+            name: 'The Hammock Hotel Global City',
+            rating: 4,
+            address: 'Quận 2, Thành phố Hồ Chí Minh',
+            distance: '7.17 km từ địa điểm hiện tại',
+            features: ['Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc'],
+            price: '1.058.201 VND',
+            originalPrice: '1.599.999 VND',
+            availability: 'Chỉ còn 3 phòng có giá này!',
         },
         {
             id: '2',
-            name: 'Khách sạn Imperial Vũng Tàu',
-            rating: 4.7,
-            price: '3.500.000 đ',
-            image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Vungtau.jpg/1200px-Vungtau.jpg',
+            image: 'https://via.placeholder.com/150',
+            name: 'Smiley Apartment District 2',
+            rating: 3,
+            address: 'Quận 2, Thành phố Hồ Chí Minh',
+            distance: '8.71 km từ địa điểm hiện tại',
+            features: ['Nhà bếp mini', 'Sân thượng/Sân hiên'],
+            price: '355.555 VND',
+            originalPrice: '420.000 VND',
+            availability: 'Chỉ còn 1 phòng có giá này!',
         },
         {
             id: '3',
-            name: 'Khách sạn Malibu Vũng Tàu',
-            rating: 3.8,
-            price: '1.800.000 đ',
-            image: 'https://media.vneconomy.vn/images/upload/2023/03/08/310495-malii.jpg',
+            image: 'https://via.placeholder.com/150',
+            name: 'Smiley Apartment District 2',
+            rating: 3,
+            address: 'Quận 2, Thành phố Hồ Chí Minh',
+            distance: '8.71 km từ địa điểm hiện tại',
+            features: ['Nhà bếp mini', 'Sân thượng/Sân hiên'],
+            price: '355.555 VND',
+            originalPrice: '420.000 VND',
+            availability: 'Chỉ còn 1 phòng có giá này!',
         },
     ];
 
@@ -120,10 +139,18 @@ export default function ResultScreen({ route }) {
                         <View style={styles.info}>
                             <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
                             {renderStars(item.rating)}
-                            <Text style={styles.priceContainer}>
+                            <Text style={styles.address}>{item.address}</Text>
+                            <Text style={styles.distance}>{item.distance}</Text>
+                            <View style={styles.features}>
+                                {item.features.map((feature, index) => (
+                                    <Text key={index} style={styles.feature}>{feature}</Text>
+                                ))}
+                            </View>
+                            <View style={styles.priceContainer}>
                                 <Text style={styles.price}>{item.price}</Text>
-                                <Text> / phòng / đêm</Text>
-                            </Text>
+                                <Text style={styles.originalPrice}>{item.originalPrice}</Text>
+                            </View>
+                            <Text style={styles.availability}>{item.availability}</Text>
                         </View>
                     </View>
                 )}
@@ -142,6 +169,8 @@ export default function ResultScreen({ route }) {
                 priceFrom={priceFrom}
                 priceTo={priceTo}
                 selectedStar={selectedStar}
+                latitude={latitude}
+                longitude={longitude}
                 setLocation={setLocation}
                 setCheckInDate={setCheckInDate}
                 setCheckOutDate={setCheckOutDate}
@@ -152,6 +181,8 @@ export default function ResultScreen({ route }) {
                 setPriceFrom={setPriceFrom}
                 setPriceTo={setPriceTo}
                 setSelectedStar={setSelectedStar}
+                setLatitude={setLatitude}
+                setLongitude={setLongitude}
             />
         </View>
     );
@@ -201,43 +232,80 @@ const styles = StyleSheet.create({
         marginLeft: 10
     },
     card: {
-        flexDirection: 'row',
-        margin: 15,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 8,
+        margin: 10,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 10,
         overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowRadius: 5,
+        elevation: 5,
     },
     image: {
-        width: 125,
-        height: 125,
-        borderRadius: 8
+        width: '100%',
+        height: 150,
     },
     info: {
-        flex: 1,
-        padding: 10
+        padding: 10,
     },
     name: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 10
+        color: '#333',
     },
     starContainer: {
         flexDirection: 'row',
-        marginVertical: 5
+        marginVertical: 5,
+    },
+    starFilled: {
+        color: '#FFD700',
+        marginRight: 2,
+    },
+    starEmpty: {
+        color: '#ccc',
+        marginRight: 2,
+    },
+    address: {
+        fontSize: 14,
+        color: '#777',
+    },
+    distance: {
+        fontSize: 12,
+        color: '#555',
+        marginBottom: 5,
+    },
+    features: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginBottom: 10,
+    },
+    feature: {
+        backgroundColor: '#f0f0f0',
+        color: '#555',
+        fontSize: 12,
+        padding: 5,
+        borderRadius: 5,
+        marginRight: 5,
+        marginBottom: 5,
     },
     priceContainer: {
-        fontSize: 16,
-        marginTop: 10
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 5,
     },
     price: {
         fontSize: 18,
-        color: colors.primary,
         fontWeight: 'bold',
-        marginTop: 10
+        color: '#E53935',
+        marginRight: 10,
+    },
+    originalPrice: {
+        fontSize: 14,
+        color: '#aaa',
+        textDecorationLine: 'line-through',
+    },
+    availability: {
+        fontSize: 12,
+        color: '#E53935',
     },
 });
