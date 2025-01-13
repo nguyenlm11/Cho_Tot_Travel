@@ -21,6 +21,8 @@ const EditSearchModal = ({
     priceFrom,
     priceTo,
     selectedStar,
+    latitude,
+    longitude,
     setLocation,
     setCheckInDate,
     setCheckOutDate,
@@ -31,6 +33,8 @@ const EditSearchModal = ({
     setPriceFrom,
     setPriceTo,
     setSelectedStar,
+    setLatitude,
+    setLongitude
 }) => {
 
     const [isLocationModalVisible, setLocationModalVisible] = useState(false);
@@ -55,9 +59,11 @@ const EditSearchModal = ({
 
     const handleLocationSelected = (selectedLocation) => {
         setLocation(selectedLocation.description);
-        console.log("Selected Location:", selectedLocation);
-        console.log("Latitude:", selectedLocation.latitude);
-        console.log("Longitude:", selectedLocation.longitude);
+        setLatitude(selectedLocation.latitude);
+        setLongitude(selectedLocation.longitude);
+        // console.log("Selected Location:", selectedLocation);
+        // console.log("Latitude:", selectedLocation.latitude);
+        // console.log("Longitude:", selectedLocation.longitude);
     };
 
     const handleSearch = () => {
@@ -71,6 +77,8 @@ const EditSearchModal = ({
         console.log("Children:", children);
         console.log("Price Range:", priceFrom, "-", priceTo);
         console.log("Star Rating:", selectedStar);
+        console.log("Kinh", latitude);
+        console.log("Vi", longitude);
     }
 
     return (
@@ -93,13 +101,13 @@ const EditSearchModal = ({
 
                         <TouchableOpacity style={styles.dateInput} onPress={() => setCalendarVisible(true)}>
                             <Icon name="calendar-outline" size={20} color="#4A4A4A" />
-                            <View style={{ flexDirection: 'row' }}>
-                                <View>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '95%' }}>
+                                <View style={{ flex: 1 }}>
                                     <Text style={styles.inputTitle}>Ngày nhận phòng</Text>
                                     <Text style={styles.inputText}>{checkInDate}</Text>
-                                    <Text> Ngày trả phòng: <Text>{checkOutDate}</Text></Text>
+                                    <Text style={[styles.inputTitle, { marginTop: 8 }]}>Ngày trả phòng: <Text style={styles.inputText}>{checkOutDate}</Text></Text>
                                 </View>
-                                <View style={{ marginLeft: 10 }}>
+                                <View style={{ justifyContent: 'center' }}>
                                     <Text style={styles.inputTitle}>Số đêm nghỉ</Text>
                                     <Text style={styles.inputText}>{numberOfNights} đêm</Text>
                                 </View>
@@ -129,7 +137,7 @@ const EditSearchModal = ({
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.searchButton} onPress={() => { handleSearch(); onClose() }}>
-                            <Text style={styles}>Tìm kiếm</Text>
+                            <Text style={styles.searchButtonText}>Tìm kiếm</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -203,7 +211,7 @@ const styles = StyleSheet.create({
     searchInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#f5f5f5',
         padding: 12,
         borderRadius: 8,
         marginBottom: 8,
@@ -211,7 +219,7 @@ const styles = StyleSheet.create({
     dateInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#f5f5f5',
         padding: 12,
         borderRadius: 8,
         marginBottom: 8,
@@ -219,7 +227,7 @@ const styles = StyleSheet.create({
     filterInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#f5f5f5',
         padding: 12,
         borderRadius: 8,
         marginBottom: 8,
@@ -244,7 +252,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     searchButtonText: {
-        color: '#fff',
+        color: colors.textThird,
         fontSize: 16,
         fontWeight: 'bold',
     },

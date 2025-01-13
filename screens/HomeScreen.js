@@ -114,13 +114,13 @@ export default function HomeScreen() {
 
                 <TouchableOpacity style={styles.dateInput} onPress={() => setCalendarVisible(true)}>
                     <Icon name="calendar-outline" size={20} color="#4A4A4A" />
-                    <View style={{ flexDirection: 'row' }}>
-                        <View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '95%' }}>
+                        <View style={{ flex: 1 }}>
                             <Text style={styles.inputTitle}>Ngày nhận phòng</Text>
                             <Text style={styles.inputText}>{checkInDate}</Text>
-                            <Text> Ngày trả phòng: <Text>{checkOutDate}</Text></Text>
+                            <Text style={[styles.inputTitle, { marginTop: 8 }]}>Ngày trả phòng: <Text style={styles.inputText}>{checkOutDate}</Text></Text>
                         </View>
-                        <View style={{ marginLeft: 10 }}>
+                        <View style={{ justifyContent: 'center' }}>
                             <Text style={styles.inputTitle}>Số đêm nghỉ</Text>
                             <Text style={styles.inputText}>{numberOfNights} đêm</Text>
                         </View>
