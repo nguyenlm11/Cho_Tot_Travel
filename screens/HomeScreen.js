@@ -40,6 +40,7 @@ export default function HomeScreen() {
         console.log("Price To:", priceTo);
         console.log("LonTi:", longitude);
         console.log("LatTi:", latitude);
+        console.log("_____________________________________________________________");
 
         navigation.navigate("Results", {
             location,

@@ -16,8 +16,8 @@ import * as Location from "expo-location";
 import { Ionicons } from "react-native-vector-icons";
 import axios from "axios";
 
-const API_KEY = "AlzaSyj_Ufz9Xj874DRq__j3mzQ4pkszOUmRfig";
-const BASE_URL = "https://maps.gomaps.pro/maps/api/place/autocomplete/json";
+const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
+const BASE_URL = "https://mapapis.openmap.vn/v1/autocomplete";
 
 const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
     const [query, setQuery] = useState("");
@@ -30,6 +30,10 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
 
     const handleClearRecentSearches = () => {
         setRecentSearches([]);
+    };
+
+    const handleClear = () => {
+        setQuery("");
     };
 
     const handleGetCurrentLocation = async () => {
@@ -89,47 +93,38 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
         try {
             const response = await axios.get(BASE_URL, {
                 params: {
-                    input: text,
-                    key: API_KEY,
-                    language: "vi",
-                    components: "country:vn",
+                    text: text,
+                    apikey: API_KEY,
+                    size: 3,
                 },
             });
 
-            setResults(response.data.predictions || []);
+            // console.log(response.data);
+            setResults(response.data.features || []);
         } catch (error) {
-            console.error("Error fetching places:", error.response || error.message);
+            // console.error("Error fetching places:", error.response || error.message);
+            // Alert.alert("Lỗi", "Có lỗi khi lấy vị trí.");
         }
     };
 
-    const handleClear = () => {
-        setQuery("");
-    };
-
-    const handleSelectLocation = async (location) => {
+    const handleSelectLocation = (location) => {
         if (onLocationSelected) {
             try {
-                const placeDetailsUrl = `https://maps.gomaps.pro/maps/api/place/details/json?place_id=${location.place_id}&key=${API_KEY}`;
+                const { label } = location.properties;
+                const [lng, lat] = location.geometry.coordinates;
 
-                const response = await axios.get(placeDetailsUrl);
-                const placeDetails = response.data.result;
-
-                if (placeDetails && placeDetails.geometry && placeDetails.geometry.location) {
-                    const { lat, lng } = placeDetails.geometry.location;
-                    onLocationSelected({
-                        description: location.description,
-                        latitude: lat,
-                        longitude: lng,
-                    });
-                } else {
-                    Alert.alert("Không thể lấy thông tin chi tiết cho địa điểm này.");
-                }
+                onLocationSelected({
+                    description: label,
+                    latitude: lat,
+                    longitude: lng,
+                });
             } catch (error) {
-                console.error("Error fetching place details:", error);
-                Alert.alert("Lỗi", "Có lỗi khi lấy thông tin chi tiết vị trí.");
+                console.error("Error processing location:", error);
+                Alert.alert("Lỗi", "Có lỗi khi lấy thông tin vị trí.");
             }
         }
         onClose();
+        setQuery("")
     };
 
     return (
@@ -176,7 +171,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                                     onPress={() => handleSelectLocation(item)}
                                 >
                                     <Ionicons name="location-outline" size={20} color="#000" />
-                                    <Text style={styles.resultText}>{item.description}</Text>
+                                    <Text style={styles.resultText}>{item.properties.label}</Text>
                                 </TouchableOpacity>
                             )}
                         />
