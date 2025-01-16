@@ -77,8 +77,8 @@ const EditSearchModal = ({
         console.log("Children:", children);
         console.log("Price Range:", priceFrom, "-", priceTo);
         console.log("Star Rating:", selectedStar);
-        console.log("Kinh", latitude);
-        console.log("Vi", longitude);
+        console.log("Latitude", latitude);
+        console.log("Longitude", longitude);
     }
 
     return (
