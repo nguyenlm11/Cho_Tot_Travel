@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import { FontAwesome6, MaterialIcons } from 'react-native-vector-icons';
 import { colors } from '../constants/Colors';
+import { useNavigation } from '@react-navigation/native';
 
 const hotelImages = [
     'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
@@ -10,7 +11,12 @@ const hotelImages = [
 ];
 
 
+
 const SettingScreen = () => {
+    const navigation = useNavigation();
+    const handleListRoom = () => {
+        navigation.navigate('ListRoom');
+    }
     const description = `Khách sạn The IMPERIAL Vũng Tàu là khách sạn 5 sao đầu tiên tại khu vực Bãi Sau, một trong những bãi biển đẹp nhất của thành phố. Với lối kiến trúc Victoria cổ điển và quý phái, khách sạn nổi bật như một điểm nhấn thượng lưu giữa lòng phố biển, tôn vinh phong cách sống sang trọng và đẳng cấp.
 
 Tòa nhà cao 7 tầng với 144 phòng nghỉ, mỗi phòng có diện tích từ 40m² đến 270m², được thiết kế theo phong cách Phục Hưng với ban công riêng hướng biển, hồ bơi hoặc thành phố. Nội thất trong phòng được trang trí tinh tế bằng đá hoa cương trắng, đồng, gỗ, thủy tinh và gốm sứ, mang đến không gian hoài cổ sang trọng, gợi nhớ lối sống vương giả thời Victoria.
@@ -137,7 +143,7 @@ Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đ
                     <Text style={styles.price}>576.000 VNĐ</Text>
                     <Text style={styles.taxText}>Tổng giá 654.000 VNĐ bao gồm thuế và phí</Text>
                 </View>
-                <TouchableOpacity style={styles.bookButton}>
+                <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
                     <Text style={styles.bookButtonText}>Chọn phòng</Text>
                 </TouchableOpacity>
             </View>
