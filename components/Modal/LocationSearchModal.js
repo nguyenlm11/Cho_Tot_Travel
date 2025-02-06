@@ -1,17 +1,5 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TouchableOpacity,
-    FlatList,
-    TextInput,
-    StyleSheet,
-    Alert,
-    Modal,
-    Platform,
-    KeyboardAvoidingView,
-    Linking,
-} from "react-native";
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Alert, Modal, Platform, KeyboardAvoidingView, Linking } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons } from "react-native-vector-icons";
 import axios from "axios";
@@ -46,12 +34,8 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                     "Ứng dụng cần quyền truy cập vị trí để hoạt động. Vui lòng cấp quyền trong cài đặt.",
                     [
                         { text: "Hủy", style: "cancel" },
-                        {
-                            text: "Mở Cài đặt",
-                            onPress: () => Linking.openSettings(),
-                        },
-                    ]
-                );
+                        { text: "Mở Cài đặt", onPress: () => Linking.openSettings() },
+                    ]);
                 return;
             }
 
@@ -98,8 +82,6 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                     size: 4,
                 },
             });
-
-            // console.log(response.data);
             setResults(response.data.features || []);
         } catch (error) {
             // console.error("Error fetching places:", error.response || error.message);

@@ -37,13 +37,17 @@ export default function ResultScreen({ route }) {
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const navigation = useNavigation();
 
+    const handleMoveScreen = () => {
+        navigation.navigate('HomeStayDetail');
+    }
+
     const mockData = [
         {
             id: '1',
-            image: 'https://images.ctfassets.net/wv75stsetqy3/3YYXFh9btLYusTPBXVSkKB/8524b1f010e3a1ef770b1a7909dc9113/Best_Things_to_Do_in_Vung_Tau.jpg?q=60&fit=fill&fm=webp',
-            name: 'The Hammock Hotel Global City',
-            rating: 4,
-            address: 'Quận 2, Thành phố Hồ Chí Minh',
+            image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
+            name: 'Khách sạn Imperial Vũng Tàu',
+            rating: 5,
+            address: 'Thùy Vân, Bãi Sau, TP Vũng Tàu',
             distance: '7.17 km từ địa điểm hiện tại',
             features: ['Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc'],
             price: 1058201,
@@ -52,7 +56,7 @@ export default function ResultScreen({ route }) {
         },
         {
             id: '2',
-            image: 'https://via.placeholder.com/150',
+            image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
             name: 'Smiley Apartment District 2',
             rating: 5,
             address: 'Quận 2, Thành phố Hồ Chí Minh',
@@ -64,7 +68,7 @@ export default function ResultScreen({ route }) {
         },
         {
             id: '3',
-            image: 'https://via.placeholder.com/150',
+            image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
             name: 'Smiley Apartment District 2',
             rating: 3.5,
             address: 'Quận 2, Thành phố Hồ Chí Minh',
@@ -98,9 +102,9 @@ export default function ResultScreen({ route }) {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={20} color="#ffffff" />
+                    <Ionicons name="chevron-back" size={25} color='#fff' />
                 </TouchableOpacity>
-                <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">{location || "Quay lại"}</Text>
+                <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">{location}</Text>
             </View>
 
             <View style={styles.hrLine} />
@@ -138,18 +142,20 @@ export default function ResultScreen({ route }) {
                     <View style={styles.card}>
                         <Image style={styles.image} source={{ uri: item.image }} />
                         <View style={styles.info}>
-                            <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
-                            {renderStars(item.rating)}
-                            <Text style={styles.address}>{item.address} | {item.distance}</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.features}>
-                                {item.features.map((feature, index) => (
-                                    <Text key={index} style={styles.feature}>{feature}</Text>
-                                ))}
-                            </ScrollView>
-                            <View style={styles.priceContainer}>
-                                <Text style={styles.originalPrice}>{item.originalPrice.toLocaleString()} VNĐ</Text>
-                                <Text style={styles.price}>{item.price.toLocaleString()} VNĐ</Text>
-                            </View>
+                            <TouchableOpacity onPress={handleMoveScreen}>
+                                <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+                                {renderStars(item.rating)}
+                                <Text style={styles.address}>{item.address} | {item.distance}</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.features}>
+                                    {item.features.map((feature, index) => (
+                                        <Text key={index} style={styles.feature}>{feature}</Text>
+                                    ))}
+                                </ScrollView>
+                                <View style={styles.priceContainer}>
+                                    <Text style={styles.originalPrice}>{item.originalPrice.toLocaleString()} VNĐ</Text>
+                                    <Text style={styles.price}>{item.price.toLocaleString()} VNĐ</Text>
+                                </View>
+                            </TouchableOpacity>
                         </View>
                     </View>
                 )}
