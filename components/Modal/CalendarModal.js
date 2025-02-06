@@ -16,6 +16,7 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                     </TouchableOpacity>
                     <Text style={styles.modalTitle}>Chọn ngày nhận phòng</Text>
                     <Calendar
+                        minDate={new Date().toISOString().split('T')[0]}
                         markedDates={{
                             [selectedDate]: { selected: true, selectedColor: '#30B53E' },
                         }}

@@ -95,7 +95,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                 params: {
                     text: text,
                     apikey: API_KEY,
-                    size: 3,
+                    size: 4,
                 },
             });
 
