@@ -8,6 +8,7 @@ import BookingDetailScreen from '../screens/BookingDetailScreen';
 import ListRoomScreen from '../screens/ListRoomScreen';
 import DetailRoomScreen from '../screens/DetailRoomScreen';
 import { colors } from '../constants/Colors';
+import HomeStayDetailScreen from '../screens/HomeStayDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -48,6 +49,13 @@ const RootNavigator = () => {
                 }}
             />
             <Stack.Screen
+                name="HomeStayDetail"
+                component={HomeStayDetailScreen}
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
                 name="BookingDetail"
                 component={BookingDetailScreen}
                 options={{
@@ -73,7 +81,7 @@ const RootNavigator = () => {
                 name="DetailRoom"
                 component={DetailRoomScreen}
                 options={{
-                    headerShown: true,
+                    headerShown: false,
                     headerStyle: {
                         backgroundColor: colors.primary,
                     },
@@ -84,8 +92,6 @@ const RootNavigator = () => {
                     },
                 }}
             />
-
-
         </Stack.Navigator>
     );
 };

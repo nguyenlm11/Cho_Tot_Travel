@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import * as Location from "expo-location";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import CalendarModal from '../components/Modal/CalendarModal';
@@ -49,24 +50,37 @@ export default function HomeScreen() {
         console.log("_____________________________________________________________");
 
         navigation.navigate("Results", {
-            location,
-            checkInDate,
-            checkOutDate,
-            numberOfNights,
-            rooms,
-            adults,
-            children,
-            priceFrom,
-            priceTo,
-            selectedStar,
-            latitude,
-            longitude,
+            location, checkInDate, checkOutDate, numberOfNights, rooms, adults, children, priceFrom,
+            priceTo, selectedStar, latitude, longitude,
         });
     };
 
     useFocusEffect(
         React.useCallback(() => {
-            setLocation('');
+            const fetchLocation = async () => {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== "granted") {
+                    Alert.alert(
+                        "Quyền bị từ chối",
+                        "Ứng dụng cần quyền truy cập vị trí để hoạt động. Vui lòng cấp quyền trong cài đặt.",
+                        [
+                            { text: "Hủy", style: "cancel" },
+                            { text: "Mở Cài đặt", onPress: () => Linking.openSettings() },
+                        ]);
+                    return;
+                }
+
+                const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                setLatitude(position.coords.latitude);
+                setLongitude(position.coords.longitude);
+                const reverseGeocode = await Location.reverseGeocodeAsync(position.coords);
+                if (reverseGeocode.length > 0) {
+                    setLocation("Vị trí gần bạn");
+                }
+            };
+
+            fetchLocation();
+            setLocation("Vị trí gần bạn");
             setCheckInDate(formattedToday);
             setSelectedDate(today.toISOString().split('T')[0]);
             setNumberOfNights(1);

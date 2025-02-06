@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import { FontAwesome6, MaterialIcons } from 'react-native-vector-icons';
+import { FontAwesome6, MaterialIcons, Ionicons } from 'react-native-vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
 
@@ -10,39 +10,46 @@ const hotelImages = [
     'https://halotravel.vn/wp-content/uploads/2020/10/khach-san-imperial-vung-tau-bbb-b-cover.jpg',
 ];
 
-const SettingScreen = () => {
+export default function HomeStayDetailScreen() {
     const navigation = useNavigation();
     const handleListRoom = () => {
         navigation.navigate('ListRoom');
     }
     const description = `Khách sạn The IMPERIAL Vũng Tàu là khách sạn 5 sao đầu tiên tại khu vực Bãi Sau, một trong những bãi biển đẹp nhất của thành phố. Với lối kiến trúc Victoria cổ điển và quý phái, khách sạn nổi bật như một điểm nhấn thượng lưu giữa lòng phố biển, tôn vinh phong cách sống sang trọng và đẳng cấp.
-
-Tòa nhà cao 7 tầng với 144 phòng nghỉ, mỗi phòng có diện tích từ 40m² đến 270m², được thiết kế theo phong cách Phục Hưng với ban công riêng hướng biển, hồ bơi hoặc thành phố. Nội thất trong phòng được trang trí tinh tế bằng đá hoa cương trắng, đồng, gỗ, thủy tinh và gốm sứ, mang đến không gian hoài cổ sang trọng, gợi nhớ lối sống vương giả thời Victoria.
-
-Khách sạn sở hữu bãi biển riêng dài 100m tại Bãi Sau, cho phép du khách thỏa sức vui chơi và tham gia các hoạt động thể thao sôi động suốt cả ngày. Hệ thống hồ bơi ngoài trời gồm 4 bể lớn, 2 bể trẻ em và một bể sục, được bao quanh bởi không gian xanh mát, tạo nên nơi thư giãn lý tưởng.
-
-Về ẩm thực, The IMPERIAL Vũng Tàu mang đến trải nghiệm đa dạng với các nhà hàng phục vụ món ăn từ nhiều nền văn hóa. Dining Room Restaurant cung cấp các món ăn địa phương và phương Tây, trong khi Seafood Restaurant bên bãi biển chuyên về hải sản tươi ngon. Asia Selection giới thiệu các món Nhật, Thái, Ấn, còn Shifu Chinese Bistro tập trung vào hương vị tinh túy Trung Hoa. Du khách cũng có thể thưởng thức đồ uống tại CLB Havana Club và Lobby Lounge.
-
-Ngoài ra, khách sạn còn có spa sang trọng, phòng gym hiện đại, dịch vụ cho thuê ô tô và chỗ đỗ xe miễn phí. Với vị trí thuận lợi, The IMPERIAL Vũng Tàu cách Tượng Chúa Ki-tô và ngọn Hải Đăng Vũng Tàu chỉ 2,2 km, và cách mũi Nghinh Phong khoảng 2,9 km, rất thuận tiện cho du khách khám phá.
-
-Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đẳng cấp và tiện nghi hiện đại, The IMPERIAL Vũng Tàu là điểm đến lý tưởng cho những ai tìm kiếm kỳ nghỉ xa hoa và đáng nhớ.`;
+    
+    Tòa nhà cao 7 tầng với 144 phòng nghỉ, mỗi phòng có diện tích từ 40m² đến 270m², được thiết kế theo phong cách Phục Hưng với ban công riêng hướng biển, hồ bơi hoặc thành phố. Nội thất trong phòng được trang trí tinh tế bằng đá hoa cương trắng, đồng, gỗ, thủy tinh và gốm sứ, mang đến không gian hoài cổ sang trọng, gợi nhớ lối sống vương giả thời Victoria.
+    
+    Khách sạn sở hữu bãi biển riêng dài 100m tại Bãi Sau, cho phép du khách thỏa sức vui chơi và tham gia các hoạt động thể thao sôi động suốt cả ngày. Hệ thống hồ bơi ngoài trời gồm 4 bể lớn, 2 bể trẻ em và một bể sục, được bao quanh bởi không gian xanh mát, tạo nên nơi thư giãn lý tưởng.
+    
+    Về ẩm thực, The IMPERIAL Vũng Tàu mang đến trải nghiệm đa dạng với các nhà hàng phục vụ món ăn từ nhiều nền văn hóa. Dining Room Restaurant cung cấp các món ăn địa phương và phương Tây, trong khi Seafood Restaurant bên bãi biển chuyên về hải sản tươi ngon. Asia Selection giới thiệu các món Nhật, Thái, Ấn, còn Shifu Chinese Bistro tập trung vào hương vị tinh túy Trung Hoa. Du khách cũng có thể thưởng thức đồ uống tại CLB Havana Club và Lobby Lounge.
+    
+    Ngoài ra, khách sạn còn có spa sang trọng, phòng gym hiện đại, dịch vụ cho thuê ô tô và chỗ đỗ xe miễn phí. Với vị trí thuận lợi, The IMPERIAL Vũng Tàu cách Tượng Chúa Ki-tô và ngọn Hải Đăng Vũng Tàu chỉ 2,2 km, và cách mũi Nghinh Phong khoảng 2,9 km, rất thuận tiện cho du khách khám phá.
+    
+    Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đẳng cấp và tiện nghi hiện đại, The IMPERIAL Vũng Tàu là điểm đến lý tưởng cho những ai tìm kiếm kỳ nghỉ xa hoa và đáng nhớ.`;
 
     const [expanded, setExpanded] = useState(false);
 
     return (
         <>
             <ScrollView style={styles.container}>
-                {/* Hình ảnh khách sạn */}
-                <FlatList
-                    data={hotelImages}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item, index) => index.toString()}
-                    renderItem={({ item }) => (
-                        <Image source={{ uri: item }} style={styles.hotelImage} />
-                    )}
-                />
+                <View style={styles.imageContainer}>
+                    {/* Nút quay lại */}
+                    <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                        <Ionicons name="chevron-back" size={25} color="#fff" />
+                    </TouchableOpacity>
+
+                    {/* Hình ảnh khách sạn */}
+                    <FlatList
+                        data={hotelImages}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        keyExtractor={(item, index) => index.toString()}
+                        renderItem={({ item }) => (
+                            <Image source={{ uri: item }} style={styles.hotelImage} />
+                        )}
+                    />
+                </View>
 
                 {/* Thông tin khách sạn */}
                 <View style={[styles.section, { marginTop: -50 }]}>
@@ -135,7 +142,7 @@ Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đ
                 </View>
             </ScrollView >
             {/* Giá phòng */}
-            <View style={styles.bookButtonContainer}>
+            < View style={styles.bookButtonContainer} >
                 <View>
                     <Text style={styles.priceText}>Giá bắt đầu từ</Text>
                     <Text style={styles.price}>576.000 VNĐ</Text>
@@ -144,7 +151,7 @@ Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đ
                 <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
                     <Text style={styles.bookButtonText}>Chọn phòng</Text>
                 </TouchableOpacity>
-            </View>
+            </View >
         </>
     );
 };
@@ -153,6 +160,16 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    imageContainer: {
+        position: 'relative',
+    },
+    backButton: {
+        position: 'absolute',
+        top: 65,
+        left: 10,
+        zIndex: 10,
+        padding: 5,
     },
     hotelImage: {
         width: 414,
@@ -309,5 +326,3 @@ const styles = StyleSheet.create({
         fontWeight: "bold",
     },
 });
-
-export default SettingScreen;
