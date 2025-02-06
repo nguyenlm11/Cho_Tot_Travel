@@ -5,6 +5,9 @@ import ResultScreen from '../screens/ResultScreen';
 import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import BookingDetailScreen from '../screens/BookingDetailScreen';
+import ListRoomScreen from '../screens/ListRoomScreen';
+import DetailRoomScreen from '../screens/DetailRoomScreen';
+import { colors } from '../constants/Colors';
 
 const Stack = createStackNavigator();
 
@@ -51,6 +54,38 @@ const RootNavigator = () => {
                     headerShown: false,
                 }}
             />
+            <Stack.Screen
+                name="ListRoom"
+                component={ListRoomScreen}
+                options={{
+                    headerShown: true,
+                    headerStyle: {
+                        backgroundColor: colors.primary,
+                    },
+                    headerTitle: "Danh sách phòng",
+                    headerTintColor: colors.textThird,
+                    headerTitleStyle: {
+                        fontWeight: 'bold',
+                    },
+                }}
+            />
+            <Stack.Screen
+                name="DetailRoom"
+                component={DetailRoomScreen}
+                options={{
+                    headerShown: true,
+                    headerStyle: {
+                        backgroundColor: colors.primary,
+                    },
+                    headerTitle: "Chi tiết phòng",
+                    headerTintColor: colors.textThird,
+                    headerTitleStyle: {
+                        fontWeight: 'bold',
+                    },
+                }}
+            />
+
+
         </Stack.Navigator>
     );
 };
