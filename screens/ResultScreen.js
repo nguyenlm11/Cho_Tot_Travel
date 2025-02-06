@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from 'react-native-vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
 import EditSearchModal from '../components/Modal/EditSearchModal';
+import { ScrollView } from 'react-native-gesture-handler';
 
 export default function ResultScreen({ route }) {
     const {
@@ -45,32 +46,32 @@ export default function ResultScreen({ route }) {
             address: 'Quận 2, Thành phố Hồ Chí Minh',
             distance: '7.17 km từ địa điểm hiện tại',
             features: ['Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc'],
-            price: '1.058.201 VND',
-            originalPrice: '1.599.999 VND',
+            price: 1058201,
+            originalPrice: 1599999,
             availability: 'Chỉ còn 3 phòng có giá này!',
         },
         {
             id: '2',
             image: 'https://via.placeholder.com/150',
             name: 'Smiley Apartment District 2',
-            rating: 3,
+            rating: 5,
             address: 'Quận 2, Thành phố Hồ Chí Minh',
             distance: '8.71 km từ địa điểm hiện tại',
-            features: ['Nhà bếp mini', 'Sân thượng/Sân hiên'],
-            price: '355.555 VND',
-            originalPrice: '420.000 VND',
+            features: ['Nhà bếp mini', 'Sân thượng/Sân hiên', 'Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc'],
+            price: 355555,
+            originalPrice: 420000,
             availability: 'Chỉ còn 1 phòng có giá này!',
         },
         {
             id: '3',
             image: 'https://via.placeholder.com/150',
             name: 'Smiley Apartment District 2',
-            rating: 3,
+            rating: 3.5,
             address: 'Quận 2, Thành phố Hồ Chí Minh',
             distance: '8.71 km từ địa điểm hiện tại',
             features: ['Nhà bếp mini', 'Sân thượng/Sân hiên'],
-            price: '355.555 VND',
-            originalPrice: '420.000 VND',
+            price: 355555,
+            originalPrice: 420000,
             availability: 'Chỉ còn 1 phòng có giá này!',
         },
     ];
@@ -139,18 +140,16 @@ export default function ResultScreen({ route }) {
                         <View style={styles.info}>
                             <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
                             {renderStars(item.rating)}
-                            <Text style={styles.address}>{item.address}</Text>
-                            <Text style={styles.distance}>{item.distance}</Text>
-                            <View style={styles.features}>
+                            <Text style={styles.address}>{item.address} | {item.distance}</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.features}>
                                 {item.features.map((feature, index) => (
                                     <Text key={index} style={styles.feature}>{feature}</Text>
                                 ))}
-                            </View>
+                            </ScrollView>
                             <View style={styles.priceContainer}>
-                                <Text style={styles.price}>{item.price}</Text>
-                                <Text style={styles.originalPrice}>{item.originalPrice}</Text>
+                                <Text style={styles.originalPrice}>{item.originalPrice.toLocaleString()} VNĐ</Text>
+                                <Text style={styles.price}>{item.price.toLocaleString()} VNĐ</Text>
                             </View>
-                            <Text style={styles.availability}>{item.availability}</Text>
                         </View>
                     </View>
                 )}
@@ -249,30 +248,26 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     name: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
-        color: '#333',
+        color: colors.textPrimary,
     },
     starContainer: {
         flexDirection: 'row',
         marginVertical: 5,
     },
     starFilled: {
-        color: '#FFD700',
+        color: colors.starColor,
         marginRight: 2,
     },
     starEmpty: {
-        color: '#ccc',
+        color: colors.textSecondary,
         marginRight: 2,
     },
     address: {
-        fontSize: 14,
-        color: '#777',
-    },
-    distance: {
-        fontSize: 12,
-        color: '#555',
-        marginBottom: 5,
+        fontSize: 15,
+        color: colors.textSecondary,
+        marginBottom: 10,
     },
     features: {
         flexDirection: 'row',
@@ -280,32 +275,27 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     feature: {
-        backgroundColor: '#f0f0f0',
-        color: '#555',
+        backgroundColor: colors.borderColor,
+        color: colors.textSecondary,
         fontSize: 12,
         padding: 5,
-        borderRadius: 5,
+        borderRadius: 10,
         marginRight: 5,
         marginBottom: 5,
     },
     priceContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 5,
+        alignItems: 'flex-end',
+        marginBottom: 8,
     },
     price: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#E53935',
-        marginRight: 10,
+        color: colors.primary,
     },
     originalPrice: {
         fontSize: 14,
-        color: '#aaa',
+        color: colors.textSecondary,
         textDecorationLine: 'line-through',
-    },
-    availability: {
-        fontSize: 12,
-        color: '#E53935',
+        marginBottom: 8,
     },
 });

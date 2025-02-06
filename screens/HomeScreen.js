@@ -9,12 +9,18 @@ import LocationSearchModal from '../components/Modal/LocationSearchModal';
 import { colors } from '../constants/Colors';
 
 export default function HomeScreen() {
+    const today = new Date();
+    const formattedToday = `${today.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const defaultCheckOut = new Date(today);
+    defaultCheckOut.setDate(defaultCheckOut.getDate() + numberOfNights);
+    const formattedCheckOut = `${defaultCheckOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${defaultCheckOut.getDate()}/${defaultCheckOut.getMonth() + 1}/${defaultCheckOut.getFullYear()}`;
+
     const [isLocationModalVisible, setLocationModalVisible] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
-    const [checkInDate, setCheckInDate] = useState("Chọn ngày");
-    const [selectedDate, setSelectedDate] = useState(null);
+    const [checkInDate, setCheckInDate] = useState(formattedToday);
+    const [checkOutDate, setCheckOutDate] = useState(formattedCheckOut);
+    const [selectedDate, setSelectedDate] = useState(today.toISOString().split('T')[0]);
     const [numberOfNights, setNumberOfNights] = useState(1);
-    const [checkOutDate, setCheckOutDate] = useState("");
     const [isGuestModalVisible, setGuestModalVisible] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
     const [location, setLocation] = useState('');
@@ -61,8 +67,8 @@ export default function HomeScreen() {
     useFocusEffect(
         React.useCallback(() => {
             setLocation('');
-            setCheckInDate('');
-            setCheckOutDate('');
+            setCheckInDate(formattedToday);
+            setSelectedDate(today.toISOString().split('T')[0]);
             setNumberOfNights(1);
             setRooms(1);
             setAdults(1);
@@ -70,6 +76,11 @@ export default function HomeScreen() {
             setPriceFrom(null);
             setPriceTo(null);
             setSelectedStar(null);
+
+            const checkOut = new Date(today);
+            checkOut.setDate(checkOut.getDate() + 1);
+            const checkOutText = `${checkOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${checkOut.getDate()}/${checkOut.getMonth() + 1}/${checkOut.getFullYear()}`;
+            setCheckOutDate(checkOutText);
         }, [])
     );
 

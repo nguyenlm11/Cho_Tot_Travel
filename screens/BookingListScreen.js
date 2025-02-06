@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
     },
     bookingCard: {
-        backgroundColor: '#F8F8F8',
+        backgroundColor: '#F5F5F5',
         borderRadius: 8,
         padding: 15,
         marginHorizontal: 15,
