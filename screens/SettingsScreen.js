@@ -1,150 +1,120 @@
-import React, { useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import { FontAwesome6, MaterialIcons } from 'react-native-vector-icons';
+import React from 'react';
+import { View, Text, Image, FlatList, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons, FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
 
-const hotelImages = [
-    'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
-    'https://pix5.agoda.net/hotelimages/161729/-1/c04493606f2d4d81bd0de472e27acd58.jpg',
-    'https://halotravel.vn/wp-content/uploads/2020/10/khach-san-imperial-vung-tau-bbb-b-cover.jpg',
+const reviews = [
+    { id: '1', name: 'N***n', rating: 8.8, comment: 'Nhân viên nhiệt tình và thân thiện', likes: 2, date: 'Đánh giá tháng 9 2024' },
+    { id: '2', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
+    { id: '3', name: 'Nhu P.', rating: 8.4, comment: '', likes: 0, date: 'Đánh giá tháng 8 2024' },
+    { id: '4', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
+    { id: '5', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
+    { id: '6', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
 ];
 
-const SettingScreen = () => {
+const ReviewScreen = () => {
     const navigation = useNavigation();
-    const handleListRoom = () => {
-        navigation.navigate('ListRoom');
-    }
-    const description = `Khách sạn The IMPERIAL Vũng Tàu là khách sạn 5 sao đầu tiên tại khu vực Bãi Sau, một trong những bãi biển đẹp nhất của thành phố. Với lối kiến trúc Victoria cổ điển và quý phái, khách sạn nổi bật như một điểm nhấn thượng lưu giữa lòng phố biển, tôn vinh phong cách sống sang trọng và đẳng cấp.
-
-Tòa nhà cao 7 tầng với 144 phòng nghỉ, mỗi phòng có diện tích từ 40m² đến 270m², được thiết kế theo phong cách Phục Hưng với ban công riêng hướng biển, hồ bơi hoặc thành phố. Nội thất trong phòng được trang trí tinh tế bằng đá hoa cương trắng, đồng, gỗ, thủy tinh và gốm sứ, mang đến không gian hoài cổ sang trọng, gợi nhớ lối sống vương giả thời Victoria.
-
-Khách sạn sở hữu bãi biển riêng dài 100m tại Bãi Sau, cho phép du khách thỏa sức vui chơi và tham gia các hoạt động thể thao sôi động suốt cả ngày. Hệ thống hồ bơi ngoài trời gồm 4 bể lớn, 2 bể trẻ em và một bể sục, được bao quanh bởi không gian xanh mát, tạo nên nơi thư giãn lý tưởng.
-
-Về ẩm thực, The IMPERIAL Vũng Tàu mang đến trải nghiệm đa dạng với các nhà hàng phục vụ món ăn từ nhiều nền văn hóa. Dining Room Restaurant cung cấp các món ăn địa phương và phương Tây, trong khi Seafood Restaurant bên bãi biển chuyên về hải sản tươi ngon. Asia Selection giới thiệu các món Nhật, Thái, Ấn, còn Shifu Chinese Bistro tập trung vào hương vị tinh túy Trung Hoa. Du khách cũng có thể thưởng thức đồ uống tại CLB Havana Club và Lobby Lounge.
-
-Ngoài ra, khách sạn còn có spa sang trọng, phòng gym hiện đại, dịch vụ cho thuê ô tô và chỗ đỗ xe miễn phí. Với vị trí thuận lợi, The IMPERIAL Vũng Tàu cách Tượng Chúa Ki-tô và ngọn Hải Đăng Vũng Tàu chỉ 2,2 km, và cách mũi Nghinh Phong khoảng 2,9 km, rất thuận tiện cho du khách khám phá.
-
-Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đẳng cấp và tiện nghi hiện đại, The IMPERIAL Vũng Tàu là điểm đến lý tưởng cho những ai tìm kiếm kỳ nghỉ xa hoa và đáng nhớ.`;
-
-    const [expanded, setExpanded] = useState(false);
 
     return (
         <>
             <ScrollView style={styles.container}>
-                {/* Hình ảnh khách sạn */}
-                <FlatList
-                    data={hotelImages}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(item, index) => index.toString()}
-                    renderItem={({ item }) => (
-                        <Image source={{ uri: item }} style={styles.hotelImage} />
-                    )}
-                />
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()}>
+                        <Ionicons name="chevron-back" size={25} color='#000' />
+                    </TouchableOpacity>
+                    <Text style={styles.headerText}>Xếp hạng & đánh giá</Text>
+                </View>
 
-                {/* Thông tin khách sạn */}
-                <View style={[styles.section, { marginTop: -50 }]}>
-                    <Text style={styles.hotelName}>Khách sạn Imperial Vũng Tàu</Text>
-                    <View style={styles.row}>
-                        {[...Array(5)].map((_, i) => (
-                            <MaterialIcons key={i} name="star" size={18} color="#FFD700" />
+                {/* Traveloka Section */}
+                <View style={styles.travelokaSection}>
+                    <Text style={styles.travelokaTitle}>24 đánh giá</Text>
+                    <Text style={styles.travelokaScore}>8.7<Text style={{ color: colors.textSecondary, fontSize: 20 }}>/10</Text></Text>
+                </View>
+
+                {/* Ratings Breakdown */}
+                <View style={styles.ratingsContainer}>
+                    <View style={styles.column}>
+                        {[
+                            { label: 'Vệ sinh', score: 8.6 },
+                            { label: 'Đồ ăn', score: 9.0 },
+                        ].map((item, index) => (
+                            <View key={index} style={styles.ratingItem}>
+                                <Text style={styles.ratingLabel}>
+                                    {item.label}: <Text style={styles.boldText}>{item.score}</Text>
+                                </Text>
+                                <View style={styles.ratingBar}>
+                                    <View style={[styles.ratingFill, { width: `${item.score * 10}%` }]} />
+                                </View>
+                            </View>
                         ))}
                     </View>
-                    <View style={styles.row}>
-                        <MaterialIcons name="location-on" size={18} color="#666" />
-                        <Text style={styles.address}>15 Thi Sách, Vũng Tàu, Việt Nam</Text>
+
+                    <View style={styles.column}>
+                        {[
+                            { label: 'Tiện nghi phòng', score: 8.4 },
+                            { label: 'Dịch vụ và Tiện ích', score: 8.5 },
+                        ].map((item, index) => (
+                            <View key={index} style={styles.ratingItem}>
+                                <Text style={styles.ratingLabel}>
+                                    {item.label}: <Text style={styles.boldText}>{item.score}</Text>
+                                </Text>
+                                <View style={styles.ratingBar}>
+                                    <View style={[styles.ratingFill, { width: `${item.score * 10}%` }]} />
+                                </View>
+                            </View>
+                        ))}
                     </View>
                 </View>
 
-                {/* Xếp hạng và đánh giá */}
-                <View style={styles.section}>
-                    <View style={styles.sectionTitleContainer}>
-                        <Text style={styles.sectionTitle}>Xếp hạng & đánh giá</Text>
-                        <TouchableOpacity style={{ flexDirection: 'row' }}>
-                            <Text style={styles.seeAll}>Xem tất cả </Text>
-                            <Text>
-                                <FontAwesome6 name="angle-right" size={20} color={colors.primary} />
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.ratingContainer}>
-                        <Text style={styles.rating}>8,6</Text>
-                        <View>
-                            <Text style={styles.reviewText}>Ấn tượng</Text>
-                            <Text style={styles.reviewCount}>(286 lượt đánh giá)</Text>
-                        </View>
-                    </View>
+                {/* Review List */}
+                <View style={styles.title}>
+                    <Text style={styles.titleText}>Đánh giá của khách hàng</Text>
                 </View>
-
-                {/* Danh sách đánh giá */}
-                <View>
-                    <Text style={{ marginLeft: 10 }}>Đánh giá gần đây</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.commentSection}>
-                        <View style={styles.commentBox}>
-                            <Text style={styles.commentText}>Khách sạn mới và đẹp, gần biển, nhân viên nhiệt tình.</Text>
-                            <Text style={styles.commentAuthor}>Nguyen V.A.</Text>
+                <FlatList
+                    data={reviews}
+                    keyExtractor={(item) => item.id}
+                    scrollEnabled={false}
+                    renderItem={({ item }) => (
+                        <View style={styles.reviewContainer}>
+                            <View style={styles.reviewHeader}>
+                                <Image source={{ uri: 'https://th.bing.com/th/id/OIP.F977i9e7dMrznvOT8q8azgHaEf?w=1920&h=1164&rs=1&pid=ImgDetMain' }} style={styles.userIcon} />
+                                <View style={styles.userInfo}>
+                                    <View style={styles.userRating}>
+                                        <Text style={styles.userName}>{item.name}</Text>
+                                        <Text style={styles.reviewDate}>{item.date}</Text>
+                                    </View>
+                                    <View style={styles.ratingContainer}>
+                                        <Text style={styles.ratingScore}>{item.rating}</Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}> / 10.0</Text>
+                                    </View>
+                                </View>
+                            </View>
+                            {item.comment ? <Text style={styles.commentText}>{item.comment}</Text> : null}
                         </View>
-                        <View style={styles.commentBox}>
-                            <Text style={styles.commentText}>Khách sạn gần biển, nhân viên thân thiện.</Text>
-                            <Text style={styles.commentAuthor}>Tran V.B.</Text>
-                        </View>
-                    </ScrollView>
-                </View>
+                    )}
+                />
+            </ScrollView>
 
-                {/* Tiện nghi */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Tiện nghi</Text>
-                    <View style={styles.row}>
-                        <Text style={styles.tag}>Nhà hàng</Text>
-                        <Text style={styles.tag}>Lễ tân 24h</Text>
-                        <Text style={styles.tag}>Hồ bơi</Text>
-                        <Text style={styles.tag}>Wifi</Text>
-                    </View>
-                </View>
-
-                {/* Giờ nhận phòng/trả phòng */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Giờ nhận phòng / trả phòng</Text>
-                    <View style={styles.row}>
-                        <MaterialIcons name="access-time" size={18} color="#666" />
-                        <View style={styles.timeContainer}>
-                            <Text style={styles.timeText}>Nhận phòng</Text>
-                            <Text style={styles.timeNum}>Từ 14:00</Text>
-                        </View>
-                    </View>
-                    <View style={styles.row}>
-                        <MaterialIcons name="access-time" size={18} color="#666" />
-                        <View style={styles.timeContainer}>
-                            <Text style={styles.timeText}>Trả phòng</Text>
-                            <Text style={styles.timeNum}>Trước 11:00</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Mô tả  */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Mô tả khách sạn</Text>
-                    <Text style={styles.description} numberOfLines={expanded ? undefined : 3}>
-                        {description}
-                    </Text>
-                    <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => setExpanded(!expanded)}>
-                        <Text style={styles.seeAll}>{expanded ? "Thu gọn" : "Xem thêm"}</Text>
+            {/* Filter Options */}
+            <View style={{ backgroundColor: '#fff' }}>
+                <View style={styles.filterContainer}>
+                    <TouchableOpacity style={styles.filterButton}>
+                        <FontAwesome name="sort" size={16} color={colors.primary} />
+                        <Text style={styles.filterText}>Gần đây nhất</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.filterButton}>
+                        <FontAwesome name="filter" size={16} color={colors.primary} />
+                        <Text style={styles.filterText}>Lọc</Text>
                     </TouchableOpacity>
                 </View>
-            </ScrollView >
-            {/* Giá phòng */}
-            <View style={styles.bookButtonContainer}>
-                <View>
-                    <Text style={styles.priceText}>Giá bắt đầu từ</Text>
-                    <Text style={styles.price}>576.000 VNĐ</Text>
-                    <Text style={styles.taxText}>Tổng giá 654.000 VNĐ bao gồm thuế và phí</Text>
-                </View>
-                <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
-                    <Text style={styles.bookButtonText}>Chọn phòng</Text>
+
+                {/* Footer Button */}
+                <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate('HomeStayDetail')}>
+                    <Text style={styles.footerButtonText}>Xem Thông tin khách sạn</Text>
                 </TouchableOpacity>
-            </View>
+            </View >
         </>
     );
 };
@@ -152,162 +122,175 @@ Với sự kết hợp hoàn hảo giữa kiến trúc tinh tế, dịch vụ đ
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#fff'
     },
-    hotelImage: {
-        width: 414,
-        height: 300,
-    },
-    infoContainer: {
-        padding: 15,
-    },
-    hotelName: {
-        fontSize: 23,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    row: {
+    header: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 5,
+        marginTop: 50,
+        padding: 16,
     },
-    address: {
-        fontSize: 14,
-        color: '#666',
-        marginLeft: 5,
+    headerText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 90
     },
-    sectionTitleContainer: {
+    travelokaSection: {
         flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#E1F3D8',
+        padding: 16,
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
+        marginHorizontal: 4,
+    },
+    travelokaTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textSecondary
+    },
+    travelokaScore: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    ratingsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 16,
+        marginHorizontal: 10,
+        padding: 12,
+        shadowColor: '#aaa',
+        shadowOpacity: 0.4,
+        shadowRadius: 5,
+        elevation: 5,
+        backgroundColor: '#ffffff',
+        borderRadius: 10,
+    },
+    column: {
+        flex: 1,
+        marginHorizontal: 8
+    },
+    ratingItem: {
+        marginBottom: 10
+    },
+    ratingLabel: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: colors.textSecondary,
+    },
+    boldText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+    },
+    ratingBar: {
+        height: 6,
+        backgroundColor: '#E0E0E0',
+        borderRadius: 3,
+        marginTop: 5,
+        overflow: 'hidden'
+    },
+    ratingFill: {
+        height: '100%',
+        backgroundColor: colors.primary,
+        borderRadius: 3
+    },
+    title: {
+        marginHorizontal: 10,
+        marginTop: 10,
+        marginBottom: 16,
+    },
+    titleText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    reviewContainer: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        paddingBottom: 18,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E0E0E0'
+    },
+    reviewHeader: {
+        flexDirection: 'row',
+        alignItems: 'center'
+    },
+    userIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#E0E0E0'
+    },
+    userInfo: {
+        marginLeft: 10
+    },
+    userName: {
+        fontWeight: 'bold',
+        fontSize: 16,
+        marginBottom: 4,
+    },
+    userRating: {
+        width: '94%',
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
     },
     ratingContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    rating: {
-        fontSize: 24,
-        fontWeight: 'bold',
+    ratingScore: {
         color: colors.primary,
-        marginRight: 5,
-    },
-    reviewText: {
-        fontSize: 16,
-        color: '#333',
         fontWeight: 'bold',
+        fontSize: 20,
     },
-    reviewCount: {
-        fontSize: 12,
-        color: '#666',
-    },
-    commentSection: {
-        paddingHorizontal: 15,
-        marginBottom: 15,
-    },
-    commentBox: {
-        backgroundColor: '#EFEFEF',
-        padding: 10,
-        borderRadius: 10,
-        marginRight: 10,
+    reviewDate: {
+        fontSize: 14,
+        color: colors.textSecondary,
     },
     commentText: {
-        fontSize: 14,
-        color: '#333',
+        marginTop: 8,
+        fontSize: 18
     },
-    commentAuthor: {
-        fontSize: 12,
-        color: '#666',
-        marginTop: 5,
-        fontWeight: 'bold',
-    },
-    section: {
-        padding: 20,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 10,
-        marginHorizontal: 5,
-        marginBottom: 10,
-        shadowColor: 'rgba(100, 100, 111, 0.3)',
-        shadowOffset: { width: 0, height: 7 },
-        shadowOpacity: 1,
-        shadowRadius: 29,
-        elevation: 7,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.textPrimary,
-        marginBottom: 10,
-    },
-    tag: {
-        backgroundColor: '#E0E0E0',
-        paddingVertical: 5,
-        paddingHorizontal: 10,
-        borderRadius: 15,
-        marginRight: 10,
-        fontSize: 14,
-        color: '#333',
-    },
-    timeContainer: {
-        width: '100%',
+    filterContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        padding: 10,
+        marginVertical: 10,
         alignItems: 'center',
-        padding: 5
+        borderBottomWidth: 1,
+        borderTopWidth: 1,
+        borderColor: '#E0E0E0',
     },
-    timeText: {
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 5,
+        borderWidth: 1,
+        borderColor: colors.primary
+    },
+    filterText: {
+        marginLeft: 8,
         fontSize: 15,
-        color: '#666',
-    },
-    timeNum: {
-        fontSize: 17,
-        color: colors.textPrimary,
-        fontWeight: 'bold'
-    },
-    bookButtonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 25,
-        paddingHorizontal: 15,
-        backgroundColor: '#fff',
-    },
-    priceText: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        marginBottom: 2,
-    },
-    price: {
-        fontSize: 20,
         fontWeight: 'bold',
         color: colors.primary,
     },
-    taxText: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        marginTop: 2,
-        fontWeight: 'bold'
+    footerButton: {
+        backgroundColor: '#E1F3D8',
+        padding: 16,
+        marginBottom: 10,
+        marginHorizontal: 16,
+        borderRadius: 30,
+        alignItems: 'center'
     },
-    bookButton: {
-        backgroundColor: colors.primary,
-        paddingVertical: 15,
-        paddingHorizontal: 25,
-        borderRadius: 10,
-        alignItems: 'center',
-    },
-    bookButtonText: {
+    footerButtonText: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#fff',
-    },
-    description: {
-        fontSize: 16,
-        color: colors.textSecondary,
-        lineHeight: 24,
-    },
-    seeAll: {
         color: colors.primary,
-        fontSize: 16,
-        fontWeight: "bold",
     },
 });
 
-export default SettingScreen;
+export default ReviewScreen;
