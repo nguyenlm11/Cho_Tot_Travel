@@ -9,6 +9,7 @@ import ListRoomScreen from '../screens/ListRoomScreen';
 import DetailRoomScreen from '../screens/DetailRoomScreen';
 import { colors } from '../constants/Colors';
 import HomeStayDetailScreen from '../screens/HomeStayDetailScreen';
+import ReviewScreen from '../screens/ReviewScreen';
 
 const Stack = createStackNavigator();
 
@@ -51,6 +52,13 @@ const RootNavigator = () => {
             <Stack.Screen
                 name="HomeStayDetail"
                 component={HomeStayDetailScreen}
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
+                name="ReviewScreen"
+                component={ReviewScreen}
                 options={{
                     headerShown: false,
                 }}

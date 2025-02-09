@@ -69,7 +69,7 @@ export default function HomeStayDetailScreen() {
                 <View style={styles.section}>
                     <View style={styles.sectionTitleContainer}>
                         <Text style={styles.sectionTitle}>Xếp hạng & đánh giá</Text>
-                        <TouchableOpacity style={{ flexDirection: 'row' }}>
+                        <TouchableOpacity style={{ flexDirection: 'row' }} onPress={() => navigation.navigate('ReviewScreen')}>
                             <Text style={styles.seeAll}>Xem tất cả </Text>
                             <Text>
                                 <FontAwesome6 name="angle-right" size={20} color={colors.primary} />
