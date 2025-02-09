@@ -134,7 +134,7 @@ export default function HomeScreen() {
                     <Icon name="location-outline" size={20} color="#4A4A4A" />
                     <View>
                         <Text style={styles.inputTitle}>Điểm đến, khách sạn</Text>
-                        <Text style={styles.inputText} numberOfLines={2} ellipsizeMode="tail">{location !== null && location !== '' ? location : 'Nhập điểm đến'}</Text>
+                        <Text style={styles.inputText} numberOfLines={2} ellipsizeMode="tail">{location}</Text>
                     </View>
                 </TouchableOpacity>
 
