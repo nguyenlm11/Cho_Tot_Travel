@@ -70,7 +70,7 @@ export default function HomeScreen() {
                     return;
                 }
 
-                const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                 setLatitude(position.coords.latitude);
                 setLongitude(position.coords.longitude);
                 const reverseGeocode = await Location.reverseGeocodeAsync(position.coords);
