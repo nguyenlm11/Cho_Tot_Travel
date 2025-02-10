@@ -24,7 +24,6 @@ export default function LoginScreen() {
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <ScrollView
                     contentContainerStyle={styles.scrollContainer}
-                    keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Background Wave */}

@@ -10,6 +10,7 @@ import DetailRoomScreen from '../screens/DetailRoomScreen';
 import { colors } from '../constants/Colors';
 import HomeStayDetailScreen from '../screens/HomeStayDetailScreen';
 import ReviewScreen from '../screens/ReviewScreen';
+import LoginScreen from '../screens/SettingsScreen';
 
 const Stack = createStackNavigator();
 
@@ -31,6 +32,13 @@ const RootNavigator = () => {
             <Stack.Screen
                 name="Onboarding"
                 component={OnboardingScreen}
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
+                name="Login"
+                component={LoginScreen}
                 options={{
                     headerShown: false,
                 }}

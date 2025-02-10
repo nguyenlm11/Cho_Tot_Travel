@@ -48,7 +48,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                 return;
             }
 
-            const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+            const currentLocation = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
             const { latitude, longitude } = currentLocation.coords;
             if (onLocationSelected) {
                 onLocationSelected({
@@ -164,7 +164,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                         onPress={handleGetCurrentLocation}
                     >
                         <Ionicons name="location-outline" size={20} color="#000" />
-                        <Text style={styles.currentLocationText}>Khách sạn gần bạn</Text>
+                        <Text style={styles.currentLocationText}>Vị trí gần bạn</Text>
                     </TouchableOpacity>
 
                     <View style={styles.recentSearchesHeader}>
