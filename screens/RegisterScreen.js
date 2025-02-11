@@ -1,11 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Dimensions, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Image } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/Colors";
 import { useNavigation } from "@react-navigation/native";
-
-const { width, height } = Dimensions.get("window");
 
 export default function RegisterScreen() {
     const [username, setUsername] = useState("");
@@ -130,7 +127,7 @@ export default function RegisterScreen() {
 
                     <Text style={styles.orText}>hoặc</Text>
 
-                    <TouchableOpacity style={styles.signUpButton} onPress={() => navigation.navigate('Login')}>
+                    <TouchableOpacity style={styles.signUpButton} onPress={() => navigation.goBack()}>
                         <Text style={styles.signUpText}>Đăng nhập</Text>
                     </TouchableOpacity>
                 </ScrollView>
