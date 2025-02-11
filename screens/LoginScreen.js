@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Dimensions, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard } from "react-native";
-import Svg, { Path } from "react-native-svg";
+import { View, Text, TextInput, TouchableOpacity, Dimensions, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Image } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/Colors";
 
 const { width, height } = Dimensions.get("window");
@@ -10,6 +10,7 @@ export default function LoginScreen() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [secureText, setSecureText] = useState(true);
+    const navigation = useNavigation();
 
     const handleLogin = () => {
         console.log("Email: ", email);
@@ -26,15 +27,7 @@ export default function LoginScreen() {
                     contentContainerStyle={styles.scrollContainer}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Background Wave */}
-                    <Svg height={height * 0.6} width={width} style={styles.wave}>
-                        <Path
-                            fill={colors.primary}
-                            d="M0,400 C180,460 700,250 720,350 C940,480 1200,300 1440,400 L1440,0 L0,0 Z"
-                        />
-                    </Svg>
-                    <Text style={styles.welcomeText}>Chào mừng{"\n"}bạn đến với ứng dụng</Text>
-
+                    <Image source={require('../assets/mobile-login.png')} style={styles.image} />
                     {/* Input Fields */}
                     <View style={styles.inputContainer}>
                         <View style={styles.title}>
@@ -79,7 +72,7 @@ export default function LoginScreen() {
 
                     <Text style={styles.orText}>hoặc</Text>
 
-                    <TouchableOpacity style={styles.signUpButton}>
+                    <TouchableOpacity style={styles.signUpButton} onPress={() => navigation.navigate('Register')}>
                         <Text style={styles.signUpText}>Đăng ký</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -95,25 +88,17 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         flexGrow: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
     },
-    wave: {
-        position: "absolute",
-        top: 0,
-    },
-    welcomeText: {
-        fontSize: 32,
-        fontWeight: "bold",
-        color: "white",
-        position: "absolute",
-        top: height * 0.2,
-        left: 20,
+    image: {
+        width: 300,
+        height: 410,
+        resizeMode: 'contain',
     },
     inputContainer: {
         width: "100%",
-        marginTop: height * 0.5,
     },
     title: {
         justifyContent: 'center',
