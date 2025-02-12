@@ -42,6 +42,7 @@ export default function RegisterScreen() {
         const hasError = Object.values(newErrors).some(error => error);
         if (!hasError) {
             console.log("Đăng ký thành công");
+            navigation.navigate('OTPVerification', { email });
         }
     };
 
@@ -71,6 +72,7 @@ export default function RegisterScreen() {
                                 value={username}
                                 onChangeText={setUsername}
                                 keyboardType="default"
+                                autoCapitalize="none"
                             />
                         </View>
                         {errors.username && <Text style={styles.errorText}>Tên người dùng không được để trống</Text>}
@@ -84,6 +86,7 @@ export default function RegisterScreen() {
                                 value={email}
                                 onChangeText={setEmail}
                                 keyboardType="email-address"
+                                autoCapitalize="none"
                             />
                         </View>
                         {errors.email && <Text style={styles.errorText}>Email không hợp lệ</Text>}

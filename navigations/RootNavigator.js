@@ -12,6 +12,8 @@ import HomeStayDetailScreen from '../screens/HomeStayDetailScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import OTPVerificationScreen from '../screens/OTPVerificationScreen';
+import MapScreen from '../screens/MapScreen';
 
 const Stack = createStackNavigator();
 
@@ -52,6 +54,13 @@ const RootNavigator = () => {
                 }}
             />
             <Stack.Screen
+                name="OTPVerification"
+                component={OTPVerificationScreen}
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
                 name="MainTabs"
                 component={BottomTabNavigator}
                 options={{
@@ -68,6 +77,13 @@ const RootNavigator = () => {
             <Stack.Screen
                 name="HomeStayDetail"
                 component={HomeStayDetailScreen}
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
+                name="MapScreen"
+                component={MapScreen}
                 options={{
                     headerShown: false,
                 }}
