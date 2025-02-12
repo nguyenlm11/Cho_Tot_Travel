@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Alert, Modal, Platform, KeyboardAvoidingView, Linking } from "react-native";
 import * as Location from "expo-location";
-import { Ionicons } from "react-native-vector-icons";
+import { Ionicons, FontAwesome } from "react-native-vector-icons";
 import axios from "axios";
 
 const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
@@ -79,7 +79,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                 params: {
                     text: text,
                     apikey: API_KEY,
-                    size: 4,
+                    size: 3,
                 },
             });
             setResults(response.data.features || []);
@@ -122,12 +122,10 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                 keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
             >
                 <View style={styles.modalContainer}>
-                    <View style={styles.headerContainer}>
-                        <Text style={styles.headerText}>Chọn khách sạn, điểm đến</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <Ionicons name="close-outline" size={24} color="#000" />
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                        <FontAwesome name="close" size={20} color="#4A4A4A" />
+                    </TouchableOpacity>
+                    <Text style={styles.modalTitle}>Chọn khách sạn, điểm đến</Text>
 
                     <View style={styles.searchBarContainer}>
                         <TextInput
@@ -202,15 +200,17 @@ const styles = StyleSheet.create({
         borderTopRightRadius: 20,
         padding: 20,
     },
-    headerContainer: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 16,
+    closeButton: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        zIndex: 100,
     },
-    headerText: {
-        fontSize: 18,
-        fontWeight: "bold",
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 20,
     },
     searchBarContainer: {
         flexDirection: "row",

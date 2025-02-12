@@ -5,35 +5,26 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
 import EditSearchModal from '../components/Modal/EditSearchModal';
 import { ScrollView } from 'react-native-gesture-handler';
+import { useSearch } from '../contexts/SearchContext';
 
-export default function ResultScreen({ route }) {
+export default function ResultScreen() {
+    const { currentSearch } = useSearch();
+    
     const {
-        location: initialLocation,
-        checkInDate: initialCheckInDate,
-        checkOutDate: initialCheckOutDate,
-        numberOfNights: initialNumberOfNights,
-        rooms: initialRooms,
-        adults: initialAdults,
-        children: initialChildren,
-        priceFrom: initialPriceFrom,
-        priceTo: initialPriceTo,
-        selectedStar: initialSelectedStar,
-        latitude: initialLatitude,
-        longitude: initialLongitude,
-    } = route.params;
+        location,
+        checkInDate,
+        checkOutDate,
+        numberOfNights,
+        rooms,
+        adults,
+        children,
+        priceFrom,
+        priceTo,
+        selectedStar,
+        latitude,
+        longitude,
+    } = currentSearch;
 
-    const [location, setLocation] = useState(initialLocation);
-    const [checkInDate, setCheckInDate] = useState(initialCheckInDate);
-    const [checkOutDate, setCheckOutDate] = useState(initialCheckOutDate);
-    const [numberOfNights, setNumberOfNights] = useState(initialNumberOfNights);
-    const [rooms, setRooms] = useState(initialRooms);
-    const [adults, setAdults] = useState(initialAdults);
-    const [children, setChildren] = useState(initialChildren);
-    const [priceFrom, setPriceFrom] = useState(initialPriceFrom);
-    const [priceTo, setPriceTo] = useState(initialPriceTo);
-    const [selectedStar, setSelectedStar] = useState(initialSelectedStar);
-    const [latitude, setLatitude] = useState(initialLatitude);
-    const [longitude, setLongitude] = useState(initialLongitude);
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const navigation = useNavigation();
 
@@ -176,18 +167,6 @@ export default function ResultScreen({ route }) {
                 selectedStar={selectedStar}
                 latitude={latitude}
                 longitude={longitude}
-                setLocation={setLocation}
-                setCheckInDate={setCheckInDate}
-                setCheckOutDate={setCheckOutDate}
-                setNumberOfNights={setNumberOfNights}
-                setRooms={setRooms}
-                setAdults={setAdults}
-                setChildren={setChildren}
-                setPriceFrom={setPriceFrom}
-                setPriceTo={setPriceTo}
-                setSelectedStar={setSelectedStar}
-                setLatitude={setLatitude}
-                setLongitude={setLongitude}
             />
         </View>
     );

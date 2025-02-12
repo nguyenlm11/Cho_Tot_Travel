@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { Ionicons } from 'react-native-vector-icons';
+import { FontAwesome } from 'react-native-vector-icons';
+import { colors } from '../../constants/Colors';
 
 export default function CalendarModal({ visible, onClose, onDateSelect, selectedDate, setNumberOfNights, numberOfNights }) {
     const handleIncrease = () => setNumberOfNights(numberOfNights + 1);
@@ -12,7 +13,7 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
             <View style={styles.modalBackground}>
                 <View style={styles.calendarContainer}>
                     <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <Ionicons name="close-outline" size={24} color="#000" />
+                        <FontAwesome name="close" size={20} color={colors.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.modalTitle}>Chọn ngày nhận phòng</Text>
                     <Calendar
@@ -25,10 +26,10 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                         markingType={'simple'}
                         theme={{
                             selectedDayBackgroundColor: '#30B53E',
-                            selectedDayTextColor: '#ffffff',
+                            selectedDayTextColor: '#fff',
                             todayTextColor: '#30B53E',
-                            arrowColor: '#333333',
-                            textSectionTitleColor: '#333333',
+                            arrowColor: '#333',
+                            textSectionTitleColor: '#333',
                         }}
                     />
                     <View style={styles.stayDurationContainer}>
