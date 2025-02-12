@@ -53,7 +53,7 @@ export default function HomeStayDetailScreen() {
 
                 {/* Thông tin khách sạn */}
                 <View style={[styles.section, { marginTop: -50 }]}>
-                    <Text style={styles.hotelName}>Khách sạn Imperial Vũng Tàu</Text>
+                    <Text style={styles.hotelName}>Khách sạn The Imperial Vũng Tàu</Text>
                     <View style={styles.row}>
                         {[...Array(5)].map((_, i) => (
                             <MaterialIcons key={i} name="star" size={18} color="#FFD700" />
@@ -63,6 +63,9 @@ export default function HomeStayDetailScreen() {
                         <MaterialIcons name="location-on" size={18} color="#666" />
                         <Text style={styles.address}>15 Thi Sách, Vũng Tàu, Việt Nam</Text>
                     </View>
+                    <TouchableOpacity onPress={() => navigation.navigate('MapScreen')}>
+                        <Text>Xem bản đồ</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Xếp hạng và đánh giá */}
