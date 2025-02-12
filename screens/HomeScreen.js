@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as Location from "expo-location";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import CalendarModal from '../components/Modal/CalendarModal';
@@ -8,6 +8,9 @@ import GuestModal from '../components/Modal/GuestModal';
 import FilterModal from '../components/Modal/FilterModal';
 import LocationSearchModal from '../components/Modal/LocationSearchModal';
 import { colors } from '../constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useSearch } from '../contexts/SearchContext';
 
 export default function HomeScreen() {
     const today = new Date();
@@ -21,10 +24,10 @@ export default function HomeScreen() {
     const [checkInDate, setCheckInDate] = useState(formattedToday);
     const [checkOutDate, setCheckOutDate] = useState(formattedCheckOut);
     const [selectedDate, setSelectedDate] = useState(today.toISOString().split('T')[0]);
-    const [numberOfNights, setNumberOfNights] = useState(1);
+    const [numberOfNights, setNumberOfNights] = useState('');
     const [isGuestModalVisible, setGuestModalVisible] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-    const [location, setLocation] = useState('');
+    const [location, setLocation] = useState(1);
     const [longitude, setLongitude] = useState('');
     const [latitude, setLatitude] = useState('');
     const [rooms, setRooms] = useState(1);
@@ -34,25 +37,37 @@ export default function HomeScreen() {
     const [priceTo, setPriceTo] = useState('');
     const [selectedStar, setSelectedStar] = useState(null);
     const navigation = useNavigation();
+    const [isLoading, setIsLoading] = useState(false);
+    const { currentSearch, updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
 
-    const handleSearch = () => {
-        console.log("Location:", location);
-        console.log("Check-in Date:", checkInDate);
-        console.log("Check-out Date:", checkOutDate);
-        console.log("Number of night:", numberOfNights);
-        console.log("Rooms:", rooms);
-        console.log("Adults:", adults);
-        console.log("Children:", children);
-        console.log("Price From:", priceFrom);
-        console.log("Price To:", priceTo);
-        console.log("LonTi:", longitude);
-        console.log("LatTi:", latitude);
-        console.log("_____________________________________________________________");
+    const handleSearch = async () => {
+        setIsLoading(true);
+        try {
+            const searchData = {
+                location,
+                checkInDate,
+                checkOutDate,
+                numberOfNights,
+                rooms,
+                adults,
+                children,
+                priceFrom,
+                priceTo,
+                selectedStar,
+                latitude,
+                longitude,
+            };
+            updateCurrentSearch(searchData);
+            addToSearchHistory(searchData);
 
-        navigation.navigate("Results", {
-            location, checkInDate, checkOutDate, numberOfNights, rooms, adults, children, priceFrom,
-            priceTo, selectedStar, latitude, longitude,
-        });
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            navigation.navigate("Results", searchData);
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Lỗi", "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     useFocusEffect(
@@ -118,18 +133,60 @@ export default function HomeScreen() {
         setLongitude(selectedLocation.longitude);
     };
 
+    // Render lịch sử tìm kiếm
+    const renderSearchHistory = () => (
+        <View style={styles.recentSearch}>
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Tra cứu gần đây</Text>
+                {searchHistory.length > 0 && (
+                    <TouchableOpacity onPress={clearSearchHistory}>
+                        <Text style={styles.clearText}>Xóa tất cả</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {searchHistory.map((item, index) => (
+                    <TouchableOpacity
+                        key={index}
+                        style={styles.recentItem}
+                        onPress={() => {
+                            updateCurrentSearch(item);
+                            navigation.navigate("Results", item);
+                        }}
+                    >
+                        <Icon name="location-outline" size={20} color="#4A4A4A" />
+                        <View>
+                            <Text style={styles.itemTitle}>{item.location}</Text>
+                            <Text style={styles.itemDetails}>
+                                {item.checkInDate} - {item.checkOutDate}
+                            </Text>
+                            <Text style={styles.itemDetails}>
+                                {item.rooms} phòng, {item.adults} người lớn
+                                {item.children > 0 ? `, ${item.children} trẻ em` : ''}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        </View>
+    );
+
     return (
         <ScrollView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.logo}>Logo</Text>
+            <LinearGradient
+                colors={[colors.primary, colors.primary + 'CC']}
+                style={styles.header}>
+                <Animated.Text
+                    entering={FadeIn}
+                    style={styles.logo}>Logo</Animated.Text>
                 <TouchableOpacity>
                     <Icon name="notifications-outline" size={24} color="#fff" />
                 </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
-            {/* Search Section */}
-            <View style={styles.searchSection}>
+            <Animated.View
+                entering={FadeInDown.delay(300)}
+                style={styles.searchSection}>
                 <TouchableOpacity style={styles.searchInput} onPress={() => setLocationModalVisible(true)}>
                     <Icon name="location-outline" size={20} color="#4A4A4A" />
                     <View>
@@ -175,10 +232,17 @@ export default function HomeScreen() {
                     </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-                    <Text style={styles.searchButtonText}>Tìm kiếm</Text>
+                <TouchableOpacity
+                    style={[styles.searchButton, isLoading && styles.searchButtonDisabled]}
+                    onPress={handleSearch}
+                    disabled={isLoading}>
+                    {isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.searchButtonText}>Tìm kiếm</Text>
+                    )}
                 </TouchableOpacity>
-            </View>
+            </Animated.View>
 
             <LocationSearchModal
                 visible={isLocationModalVisible}
@@ -215,32 +279,7 @@ export default function HomeScreen() {
                 setSelectedStar={setSelectedStar}
             />
 
-            <View style={styles.recentSearch}>
-                <Text style={styles.sectionTitle}>Tra cứu gần đây</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.recentItem}>
-                        <Icon name="location-outline" size={20} color="#4A4A4A" />
-                        <View>
-                            <Text style={styles.itemTitle}>Khách sạn Pullman Vũng Tàu</Text>
-                            <Text style={styles.itemDetails}>02/02/2022 - 04/02/2022</Text>
-                        </View>
-                    </View>
-                    <View style={styles.recentItem}>
-                        <Icon name="location-outline" size={20} color="#4A4A4A" />
-                        <View>
-                            <Text style={styles.itemTitle}>Khách sạn Pullman Vũng Tàu</Text>
-                            <Text style={styles.itemDetails}>02/02/2022 - 04/02/2022</Text>
-                        </View>
-                    </View>
-                    <View style={styles.recentItem}>
-                        <Icon name="location-outline" size={20} color="#4A4A4A" />
-                        <View>
-                            <Text style={styles.itemTitle}>Khách sạn Pullman Vũng Tàu</Text>
-                            <Text style={styles.itemDetails}>02/02/2022 - 04/02/2022</Text>
-                        </View>
-                    </View>
-                </ScrollView>
-            </View>
+            {renderSearchHistory()}
 
             <View style={styles.promotionSection}>
                 <Text style={styles.sectionTitle}>Ưu đãi</Text>
@@ -300,122 +339,201 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 20,
-        paddingTop: 100,
-        backgroundColor: colors.primary,
+        paddingTop: 60,
+        borderBottomLeftRadius: 25,
+        borderBottomRightRadius: 25,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     logo: {
-        fontSize: 20,
+        fontSize: 24,
         color: '#fff',
         fontWeight: 'bold',
+        letterSpacing: 1,
     },
     searchSection: {
         padding: 16,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: '#fff',
+        marginTop: -20,
+        marginHorizontal: 16,
+        borderRadius: 15,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.23,
+        shadowRadius: 2.62,
+        transform: [{ translateY: 0 }],
     },
     searchInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
+        backgroundColor: '#f8f9fa',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
     },
     dateInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
+        backgroundColor: '#f8f9fa',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
     },
     filterInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
+        backgroundColor: '#f8f9fa',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
     },
     inputText: {
-        fontSize: 16,
-        color: '#4A4A4A',
+        fontSize: 15,
+        color: '#495057',
         marginLeft: 8,
-        fontWeight: 'bold',
+        fontWeight: '600',
     },
     inputTitle: {
-        fontSize: 16,
-        color: '#888',
+        fontSize: 14,
+        color: '#6c757d',
         marginLeft: 8,
-        marginBottom: 8
+        marginBottom: 4
     },
     searchButton: {
         backgroundColor: colors.primary,
-        borderRadius: 8,
+        borderRadius: 12,
         padding: 16,
         alignItems: 'center',
         marginTop: 8,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    searchButtonDisabled: {
+        backgroundColor: colors.primary + '80',
     },
     searchButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+        letterSpacing: 0.5,
     },
     recentSearch: {
-        padding: 16,
+        padding: 20,
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 10,
+        marginBottom: 15,
+        color: '#212529',
     },
     recentItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 8,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 8,
+        padding: 15,
+        backgroundColor: '#fff',
+        borderRadius: 12,
         marginBottom: 8,
-        marginRight: 8
+        marginRight: 12,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.22,
+        shadowRadius: 2.22,
+        minWidth: 250,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
     },
     itemTitle: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontWeight: '600',
+        color: '#495057',
     },
     itemDetails: {
         fontSize: 12,
-        color: '#888',
+        color: '#6c757d',
+        marginTop: 4,
     },
     promotionSection: {
-        padding: 16,
+        padding: 20,
     },
     promotionImage: {
-        width: 200,
-        height: 120,
-        borderRadius: 8,
-        marginRight: 8,
+        width: 280,
+        height: 160,
+        borderRadius: 15,
+        marginRight: 12,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     popularSection: {
-        padding: 16,
+        padding: 20,
+        paddingBottom: 30,
     },
     popularGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        gap: 12,
     },
     popularItem: {
+        flex: 1,
         alignItems: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 15,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     popularImage: {
-        width: 120,
-        height: 240,
-        borderRadius: 8,
-        marginBottom: 8,
+        width: '100%',
+        height: 200,
+        borderRadius: 15,
     },
     popularText: {
         position: 'absolute',
-        bottom: 10,
-        left: 3,
+        bottom: 16,
+        left: 12,
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: -1, height: 1 },
+        textShadowRadius: 10,
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        padding: 8,
+        borderRadius: 8,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    clearText: {
+        color: colors.primary,
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

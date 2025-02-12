@@ -1,143 +1,165 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { FontAwesome } from 'react-native-vector-icons';
+import { colors } from '../../constants/Colors';
+import { useSearch } from '../../contexts/SearchContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+
+const { width, height } = Dimensions.get('window');
+
+// Import các modal components
 import LocationSearchModal from './LocationSearchModal';
 import CalendarModal from './CalendarModal';
 import GuestModal from './GuestModal';
 import FilterModal from './FilterModal';
-import { FontAwesome } from 'react-native-vector-icons';
-import { colors } from '../../constants/Colors';
 
-const EditSearchModal = ({
-    visible,
-    onClose,
-    location,
-    checkInDate,
-    checkOutDate,
-    numberOfNights,
-    rooms,
-    adults,
-    children,
-    priceFrom,
-    priceTo,
-    selectedStar,
-    latitude,
-    longitude,
-    setLocation,
-    setCheckInDate,
-    setCheckOutDate,
-    setNumberOfNights,
-    setRooms,
-    setAdults,
-    setChildren,
-    setPriceFrom,
-    setPriceTo,
-    setSelectedStar,
-    setLatitude,
-    setLongitude
-}) => {
+const EditSearchModal = ({ visible, onClose }) => {
+    const { currentSearch, updateCurrentSearch } = useSearch();
 
     const [isLocationModalVisible, setLocationModalVisible] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [isGuestModalVisible, setGuestModalVisible] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(checkInDate);
+    const [selectedDate, setSelectedDate] = useState(currentSearch.checkInDate);
 
     const handleDateSelect = (date) => {
         const selected = date.dateString;
         const formattedDate = new Date(selected);
         const formattedText = `${formattedDate.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${formattedDate.getDate()}/${formattedDate.getMonth() + 1}/${formattedDate.getFullYear()}`;
-        setCheckInDate(formattedText);
+
+        updateCurrentSearch({
+            checkInDate: formattedText,
+        });
         setSelectedDate(selected);
 
         const checkOut = new Date(formattedDate);
-        checkOut.setDate(checkOut.getDate() + numberOfNights);
+        checkOut.setDate(checkOut.getDate() + currentSearch.numberOfNights);
         const checkOutText = `${checkOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${checkOut.getDate()}/${checkOut.getMonth() + 1}/${checkOut.getFullYear()}`;
-        setCheckOutDate(checkOutText);
+        updateCurrentSearch({
+            checkOutDate: checkOutText,
+        });
         setCalendarVisible(false);
     };
 
     const handleLocationSelected = (selectedLocation) => {
-        setLocation(selectedLocation.description);
-        setLatitude(selectedLocation.latitude);
-        setLongitude(selectedLocation.longitude);
-        // console.log("Selected Location:", selectedLocation);
-        // console.log("Latitude:", selectedLocation.latitude);
-        // console.log("Longitude:", selectedLocation.longitude);
+        updateCurrentSearch({
+            location: selectedLocation.description,
+            latitude: selectedLocation.latitude,
+            longitude: selectedLocation.longitude,
+        });
+        setLocationModalVisible(false);
     };
 
     const handleSearch = () => {
-        console.log("Search Parameters:");
-        console.log("Location:", location);
-        console.log("Check-in Date:", checkInDate);
-        console.log("Check-out Date:", checkOutDate);
-        console.log("Number of Nights:", numberOfNights);
-        console.log("Rooms:", rooms);
-        console.log("Adults:", adults);
-        console.log("Children:", children);
-        console.log("Price Range:", priceFrom, "-", priceTo);
-        console.log("Star Rating:", selectedStar);
-        console.log("Latitude", latitude);
-        console.log("Longitude", longitude);
-    }
+        console.log("Search Parameters:", currentSearch);
+        onClose();
+    };
 
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-            <View style={styles.modalBackground}>
-                <View style={styles.modalContainer}>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <FontAwesome name="close" size={20} color="#4A4A4A" />
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>Chọn số phòng và khách</Text>
+            <Animated.View
+                entering={FadeIn}
+                style={styles.modalBackground}
+            >
+                <Animated.View
+                    entering={SlideInDown}
+                    style={styles.modalContainer}
+                >
+                    <LinearGradient
+                        colors={[colors.primary, colors.primary + 'E6']}
+                        style={styles.header}
+                    >
+                        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                            <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                                <FontAwesome name="close" size={20} color="#fff" />
+                            </BlurView>
+                        </TouchableOpacity>
+                        <Text style={styles.modalTitle}>Chỉnh sửa tìm kiếm</Text>
+                    </LinearGradient>
 
                     <View style={styles.searchSection}>
-                        <TouchableOpacity style={styles.searchInput} onPress={() => setLocationModalVisible(true)}>
-                            <Icon name="location-outline" size={20} color="#4A4A4A" />
-                            <View>
+                        <TouchableOpacity
+                            style={styles.searchInput}
+                            onPress={() => setLocationModalVisible(true)}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Icon name="location-outline" size={22} color={colors.textPrimary} />
+                            </View>
+                            <View style={styles.inputContent}>
                                 <Text style={styles.inputTitle}>Điểm đến, khách sạn</Text>
-                                <Text style={styles.inputText} numberOfLines={2} ellipsizeMode="tail">{location !== null && location !== '' ? location : 'Nhập điểm đến'}</Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.dateInput} onPress={() => setCalendarVisible(true)}>
-                            <Icon name="calendar-outline" size={20} color="#4A4A4A" />
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '95%' }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.inputTitle}>Ngày nhận phòng</Text>
-                                    <Text style={styles.inputText}>{checkInDate}</Text>
-                                    <Text style={[styles.inputTitle, { marginTop: 8 }]}>Ngày trả phòng: <Text style={styles.inputText}>{checkOutDate}</Text></Text>
-                                </View>
-                                <View style={{ justifyContent: 'center' }}>
-                                    <Text style={styles.inputTitle}>Số đêm nghỉ</Text>
-                                    <Text style={styles.inputText}>{numberOfNights} đêm</Text>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.dateInput} onPress={() => setGuestModalVisible(true)}>
-                            <Icon name="people-outline" size={20} color="#4A4A4A" />
-                            <View>
-                                <Text style={styles.inputTitle}>Số phòng và khách</Text>
-                                <Text style={styles.inputText}>{rooms} phòng, {adults} người lớn{children > 0 ? `, ${children} trẻ em` : ''}</Text>
-                            </View>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.filterInput} onPress={() => setFilterModalVisible(true)}>
-                            <Icon name="filter-outline" size={20} color="#4A4A4A" />
-                            <View>
-                                <Text style={styles.inputTitle}>Bộ lọc</Text>
-                                <Text style={styles.inputText}>
-                                    {priceFrom ? `${priceFrom}đ` : ''}
-                                    {priceFrom && priceTo ? ' - ' : ''}
-                                    {priceTo ? `${priceTo}đ` : ''}
-                                    {priceFrom || priceTo ? ', ' : ''}
-                                    {selectedStar ? `${selectedStar} sao` : ''}
+                                <Text style={styles.inputText} numberOfLines={2} ellipsizeMode="tail">
+                                    {currentSearch.location}
                                 </Text>
                             </View>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.searchButton} onPress={() => { handleSearch(); onClose() }}>
-                            <Text style={styles.searchButtonText}>Tìm kiếm</Text>
+                        <TouchableOpacity
+                            style={styles.searchInput}
+                            onPress={() => setCalendarVisible(true)}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Icon name="calendar-outline" size={22} color={colors.textPrimary} />
+                            </View>
+                            <View style={styles.inputContent}>
+                                <Text style={styles.inputTitle}>Ngày nhận và trả phòng</Text>
+                                <Text style={styles.inputText}>
+                                    {currentSearch.checkInDate} - {currentSearch.checkOutDate}
+                                </Text>
+                                <Text style={[styles.inputTitle, { marginTop: 5 }]}>
+                                    Số đêm nghỉ: {' '}
+                                    <Text style={styles.inputText}>{currentSearch.numberOfNights} đêm</Text>
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.guestInput}
+                            onPress={() => setGuestModalVisible(true)}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Icon name="people-outline" size={22} color={colors.textPrimary} />
+                            </View>
+                            <View style={styles.inputContent}>
+                                <Text style={styles.inputTitle}>Số phòng và khách</Text>
+                                <Text style={styles.inputText}>
+                                    {currentSearch.rooms} phòng, {currentSearch.adults} người lớn
+                                    {currentSearch.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.filterInput}
+                            onPress={() => setFilterModalVisible(true)}
+                        >
+                            <View style={styles.iconContainer}>
+                                <Icon name="filter-outline" size={22} color={colors.textPrimary} />
+                            </View>
+                            <View style={styles.inputContent}>
+                                <Text style={styles.inputTitle}>Bộ lọc</Text>
+                                <Text style={styles.inputText}>
+                                    {currentSearch.priceFrom ? `${currentSearch.priceFrom.toLocaleString()}đ` : ''}
+                                    {currentSearch.priceFrom && currentSearch.priceTo ? ' - ' : ''}
+                                    {currentSearch.priceTo ? `${currentSearch.priceTo.toLocaleString()}đ` : ''}
+                                    {(currentSearch.priceFrom || currentSearch.priceTo) && currentSearch.selectedStar ? ' | ' : ''}
+                                    {currentSearch.selectedStar ? `${currentSearch.selectedStar} sao` : 'Chọn bộ lọc'}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.searchButton}
+                            onPress={handleSearch}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary, colors.primary + 'E6']}
+                                style={styles.gradientButton}
+                            >
+                                <Text style={styles.searchButtonText}>Tìm kiếm</Text>
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
 
@@ -146,114 +168,176 @@ const EditSearchModal = ({
                         onClose={() => setLocationModalVisible(false)}
                         onLocationSelected={handleLocationSelected}
                     />
+
                     <CalendarModal
                         visible={isCalendarVisible}
                         onClose={() => setCalendarVisible(false)}
                         onDateSelect={handleDateSelect}
                         selectedDate={selectedDate}
-                        numberOfNights={numberOfNights}
-                        setNumberOfNights={setNumberOfNights}
+                        numberOfNights={currentSearch.numberOfNights}
+                        setNumberOfNights={(nights) => updateCurrentSearch({ numberOfNights: nights })}
                     />
+
                     <GuestModal
                         visible={isGuestModalVisible}
                         onClose={() => setGuestModalVisible(false)}
-                        rooms={rooms}
-                        adults={adults}
-                        children={children}
-                        setRooms={setRooms}
-                        setAdults={setAdults}
-                        setChildren={setChildren}
+                        rooms={currentSearch.rooms}
+                        adults={currentSearch.adults}
+                        children={currentSearch.children}
+                        setRooms={(rooms) => updateCurrentSearch({ rooms })}
+                        setAdults={(adults) => updateCurrentSearch({ adults })}
+                        setChildren={(children) => updateCurrentSearch({ children })}
                     />
 
                     <FilterModal
                         visible={isFilterModalVisible}
                         onClose={() => setFilterModalVisible(false)}
-                        priceFrom={priceFrom}
-                        priceTo={priceTo}
-                        selectedStar={selectedStar}
-                        setPriceFrom={setPriceFrom}
-                        setPriceTo={setPriceTo}
-                        setSelectedStar={setSelectedStar}
+                        priceFrom={currentSearch.priceFrom}
+                        priceTo={currentSearch.priceTo}
+                        selectedStar={currentSearch.selectedStar}
+                        setPriceFrom={(priceFrom) => updateCurrentSearch({ priceFrom })}
+                        setPriceTo={(priceTo) => updateCurrentSearch({ priceTo })}
+                        setSelectedStar={(selectedStar) => updateCurrentSearch({ selectedStar })}
                     />
-                </View>
-            </View>
-        </Modal>
+                </Animated.View>
+            </Animated.View >
+        </Modal >
     );
 };
 
 const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
     },
     modalContainer: {
-        width: '100%',
         backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        maxHeight: height * 0.9,
+    },
+    header: {
         padding: 20,
-        elevation: 5,
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
     },
     closeButton: {
         position: 'absolute',
         top: 20,
         right: 20,
-        zIndex: 100,
+        zIndex: 1,
+    },
+    blurButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: 'bold',
+        color: '#fff',
         textAlign: 'center',
-        marginBottom: 20,
+    },
+    searchSection: {
+        padding: 20,
+    },
+    iconContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
     },
     searchInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f5f5f5',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 15,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
     },
     dateInput: {
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 15,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+    },
+    guestInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f5f5f5',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 15,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
     },
     filterInput: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f5f5f5',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 15,
+        marginBottom: 12,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+    },
+    inputContent: {
+        flex: 1,
+    },
+    inputTitle: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 4,
     },
     inputText: {
         fontSize: 16,
-        color: '#4A4A4A',
-        marginLeft: 8,
+        color: colors.textPrimary,
         fontWeight: 'bold',
     },
-    inputTitle: {
-        fontSize: 16,
-        color: '#888',
-        marginLeft: 8,
-        marginBottom: 8
+    nightsText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primary,
     },
     searchButton: {
-        backgroundColor: colors.primary,
-        borderRadius: 8,
+        marginTop: 8,
+        borderRadius: 15,
+        overflow: 'hidden',
+    },
+    gradientButton: {
         padding: 16,
         alignItems: 'center',
-        marginTop: 8,
     },
     searchButtonText: {
-        color: colors.textThird,
-        fontSize: 16,
+        color: '#fff',
+        fontSize: 18,
         fontWeight: 'bold',
     },
 });

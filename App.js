@@ -3,6 +3,7 @@ import RootNavigator from './navigations/RootNavigator';
 import 'react-native-gesture-handler';
 import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
+import { SearchProvider } from './contexts/SearchContext';
 
 export default function App() {
 
@@ -25,8 +26,10 @@ export default function App() {
   // }, []);
 
   return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
+    <SearchProvider>
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </SearchProvider>
   );
 }
