@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from 'react-native-vector-icons';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
 import EditSearchModal from '../components/Modal/EditSearchModal';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSearch } from '../contexts/SearchContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function ResultScreen() {
     const { currentSearch } = useSearch();
@@ -26,6 +28,7 @@ export default function ResultScreen() {
     } = currentSearch;
 
     const [isEditModalVisible, setEditModalVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const navigation = useNavigation();
 
     const handleMoveScreen = () => {
@@ -37,13 +40,13 @@ export default function ResultScreen() {
             id: '1',
             image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
             name: 'Khách sạn Imperial Vũng Tàu',
-            rating: 5,
+            rating: 4.8,
             address: 'Thùy Vân, Bãi Sau, TP Vũng Tàu',
-            distance: '7.17 km từ địa điểm hiện tại',
-            features: ['Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc'],
+            distance: '7.17 km từ trung tâm',
+            features: ['Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc', 'Hồ bơi', 'Nhà hàng'],
             price: 1058201,
             originalPrice: 1599999,
-            availability: 'Chỉ còn 3 phòng có giá này!',
+            availability: 'Chỉ còn 3 phòng trống!',
         },
         {
             id: '2',
@@ -79,78 +82,142 @@ export default function ResultScreen() {
         return (
             <View style={styles.starContainer}>
                 {Array.from({ length: fullStars }).map((_, index) => (
-                    <Ionicons key={`full-${index}`} name="star" size={14} color="#FFD700" />
+                    <Ionicons key={`full-${index}`} name="star" size={16} color="#FFD700" />
                 ))}
-                {hasHalfStar && <Ionicons name="star-half" size={14} color="#FFD700" />}
+                {hasHalfStar && <Ionicons name="star-half" size={16} color="#FFD700" />}
                 {Array.from({ length: emptyStars }).map((_, index) => (
-                    <Ionicons key={`empty-${index}`} name="star-outline" size={14} color="#888" />
+                    <Ionicons key={`empty-${index}`} name="star-outline" size={16} color="#888" />
                 ))}
+                <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
             </View>
         );
     };
 
-    return (
-        <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={25} color='#fff' />
-                </TouchableOpacity>
-                <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">{location}</Text>
-            </View>
+    const renderItem = ({ item, index }) => (
+        <Animated.View 
+            entering={FadeInDown.delay(index * 100)}
+            style={styles.cardContainer}
+        >
+            <TouchableOpacity onPress={handleMoveScreen} activeOpacity={0.9}>
+                <View style={styles.card}>
+                    <Image style={styles.image} source={{ uri: item.image }} />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.6)', 'transparent']}
+                        style={styles.imageOverlay}
+                    />
+                    <View style={styles.favoriteButton}>
+                        <Ionicons name="heart-outline" size={24} color="#fff" />
+                    </View>
+                    <View style={styles.info}>
+                        <View style={styles.headerInfo}>
+                            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                            {renderStars(item.rating)}
+                        </View>
+                        
+                        <View style={styles.locationContainer}>
+                            <Ionicons name="location-outline" size={16} color={colors.primary} />
+                            <Text style={styles.address} numberOfLines={1}>
+                                {item.address} • {item.distance}
+                            </Text>
+                        </View>
 
-            <View style={styles.hrLine} />
-
-            <View style={styles.filterBar}>
-                <TouchableOpacity style={styles.filterItem}>
-                    <Ionicons name="calendar-outline" size={22} color="#ffffff" />
-                    <Text style={styles.filterText}>{checkInDate}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.filterItem}>
-                    <Ionicons name="moon-outline" size={20} color="#ffffff" />
-                    <Text style={styles.filterText}>
-                        {numberOfNights}
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.filterItem}>
-                    <MaterialCommunityIcons name="door" size={22} color="#ffffff" />
-                    <Text style={styles.filterText}>{rooms}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.filterItem}>
-                    <Ionicons name="people-outline" size={22} color="#ffffff" />
-                    <Text style={styles.filterText}>
-                        {adults}
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.sortButton} onPress={() => setEditModalVisible(true)}>
-                    <Ionicons name="chevron-down-circle-outline" size={25} color="#ffffff" />
-                </TouchableOpacity>
-            </View>
-
-            <FlatList
-                data={mockData}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <Image style={styles.image} source={{ uri: item.image }} />
-                        <View style={styles.info}>
-                            <TouchableOpacity onPress={handleMoveScreen}>
-                                <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
-                                {renderStars(item.rating)}
-                                <Text style={styles.address}>{item.address} | {item.distance}</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.features}>
-                                    {item.features.map((feature, index) => (
-                                        <Text key={index} style={styles.feature}>{feature}</Text>
-                                    ))}
-                                </ScrollView>
-                                <View style={styles.priceContainer}>
-                                    <Text style={styles.originalPrice}>{item.originalPrice.toLocaleString()} VNĐ</Text>
-                                    <Text style={styles.price}>{item.price.toLocaleString()} VNĐ</Text>
+                        <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false} 
+                            style={styles.featuresScroll}
+                        >
+                            {item.features.map((feature, index) => (
+                                <View key={index} style={styles.featureTag}>
+                                    <Text style={styles.featureText}>{feature}</Text>
                                 </View>
-                            </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        <View style={styles.priceSection}>
+                            <View>
+                                <Text style={styles.originalPrice}>
+                                    {item.originalPrice.toLocaleString()} ₫
+                                </Text>
+                                <Text style={styles.price}>
+                                    {item.price.toLocaleString()} ₫
+                                </Text>
+                            </View>
+                            <Text style={styles.availability}>{item.availability}</Text>
                         </View>
                     </View>
-                )}
-            />
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+
+    return (
+        <View style={styles.container}>
+            <LinearGradient
+                colors={[colors.primary, colors.primary + 'E6']}
+                style={styles.header}
+            >
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Ionicons name="chevron-back" size={28} color='#fff' />
+                </TouchableOpacity>
+                <Text style={styles.headerText} numberOfLines={1}>
+                    {currentSearch.location}
+                </Text>
+            </LinearGradient>
+
+            <View style={styles.filterBar}>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.filterScrollContent}
+                >
+                    <TouchableOpacity style={styles.filterChip}>
+                        <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+                        <Text style={styles.filterText}>{currentSearch.checkInDate}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.filterChip}>
+                        <Ionicons name="moon-outline" size={20} color="#ffffff" />
+                        <Text style={styles.filterText}>{currentSearch.numberOfNights} đêm</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.filterChip}>
+                        <MaterialCommunityIcons name="door" size={20} color="#ffffff" />
+                        <Text style={styles.filterText}>{currentSearch.rooms} phòng</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.filterChip}>
+                        <Ionicons name="people-outline" size={20} color="#ffffff" />
+                        <Text style={styles.filterText}>
+                            {currentSearch.adults} người lớn
+                            {currentSearch.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
+                        </Text>
+                    </TouchableOpacity>
+                </ScrollView>
+
+                <TouchableOpacity 
+                    style={styles.editButton}
+                    onPress={() => setEditModalVisible(true)}
+                >
+                    <Ionicons name="options-outline" size={24} color="#ffffff" />
+                </TouchableOpacity>
+            </View>
+
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+            ) : (
+                <FlatList
+                    data={mockData}
+                    renderItem={renderItem}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.listContainer}
+                    showsVerticalScrollIndicator={false}
+                />
+            )}
 
             <EditSearchModal
                 visible={isEditModalVisible}
@@ -175,112 +242,154 @@ export default function ResultScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff'
+        backgroundColor: '#f8f9fa',
     },
     header: {
-        backgroundColor: colors.primary,
-        padding: 15,
-        paddingTop: 70,
+        padding: 20,
+        paddingTop: 60,
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    backButton: {
+        marginRight: 15,
     },
     headerText: {
+        flex: 1,
+        fontSize: 20,
+        fontWeight: 'bold',
         color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold'
-    },
-    hrLine: {
-        borderBottomWidth: 1,
-        borderBottomColor: '#D1D1D1',
     },
     filterBar: {
-        flexDirection: 'row',
-        padding: 10,
         backgroundColor: colors.primary,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    filterItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 10
+        paddingVertical: 10,
+    },
+    filterScrollContent: {
+        paddingHorizontal: 15,
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 10,
     },
     filterText: {
-        marginLeft: 5,
-        fontSize: 16,
-        color: '#ffffff'
+        color: '#fff',
+        marginLeft: 6,
+        fontSize: 14,
     },
-    sortButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 10
+    editButton: {
+        padding: 10,
+        marginRight: 15,
+    },
+    listContainer: {
+        padding: 15,
+    },
+    cardContainer: {
+        marginBottom: 15,
     },
     card: {
-        margin: 10,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 10,
+        backgroundColor: '#fff',
+        borderRadius: 15,
         overflow: 'hidden',
+        elevation: 3,
         shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 5,
+        shadowRadius: 4,
     },
     image: {
         width: '100%',
-        height: 150,
+        height: 200,
+    },
+    imageOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 60,
+    },
+    favoriteButton: {
+        position: 'absolute',
+        top: 15,
+        right: 15,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        padding: 8,
+        borderRadius: 20,
     },
     info: {
-        padding: 10,
+        padding: 15,
+    },
+    headerInfo: {
+        marginBottom: 10,
     },
     name: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: colors.textPrimary,
+        color: '#333',
+        marginBottom: 5,
     },
     starContainer: {
         flexDirection: 'row',
-        marginVertical: 5,
+        alignItems: 'center',
     },
-    starFilled: {
-        color: colors.starColor,
-        marginRight: 2,
+    ratingText: {
+        marginLeft: 5,
+        color: '#666',
+        fontSize: 14,
     },
-    starEmpty: {
-        color: colors.textSecondary,
-        marginRight: 2,
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
     },
     address: {
-        fontSize: 15,
-        color: colors.textSecondary,
-        marginBottom: 10,
+        flex: 1,
+        fontSize: 14,
+        color: '#666',
+        marginLeft: 4,
     },
-    features: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginBottom: 10,
+    featuresScroll: {
+        marginBottom: 12,
     },
-    feature: {
-        backgroundColor: colors.borderColor,
-        color: colors.textSecondary,
+    featureTag: {
+        backgroundColor: '#f8f9fa',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+        marginRight: 8,
+    },
+    featureText: {
         fontSize: 12,
-        padding: 5,
-        borderRadius: 10,
-        marginRight: 5,
-        marginBottom: 5,
+        color: '#666',
     },
-    priceContainer: {
+    priceSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'flex-end',
-        marginBottom: 8,
-    },
-    price: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primary,
     },
     originalPrice: {
         fontSize: 14,
-        color: colors.textSecondary,
+        color: '#999',
         textDecorationLine: 'line-through',
-        marginBottom: 8,
+    },
+    price: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    availability: {
+        fontSize: 12,
+        color: '#ff4757',
+        fontWeight: '500',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
