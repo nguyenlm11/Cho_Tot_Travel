@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, Image, FlatList, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons, FontAwesome } from 'react-native-vector-icons';
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const reviews = [
     { id: '1', name: 'N***n', rating: 8.8, comment: 'Nhân viên nhiệt tình và thân thiện', likes: 2, date: 'Đánh giá tháng 9 2024' },
@@ -16,37 +18,55 @@ const reviews = [
 export default function ReviewScreen() {
     const navigation = useNavigation();
 
+    const renderRatingBar = ({ label, score }) => (
+        <View style={styles.ratingItem}>
+            <Text style={styles.ratingLabel}>
+                {label}: <Text style={styles.boldText}>{score}</Text>
+            </Text>
+            <LinearGradient
+                colors={[colors.primary, colors.primary + '80']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.ratingBar, { width: `${score * 10}%` }]}
+            />
+            <View style={styles.ratingBarBackground} />
+        </View>
+    );
+
     return (
-        <>
-            <ScrollView style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={25} color='#000' />
-                    </TouchableOpacity>
-                    <Text style={styles.headerText}>Xếp hạng & đánh giá</Text>
-                </View>
+        <View style={styles.container}>
+            <LinearGradient
+                colors={[colors.primary, colors.primary + 'E6']}
+                style={styles.header}
+            >
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Ionicons name="chevron-back" size={28} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerText}>Xếp hạng & đánh giá</Text>
+            </LinearGradient>
 
-                {/* Traveloka Section */}
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.travelokaSection}>
-                    <Text style={styles.travelokaTitle}>24 đánh giá</Text>
-                    <Text style={styles.travelokaScore}>8.7<Text style={{ color: colors.textSecondary, fontSize: 20 }}>/10</Text></Text>
+                    <View style={styles.scoreContainer}>
+                        <Text style={styles.totalReviews}>24 đánh giá</Text>
+                        <View style={styles.scoreBox}>
+                            <Text style={styles.score}>8.7</Text>
+                            <Text style={styles.maxScore}>/10</Text>
+                        </View>
+                    </View>
                 </View>
 
-                {/* Ratings Breakdown */}
                 <View style={styles.ratingsContainer}>
                     <View style={styles.column}>
                         {[
                             { label: 'Vệ sinh', score: 8.6 },
                             { label: 'Đồ ăn', score: 9.0 },
                         ].map((item, index) => (
-                            <View key={index} style={styles.ratingItem}>
-                                <Text style={styles.ratingLabel}>
-                                    {item.label}: <Text style={styles.boldText}>{item.score}</Text>
-                                </Text>
-                                <View style={styles.ratingBar}>
-                                    <View style={[styles.ratingFill, { width: `${item.score * 10}%` }]} />
-                                </View>
+                            <View key={`rating-1-${index}`}>
+                                {renderRatingBar(item)}
                             </View>
                         ))}
                     </View>
@@ -56,49 +76,60 @@ export default function ReviewScreen() {
                             { label: 'Tiện nghi phòng', score: 8.4 },
                             { label: 'Dịch vụ và Tiện ích', score: 8.5 },
                         ].map((item, index) => (
-                            <View key={index} style={styles.ratingItem}>
-                                <Text style={styles.ratingLabel}>
-                                    {item.label}: <Text style={styles.boldText}>{item.score}</Text>
-                                </Text>
-                                <View style={styles.ratingBar}>
-                                    <View style={[styles.ratingFill, { width: `${item.score * 10}%` }]} />
-                                </View>
+                            <View key={`rating-2-${index}`}>
+                                {renderRatingBar(item)}
                             </View>
                         ))}
                     </View>
                 </View>
 
-                {/* Review List */}
-                <View style={styles.title}>
-                    <Text style={styles.titleText}>Đánh giá của khách hàng</Text>
-                </View>
-                <FlatList
-                    data={reviews}
-                    keyExtractor={(item) => item.id}
-                    scrollEnabled={false}
-                    renderItem={({ item }) => (
-                        <View style={styles.reviewContainer}>
-                            <View style={styles.reviewHeader}>
-                                <Image source={{ uri: 'https://th.bing.com/th/id/OIP.F977i9e7dMrznvOT8q8azgHaEf?w=1920&h=1164&rs=1&pid=ImgDetMain' }} style={styles.userIcon} />
-                                <View style={styles.userInfo}>
-                                    <View style={styles.userRating}>
-                                        <Text style={styles.userName}>{item.name}</Text>
-                                        <Text style={styles.reviewDate}>{item.date}</Text>
-                                    </View>
-                                    <View style={styles.ratingContainer}>
-                                        <Text style={styles.ratingScore}>{item.rating}</Text>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 14 }}> / 10.0</Text>
+                <View style={styles.reviewsSection}>
+                    <Text style={styles.sectionTitle}>Đánh giá của khách hàng</Text>
+                    <FlatList
+                        data={reviews}
+                        keyExtractor={(item) => item.id}
+                        scrollEnabled={false}
+                        renderItem={({ item, index }) => (
+                            <Animated.View 
+                                entering={FadeInDown.delay(index * 100)}
+                                style={styles.reviewCard}
+                            >
+                                <View style={styles.reviewHeader}>
+                                    <Image 
+                                        source={{ uri: 'https://th.bing.com/th/id/OIP.F977i9e7dMrznvOT8q8azgHaEf?w=1920&h=1164&rs=1&pid=ImgDetMain' }} 
+                                        style={styles.avatar} 
+                                    />
+                                    <View style={styles.reviewInfo}>
+                                        <View style={styles.nameContainer}>
+                                            <Text style={styles.userName}>{item.name}</Text>
+                                            <Text style={styles.reviewDate}>{item.date}</Text>
+                                        </View>
+                                        <View style={styles.ratingContainer}>
+                                            <Text style={styles.ratingScore}>{item.rating}</Text>
+                                            <Text style={styles.ratingMax}>/10</Text>
+                                        </View>
                                     </View>
                                 </View>
-                            </View>
-                            {item.comment ? <Text style={styles.commentText}>{item.comment}</Text> : null}
-                        </View>
-                    )}
-                />
+                                {item.comment && (
+                                    <Text style={styles.commentText}>{item.comment}</Text>
+                                )}
+                                <View style={styles.reviewActions}>
+                                    <TouchableOpacity style={styles.likeButton}>
+                                        <Ionicons name="heart-outline" size={20} color={colors.primary} />
+                                        <Text style={styles.likeCount}>{item.likes}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.replyButton}>
+                                        <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
+                                        <Text style={styles.replyText}>Trả lời</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </Animated.View>
+                        )}
+                    />
+                </View>
             </ScrollView>
 
-            {/* Filter Options */}
-            <View style={{ backgroundColor: '#fff' }}>
+            <View style={styles.footer}>
                 <View style={styles.filterContainer}>
                     <TouchableOpacity style={styles.filterButton}>
                         <FontAwesome name="sort" size={16} color={colors.primary} />
@@ -110,186 +141,253 @@ export default function ReviewScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Footer Button */}
-                <TouchableOpacity style={styles.footerButton} onPress={() => navigation.goBack()}>
-                    <Text style={styles.footerButtonText}>Xem Thông tin khách sạn</Text>
+                <TouchableOpacity 
+                    style={styles.footerButton} 
+                    onPress={() => navigation.goBack()}
+                >
+                    <LinearGradient
+                        colors={[colors.primary, colors.primary + 'E6']}
+                        style={styles.gradientButton}
+                    >
+                        <Text style={styles.footerButtonText}>
+                            Xem Thông tin khách sạn
+                        </Text>
+                    </LinearGradient>
                 </TouchableOpacity>
-            </View >
-        </>
+            </View>
+        </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff'
+        backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 50,
-        padding: 16,
+        paddingTop: 60,
+        paddingBottom: 20,
+        paddingHorizontal: 20,
+    },
+    backButton: {
+        marginRight: 15,
     },
     headerText: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
-        marginLeft: 90
+        color: '#fff',
+    },
+    content: {
+        flex: 1,
     },
     travelokaSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
         backgroundColor: '#E1F3D8',
-        padding: 16,
-        borderBottomLeftRadius: 10,
-        borderBottomRightRadius: 10,
-        marginHorizontal: 4,
+        padding: 20,
     },
-    travelokaTitle: {
+    scoreContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    totalReviews: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: colors.textSecondary
+        color: colors.textSecondary,
     },
-    travelokaScore: {
-        fontSize: 28,
+    scoreBox: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+    },
+    score: {
+        fontSize: 32,
         fontWeight: 'bold',
         color: colors.primary,
     },
+    maxScore: {
+        fontSize: 20,
+        color: colors.textSecondary,
+        marginLeft: 4,
+    },
     ratingsContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginVertical: 16,
-        marginHorizontal: 10,
-        padding: 12,
-        shadowColor: '#aaa',
-        shadowOpacity: 0.4,
-        shadowRadius: 5,
-        elevation: 5,
-        backgroundColor: '#ffffff',
-        borderRadius: 10,
+        padding: 20,
+        backgroundColor: '#fff',
+        borderRadius: 15,
+        margin: 15,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     column: {
         flex: 1,
-        marginHorizontal: 8
+        marginHorizontal: 8,
     },
     ratingItem: {
-        marginBottom: 10
+        marginBottom: 15,
     },
     ratingLabel: {
-        fontSize: 15,
-        fontWeight: '500',
+        fontSize: 14,
         color: colors.textSecondary,
+        marginBottom: 8,
     },
     boldText: {
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: 'bold',
         color: colors.textPrimary,
     },
     ratingBar: {
         height: 6,
+        borderRadius: 3,
+        position: 'absolute',
+        bottom: 0,
+    },
+    ratingBarBackground: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 6,
         backgroundColor: '#E0E0E0',
         borderRadius: 3,
-        marginTop: 5,
-        overflow: 'hidden'
+        zIndex: -1,
     },
-    ratingFill: {
-        height: '100%',
-        backgroundColor: colors.primary,
-        borderRadius: 3
+    reviewsSection: {
+        padding: 15,
     },
-    title: {
-        marginHorizontal: 10,
-        marginTop: 10,
-        marginBottom: 16,
-    },
-    titleText: {
+    sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
+        marginBottom: 15,
     },
-    reviewContainer: {
-        marginHorizontal: 16,
-        marginBottom: 16,
-        paddingBottom: 18,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0'
+    reviewCard: {
+        backgroundColor: '#fff',
+        borderRadius: 15,
+        padding: 15,
+        marginBottom: 15,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
     reviewHeader: {
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
     },
-    userIcon: {
+    avatar: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#E0E0E0'
     },
-    userInfo: {
-        marginLeft: 10
+    reviewInfo: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    nameContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     userName: {
-        fontWeight: 'bold',
         fontSize: 16,
-        marginBottom: 4,
+        fontWeight: 'bold',
     },
-    userRating: {
-        width: '94%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+    reviewDate: {
+        fontSize: 12,
+        color: colors.textSecondary,
     },
     ratingContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'baseline',
+        marginTop: 4,
     },
     ratingScore: {
-        color: colors.primary,
+        fontSize: 18,
         fontWeight: 'bold',
-        fontSize: 20,
+        color: colors.primary,
     },
-    reviewDate: {
+    ratingMax: {
         fontSize: 14,
         color: colors.textSecondary,
+        marginLeft: 2,
     },
     commentText: {
-        marginTop: 8,
-        fontSize: 18
+        fontSize: 15,
+        color: colors.textPrimary,
+        marginTop: 12,
+        lineHeight: 22,
+    },
+    reviewActions: {
+        flexDirection: 'row',
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    likeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 20,
+    },
+    likeCount: {
+        marginLeft: 6,
+        color: colors.primary,
+        fontSize: 14,
+    },
+    replyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    replyText: {
+        marginLeft: 6,
+        color: colors.primary,
+        fontSize: 14,
+    },
+    footer: {
+        backgroundColor: '#fff',
+        paddingTop: 10,
+        paddingBottom: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
     },
     filterContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        padding: 10,
-        marginVertical: 10,
-        alignItems: 'center',
-        borderBottomWidth: 1,
-        borderTopWidth: 1,
-        borderColor: '#E0E0E0',
+        paddingHorizontal: 15,
+        marginBottom: 15,
     },
     filterButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 10,
-        borderRadius: 5,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: colors.primary
+        borderColor: colors.primary,
     },
     filterText: {
         marginLeft: 8,
-        fontSize: 15,
-        fontWeight: 'bold',
         color: colors.primary,
+        fontSize: 14,
+        fontWeight: '500',
     },
     footerButton: {
-        backgroundColor: '#E1F3D8',
-        padding: 16,
-        marginBottom: 10,
-        marginHorizontal: 16,
-        borderRadius: 30,
-        alignItems: 'center'
+        marginHorizontal: 15,
+        borderRadius: 25,
+        overflow: 'hidden',
+    },
+    gradientButton: {
+        paddingVertical: 15,
+        alignItems: 'center',
     },
     footerButtonText: {
+        color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
-        color: colors.primary,
     },
 });
 
