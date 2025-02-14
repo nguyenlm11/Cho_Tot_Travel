@@ -38,7 +38,7 @@ export default function HomeScreen() {
     const [selectedStar, setSelectedStar] = useState(null);
     const navigation = useNavigation();
     const [isLoading, setIsLoading] = useState(false);
-    const { currentSearch, updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
+    const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
 
     const handleSearch = async () => {
         setIsLoading(true);
@@ -113,15 +113,13 @@ export default function HomeScreen() {
         }, [])
     );
 
-    const handleDateSelect = (date) => {
-        const selected = date.dateString;
-        const formattedDate = new Date(selected);
-        const formattedText = `${formattedDate.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${formattedDate.getDate()}/${formattedDate.getMonth() + 1}/${formattedDate.getFullYear()}`;
-        setCheckInDate(formattedText);
-        setSelectedDate(selected);
+    const handleDateSelect = (date, nights) => {
+        setCheckInDate(date.formattedDate);
+        setSelectedDate(date.dateString);
+        setNumberOfNights(nights);
 
-        const checkOut = new Date(formattedDate);
-        checkOut.setDate(checkOut.getDate() + numberOfNights);
+        const checkOut = new Date(date.dateString);
+        checkOut.setDate(checkOut.getDate() + nights);
         const checkOutText = `${checkOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${checkOut.getDate()}/${checkOut.getMonth() + 1}/${checkOut.getFullYear()}`;
         setCheckOutDate(checkOutText);
         setCalendarVisible(false);
@@ -133,7 +131,6 @@ export default function HomeScreen() {
         setLongitude(selectedLocation.longitude);
     };
 
-    // Render lịch sử tìm kiếm
     const renderSearchHistory = () => (
         <View style={styles.recentSearch}>
             <View style={styles.sectionHeader}>

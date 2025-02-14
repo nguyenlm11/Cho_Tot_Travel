@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Alert, Modal, Platform, KeyboardAvoidingView, Linking } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons, FontAwesome } from "react-native-vector-icons";
+import { colors } from '../../constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
 import axios from "axios";
 
 const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
@@ -79,7 +83,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                 params: {
                     text: text,
                     apikey: API_KEY,
-                    size: 3,
+                    size: 6,
                 },
             });
             setResults(response.data.features || []);
@@ -112,78 +116,126 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
     return (
         <Modal
             visible={visible}
-            animationType="slide"
+            animationType="none"
             transparent
             onRequestClose={onClose}
         >
-            <KeyboardAvoidingView
+            <Animated.View
+                entering={FadeIn}
                 style={styles.modalBackground}
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
             >
-                <View style={styles.modalContainer}>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <FontAwesome name="close" size={20} color="#4A4A4A" />
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>Chọn khách sạn, điểm đến</Text>
+                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
 
-                    <View style={styles.searchBarContainer}>
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Tìm khách sạn, điểm đến"
-                            value={query}
-                            onChangeText={handleSearch}
-                        />
-                        {query.length > 0 && (
-                            <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-                                <Ionicons name="close-circle" size={24} color="#ccc" />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {query.length > 0 && (
-                        <FlatList
-                            data={results}
-                            keyExtractor={(item, index) => index.toString()}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={styles.resultItem}
-                                    onPress={() => handleSelectLocation(item)}
-                                >
-                                    <Ionicons name="location-outline" size={20} color="#000" />
-                                    <Text style={styles.resultText}>{item.properties.label}</Text>
-                                </TouchableOpacity>
-                            )}
-                        />
-                    )}
-
-                    <TouchableOpacity
-                        style={styles.currentLocationContainer}
-                        onPress={handleGetCurrentLocation}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+                    style={styles.keyboardView}
+                >
+                    <Animated.View
+                        entering={SlideInUp}
+                        exiting={SlideOutDown}
+                        style={styles.modalContainer}
                     >
-                        <Ionicons name="location-outline" size={20} color="#000" />
-                        <Text style={styles.currentLocationText}>Vị trí gần bạn</Text>
-                    </TouchableOpacity>
+                        <LinearGradient
+                            colors={[colors.primary, colors.primary + 'E6']}
+                            style={styles.header}
+                        >
+                            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                                <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                                    <FontAwesome name="close" size={20} color="#fff" />
+                                </BlurView>
+                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>Chọn khách sạn, điểm đến</Text>
+                        </LinearGradient>
 
-                    <View style={styles.recentSearchesHeader}>
-                        <Text style={styles.sectionHeader}>Tìm kiếm gần đây</Text>
-                        <TouchableOpacity onPress={handleClearRecentSearches}>
-                            <Text style={styles.clearText}>Xóa</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <FlatList
-                        data={recentSearches}
-                        keyExtractor={(item, index) => index.toString()}
-                        renderItem={({ item }) => (
-                            <View style={styles.listItem}>
-                                <Ionicons name="location-sharp" size={18} color="#000" />
-                                <Text style={styles.listItemText}>{item}</Text>
+                        <View style={styles.content}>
+                            <View style={styles.searchBarContainer}>
+                                <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    placeholder="Tìm khách sạn, điểm đến"
+                                    placeholderTextColor="#666"
+                                    value={query}
+                                    onChangeText={handleSearch}
+                                />
+                                {query.length > 0 && (
+                                    <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
+                                        <BlurView intensity={80} tint="light" style={styles.blurClear}>
+                                            <Ionicons name="close-circle" size={20} color="#666" />
+                                        </BlurView>
+                                    </TouchableOpacity>
+                                )}
                             </View>
-                        )}
-                    />
-                </View>
-            </KeyboardAvoidingView>
+
+                            {query.length > 0 ? (
+                                <FlatList
+                                    data={results}
+                                    keyExtractor={(item, index) => index.toString()}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={styles.resultItem}
+                                            onPress={() => handleSelectLocation(item)}
+                                        >
+                                            <LinearGradient
+                                                colors={['#fff', '#f8f9fa']}
+                                                style={styles.resultGradient}
+                                            >
+                                                <Ionicons name="location-outline" size={20} color={colors.primary} />
+                                                <Text style={styles.resultText}>{item.properties.label}</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    )}
+                                    style={styles.resultsList}
+                                />
+                            ) : (
+                                <>
+                                    <TouchableOpacity
+                                        style={styles.currentLocationButton}
+                                        onPress={handleGetCurrentLocation}
+                                    >
+                                        <LinearGradient
+                                            colors={['#fff', '#f8f9fa']}
+                                            style={styles.locationGradient}
+                                        >
+                                            <View style={styles.locationIconContainer}>
+                                                <Ionicons name="locate" size={20} color={colors.primary} />
+                                            </View>
+                                            <Text style={styles.currentLocationText}>Vị trí gần bạn</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.recentSection}>
+                                        <View style={styles.recentHeader}>
+                                            <Text style={styles.sectionTitle}>Tìm kiếm gần đây</Text>
+                                            {recentSearches.length > 0 && (
+                                                <TouchableOpacity onPress={handleClearRecentSearches}>
+                                                    <Text style={styles.clearText}>Xóa tất cả</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+
+                                        <FlatList
+                                            data={recentSearches}
+                                            keyExtractor={(item, index) => index.toString()}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity style={styles.recentItem}>
+                                                    <LinearGradient
+                                                        colors={['#fff', '#f8f9fa']}
+                                                        style={styles.recentGradient}
+                                                    >
+                                                        <Ionicons name="time-outline" size={20} color={colors.primary} />
+                                                        <Text style={styles.recentText}>{item}</Text>
+                                                    </LinearGradient>
+                                                </TouchableOpacity>
+                                            )}
+                                        />
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    </Animated.View>
+                </KeyboardAvoidingView>
+            </Animated.View>
         </Modal>
     );
 };
@@ -191,93 +243,167 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
 const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
-        justifyContent: "flex-end",
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    keyboardView: {
+        flex: 1,
+        justifyContent: 'flex-end',
     },
     modalContainer: {
-        backgroundColor: "#fff",
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        maxHeight: '90%',
+    },
+    header: {
         padding: 20,
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        alignItems: 'center',
     },
     closeButton: {
         position: 'absolute',
         top: 20,
         right: 20,
-        zIndex: 100,
+        zIndex: 1,
+    },
+    blurButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
     },
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        textAlign: 'center',
-        marginBottom: 20,
+        color: '#fff',
+    },
+    content: {
+        padding: 20,
     },
     searchBarContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        width: "100%",
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
+    },
+    searchIcon: {
+        marginRight: 10,
     },
     searchInput: {
         flex: 1,
         height: 50,
-        borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 8,
-        paddingHorizontal: 12,
+        fontSize: 16,
+        color: '#333',
     },
     clearButton: {
-        position: "absolute",
-        right: 10,
-        top: "50%",
-        transform: [{ translateY: -12 }],
+        marginLeft: 10,
     },
-    currentLocationContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
+    blurClear: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    resultsList: {
+        maxHeight: '80%',
+    },
+    resultItem: {
+        marginBottom: 10,
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    resultGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
+    },
+    resultText: {
+        marginLeft: 10,
+        fontSize: 16,
+        color: '#333',
+    },
+    currentLocationButton: {
+        marginBottom: 20,
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    locationGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
+    },
+    locationIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#f0f9ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
     },
     currentLocationText: {
-        marginLeft: 8,
         fontSize: 16,
+        color: '#333',
+        fontWeight: '500',
     },
-    recentSearchesHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginVertical: 12,
+    recentSection: {
+        marginTop: 10,
     },
-    sectionHeader: {
-        fontSize: 16,
-        fontWeight: "bold",
+    recentHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333',
     },
     clearText: {
         fontSize: 14,
-        color: "#007BFF",
+        color: colors.primary,
+        fontWeight: '600',
     },
-    listItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: "#f0f0f0",
+    recentItem: {
+        marginBottom: 10,
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
-    listItemText: {
-        marginLeft: 8,
+    recentGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
+    },
+    recentText: {
+        marginLeft: 10,
         fontSize: 16,
-    },
-    resultItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#eee",
-    },
-    resultText: {
-        marginLeft: 8,
-        fontSize: 16,
-        color: "#333",
+        color: '#333',
     },
 });
 
