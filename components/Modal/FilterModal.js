@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
 
-export default function FilterModal({
-    visible,
-    onClose,
-    priceFrom,
-    priceTo,
-    selectedStar,
-    setPriceFrom,
-    setPriceTo,
-    setSelectedStar,
-}) {
+const { width, height } = Dimensions.get('window');
+
+export default function FilterModal({ visible, onClose, priceFrom, priceTo, selectedStar, setPriceFrom, setPriceTo, setSelectedStar }) {
     const [tempPriceFrom, setTempPriceFrom] = useState(priceFrom);
     const [tempPriceTo, setTempPriceTo] = useState(priceTo);
     const [tempSelectedStar, setTempSelectedStar] = useState(selectedStar);
@@ -28,21 +24,13 @@ export default function FilterModal({
     }, [visible, priceFrom, priceTo, selectedStar]);
 
     const selectStar = (star) => {
-        if (tempSelectedStar === star) {
-            setTempSelectedStar(null);
-        } else {
-            setTempSelectedStar(star);
-        }
+        setTempSelectedStar(tempSelectedStar === star ? null : star);
     };
 
     const handleConfirm = () => {
         setPriceFrom(tempPriceFrom);
         setPriceTo(tempPriceTo);
         setSelectedStar(tempSelectedStar);
-        onClose();
-    };
-
-    const handleClose = () => {
         onClose();
     };
 
@@ -55,78 +43,110 @@ export default function FilterModal({
     return (
         <Modal
             visible={visible}
-            animationType="slide"
+            animationType="none"
             transparent
-            onRequestClose={handleClose}
+            onRequestClose={onClose}
         >
-            <KeyboardAvoidingView
+            <Animated.View
+                entering={FadeIn}
                 style={styles.modalBackground}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
-                <View style={styles.modalContainer}>
-                    <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                        <FontAwesome name="close" size={20} color="#4A4A4A" />
-                    </TouchableOpacity>
-                    <Text style={styles.title}>Lọc</Text>
+                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Giá phòng mỗi đêm</Text>
-                        <View style={styles.row}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Nhập giá"
-                                keyboardType="numeric"
-                                value={tempPriceFrom}
-                                onChangeText={setTempPriceFrom}
-                            />
-                            <Text style={styles.toText}>Đến</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Nhập giá"
-                                keyboardType="numeric"
-                                value={tempPriceTo}
-                                onChangeText={setTempPriceTo}
-                            />
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+                    style={styles.keyboardView}
+                >
+                    <Animated.View
+                        entering={SlideInUp}
+                        exiting={SlideOutDown}
+                        style={styles.modalContainer}
+                    >
+                        <LinearGradient
+                            colors={[colors.primary, colors.primary + 'E6']}
+                            style={styles.header}
+                        >
+                            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                                <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                                    <FontAwesome name="close" size={20} color="#fff" />
+                                </BlurView>
+                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>Bộ lọc tìm kiếm</Text>
+                        </LinearGradient>
+
+                        <View style={styles.content}>
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Khoảng giá mỗi đêm</Text>
+                                <View style={styles.priceInputContainer}>
+                                    <View style={styles.priceInput}>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Giá từ"
+                                            keyboardType="numeric"
+                                            value={tempPriceFrom}
+                                            onChangeText={setTempPriceFrom}
+                                        />
+                                        <Text style={styles.currency}>đ</Text>
+                                    </View>
+                                    <Text style={styles.separator}>-</Text>
+                                    <View style={styles.priceInput}>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Giá đến"
+                                            keyboardType="numeric"
+                                            value={tempPriceTo}
+                                            onChangeText={setTempPriceTo}
+                                        />
+                                        <Text style={styles.currency}>đ</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Hạng sao</Text>
+                                <View style={styles.starContainer}>
+                                    {starOptions.map((star) => (
+                                        <TouchableOpacity
+                                            key={star}
+                                            onPress={() => selectStar(star)}
+                                            style={styles.starButton}
+                                        >
+                                            <LinearGradient
+                                                colors={tempSelectedStar === star
+                                                    ? [colors.primary, colors.primary + 'E6']
+                                                    : ['#fff', '#f8f9fa']}
+                                                style={styles.starGradient}
+                                            >
+                                                <Text style={[
+                                                    styles.starText,
+                                                    tempSelectedStar === star && styles.selectedStarText
+                                                ]}>
+                                                    {star} sao
+                                                </Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
                         </View>
-                    </View>
 
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Hạng sao</Text>
-                        <View style={styles.row}>
-                            {starOptions.map((star) => (
-                                <TouchableOpacity
-                                    key={star}
-                                    style={[
-                                        styles.starButton,
-                                        tempSelectedStar === star && styles.selectedStar,
-                                    ]}
-                                    onPress={() => selectStar(star)}
+                        <View style={styles.footer}>
+                            <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
+                                <Text style={styles.clearButtonText}>Xóa bộ lọc</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                                <LinearGradient
+                                    colors={[colors.primary, colors.primary + 'E6']}
+                                    style={styles.gradientConfirmButton}
                                 >
-                                    <Text
-                                        style={
-                                            tempSelectedStar === star
-                                                ? styles.selectedStarText
-                                                : styles.starText
-                                        }
-                                    >
-                                        {star} sao
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                                    <Text style={styles.confirmButtonText}>Áp dụng</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </View>
-                    </View>
-
-                    <View style={styles.actionsRow}>
-                        <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
-                            <Text style={styles.clearButtonText}>Xóa bộ lọc</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.applyButton} onPress={handleConfirm}>
-                            <Text style={styles.applyButtonText}>Áp dụng</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </KeyboardAvoidingView>
+                    </Animated.View>
+                </KeyboardAvoidingView>
+            </Animated.View>
         </Modal>
     );
 }
@@ -136,89 +156,145 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
-        alignItems: 'center',
+    },
+    keyboardView: {
+        flex: 1,
+        justifyContent: 'flex-end',
     },
     modalContainer: {
-        width: '100%',
-        backgroundColor: 'white',
-        borderRadius: 10,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        maxHeight: height * 0.9,
+    },
+    header: {
         padding: 20,
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        alignItems: 'center',
     },
     closeButton: {
         position: 'absolute',
         top: 20,
         right: 20,
-        zIndex: 100,
+        zIndex: 1,
     },
-    title: {
+    blurButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        textAlign: 'center',
-        marginBottom: 20,
+        color: '#fff',
+    },
+    content: {
+        padding: 20,
     },
     section: {
-        marginBottom: 20,
+        marginBottom: 24,
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 10,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 12,
     },
-    row: {
+    priceInputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    priceInput: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e9ecef',
+        paddingHorizontal: 12,
     },
     input: {
         flex: 1,
-        borderWidth: 1,
-        borderColor: 'gray',
-        borderRadius: 5,
-        padding: 10,
-        marginRight: 10,
+        height: 50,
+        fontSize: 16,
+        color: '#333',
     },
-    toText: {
-        marginHorizontal: 5,
+    currency: {
+        fontSize: 16,
+        color: '#666',
+        marginLeft: 4,
+    },
+    separator: {
+        marginHorizontal: 12,
+        fontSize: 16,
+        color: '#666',
+    },
+    starContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
     },
     starButton: {
-        borderWidth: 1,
-        borderColor: 'gray',
-        borderRadius: 5,
-        padding: 10,
-        marginRight: 10,
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
-    selectedStar: {
-        backgroundColor: colors.primary,
-        borderColor: colors.primary,
+    starGradient: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        alignItems: 'center',
     },
     starText: {
-        color: 'gray',
+        fontSize: 14,
+        color: '#666',
+        fontWeight: '500',
     },
     selectedStarText: {
-        color: colors.textThird,
+        color: '#fff',
     },
-    actionsRow: {
+    footer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        gap: 12,
     },
     clearButton: {
         flex: 1,
-        backgroundColor: '#f0f0f0',
-        padding: 15,
-        borderRadius: 5,
-        marginRight: 10,
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        padding: 16,
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e9ecef',
     },
     clearButtonText: {
-        color: 'black',
+        color: '#666',
+        fontSize: 16,
+        fontWeight: '600',
     },
-    applyButton: {
+    confirmButton: {
         flex: 1,
-        backgroundColor: colors.primary,
-        padding: 15,
-        borderRadius: 5,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    gradientConfirmButton: {
+        padding: 16,
         alignItems: 'center',
     },
-    applyButtonText: {
-        color: colors.textThird,
+    confirmButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

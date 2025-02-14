@@ -10,7 +10,6 @@ import { BlurView } from 'expo-blur';
 
 const { width, height } = Dimensions.get('window');
 
-// Import các modal components
 import LocationSearchModal from './LocationSearchModal';
 import CalendarModal from './CalendarModal';
 import GuestModal from './GuestModal';
@@ -23,23 +22,29 @@ const EditSearchModal = ({ visible, onClose }) => {
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [isGuestModalVisible, setGuestModalVisible] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(currentSearch.checkInDate);
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const dateStr = currentSearch.checkInDate;
+        if (!dateStr) return new Date().toISOString().split('T')[0];
 
-    const handleDateSelect = (date) => {
-        const selected = date.dateString;
-        const formattedDate = new Date(selected);
-        const formattedText = `${formattedDate.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${formattedDate.getDate()}/${formattedDate.getMonth() + 1}/${formattedDate.getFullYear()}`;
+        const dateParts = dateStr.split(', ')[1].split('/');
+        if (dateParts.length !== 3) return new Date().toISOString().split('T')[0];
 
+        const [day, month, year] = dateParts;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    });
+
+    const handleDateSelect = (date, nights) => {
         updateCurrentSearch({
-            checkInDate: formattedText,
+            checkInDate: date.formattedDate,
+            numberOfNights: nights
         });
-        setSelectedDate(selected);
+        setSelectedDate(date.dateString);
 
-        const checkOut = new Date(formattedDate);
-        checkOut.setDate(checkOut.getDate() + currentSearch.numberOfNights);
+        const checkOut = new Date(date.dateString);
+        checkOut.setDate(checkOut.getDate() + nights);
         const checkOutText = `${checkOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${checkOut.getDate()}/${checkOut.getMonth() + 1}/${checkOut.getFullYear()}`;
         updateCurrentSearch({
-            checkOutDate: checkOutText,
+            checkOutDate: checkOutText
         });
         setCalendarVisible(false);
     };
