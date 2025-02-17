@@ -4,7 +4,7 @@ import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,12 +43,12 @@ export default function FilterModal({ visible, onClose, priceFrom, priceTo, sele
     return (
         <Modal
             visible={visible}
-            animationType="none"
-            transparent
+            animationType="slide"
+            transparent={true}
             onRequestClose={onClose}
         >
             <Animated.View
-                entering={FadeIn}
+                entering={FadeInDown}
                 style={styles.modalBackground}
             >
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
@@ -59,7 +59,7 @@ export default function FilterModal({ visible, onClose, priceFrom, priceTo, sele
                     style={styles.keyboardView}
                 >
                     <Animated.View
-                        entering={SlideInUp}
+                        entering={FadeInDown}
                         exiting={SlideOutDown}
                         style={styles.modalContainer}
                     >

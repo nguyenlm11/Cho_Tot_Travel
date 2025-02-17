@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Linking } from 'react-native';
 import MapView, { UrlTile, Marker, Polyline, Callout } from 'react-native-maps';
 import axios from 'axios';
 import * as Location from 'expo-location';
@@ -22,12 +22,18 @@ export default function MapScreen() {
 
     const getUserLocation = async () => {
         let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert("Lỗi", "Ứng dụng cần quyền truy cập vị trí để hoạt động");
-            return null;
+        if (status !== "granted") {
+            Alert.alert(
+                "Quyền bị từ chối",
+                "Ứng dụng cần quyền truy cập vị trí để hoạt động. Vui lòng cấp quyền trong cài đặt.",
+                [
+                    { text: "Hủy", style: "cancel" },
+                    { text: "Mở Cài đặt", onPress: () => Linking.openSettings() },
+                ]);
+            return;
         }
 
-        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         return {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
@@ -92,7 +98,6 @@ export default function MapScreen() {
             }
         } catch (error) {
             Alert.alert("Lỗi", "Không thể tải tuyến đường");
-            setShowRoute(false);
         }
     };
 

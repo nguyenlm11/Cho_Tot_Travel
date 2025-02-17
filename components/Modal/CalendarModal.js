@@ -4,7 +4,7 @@ import { Calendar } from 'react-native-calendars';
 import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
@@ -84,14 +84,14 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
     );
 
     return (
-        <Modal animationType="none" transparent={true} visible={visible} onRequestClose={handleModalClose}>
+        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={handleModalClose}>
             <Animated.View
-                entering={FadeIn}
+                entering={FadeInDown}
                 style={styles.modalBackground}
             >
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
                 <Animated.View
-                    entering={SlideInUp}
+                    entering={FadeInDown}
                     exiting={SlideOutDown}
                     style={styles.calendarContainer}
                 >

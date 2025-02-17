@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
+import { useNavigation } from '@react-navigation/native';
 const DetailRoomScreen = ({ route }) => {
   const { image, title, size, guests, beds, price } = route.params;
+  const navigation = useNavigation();
 
   return (
     <ScrollView style={styles.container}>
@@ -52,7 +54,7 @@ const DetailRoomScreen = ({ route }) => {
           <Text style={styles.taxInfo}>Đã bao gồm thuế</Text>
         </View>
 
-        <TouchableOpacity style={styles.bookingButton}>
+        <TouchableOpacity style={styles.bookingButton} onPress={() => navigation.navigate('Checkout')}>
           <Text style={styles.buttonText}>Đặt phòng</Text>
         </TouchableOpacity>
       </View>

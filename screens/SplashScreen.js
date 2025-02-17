@@ -65,7 +65,7 @@ export default function SplashScreen() {
             >
                 <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
                     <Image
-                        source={require('../assets/icon.png')}
+                        source={require('../assets/logo.png')}
                         style={styles.logo}
                         resizeMode="contain"
                     />
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     logo: {
         width: width * 0.4,
         height: width * 0.4,
-        tintColor: '#fff',
+        // tintColor: '#fff',
     },
     textContainer: {
         alignItems: 'center',

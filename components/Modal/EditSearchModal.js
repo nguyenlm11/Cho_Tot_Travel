@@ -5,7 +5,7 @@ import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { useSearch } from '../../contexts/SearchContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, SlideInDown, SlideOutUp } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
 const { width, height } = Dimensions.get('window');
@@ -66,11 +66,12 @@ const EditSearchModal = ({ visible, onClose }) => {
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <Animated.View
-                entering={FadeIn}
+                entering={FadeInDown}
                 style={styles.modalBackground}
             >
                 <Animated.View
                     entering={SlideInDown}
+                    exiting={SlideOutUp}
                     style={styles.modalContainer}
                 >
                     <LinearGradient

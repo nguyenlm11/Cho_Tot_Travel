@@ -17,6 +17,7 @@ import ReviewScreen from '../screens/ReviewScreen';
 import MapScreen from '../screens/MapScreen';
 
 import { colors } from '../constants/Colors';
+import CheckoutScreen from '../screens/CheckoutScreen';
 
 const Stack = createStackNavigator();
 
@@ -77,8 +78,8 @@ const MainStack = () => {
 
     return (
         <Stack.Navigator screenOptions={defaultScreenOptions}>
-            <Stack.Screen 
-                name="MainTabs" 
+            <Stack.Screen
+                name="MainTabs"
                 component={BottomTabNavigator}
                 options={{ headerShown: false }}
             />
@@ -87,19 +88,19 @@ const MainStack = () => {
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
-
+            <Stack.Screen name="Checkout" component={CheckoutScreen} />
             {/* Modal Screens */}
             <Stack.Group screenOptions={modalScreenOptions}>
-                <Stack.Screen 
-                    name="ListRoom" 
+                <Stack.Screen
+                    name="ListRoom"
                     component={ListRoomScreen}
                     options={{
                         headerShown: true,
                         headerTitle: "Danh sách phòng",
                     }}
                 />
-                <Stack.Screen 
-                    name="DetailRoom" 
+                <Stack.Screen
+                    name="DetailRoom"
                     component={DetailRoomScreen}
                     options={{
                         headerShown: true,
@@ -113,7 +114,7 @@ const MainStack = () => {
 
 const RootNavigator = () => {
     return (
-        <Stack.Navigator 
+        <Stack.Navigator
             initialRouteName="Splash"
             screenOptions={{ headerShown: false }}
         >
@@ -127,8 +128,8 @@ const RootNavigator = () => {
             </Stack.Group>
 
             {/* Main Stack */}
-            <Stack.Screen 
-                name="MainTabs" 
+            <Stack.Screen
+                name="MainTabs"
                 component={MainStack}
                 options={{
                     gestureEnabled: false,

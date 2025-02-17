@@ -5,7 +5,7 @@ import { Ionicons, FontAwesome } from "react-native-vector-icons";
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, SlideInUp, SlideOutDown } from 'react-native-reanimated';
 import axios from "axios";
 
 const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
@@ -116,12 +116,12 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
     return (
         <Modal
             visible={visible}
-            animationType="none"
+            animationType="slide"
             transparent
             onRequestClose={onClose}
         >
             <Animated.View
-                entering={FadeIn}
+                entering={FadeInDown}
                 style={styles.modalBackground}
             >
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
@@ -132,7 +132,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                     style={styles.keyboardView}
                 >
                     <Animated.View
-                        entering={SlideInUp}
+                        entering={FadeInDown}
                         exiting={SlideOutDown}
                         style={styles.modalContainer}
                     >
