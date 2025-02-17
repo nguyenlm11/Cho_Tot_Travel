@@ -4,7 +4,7 @@ import { FontAwesome, Ionicons } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, SlideInUp, SlideOutDown } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
@@ -73,18 +73,18 @@ export default function GuestModal({ visible, onClose, rooms, adults, children, 
     return (
         <Modal
             visible={visible}
-            animationType="none"
+            animationType="slide"
             transparent={true}
             onRequestClose={handleClose}
         >
             <Animated.View
-                entering={FadeIn}
+                entering={FadeInDown}
                 style={styles.modalBackground}
             >
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
                 
                 <Animated.View
-                    entering={SlideInUp}
+                    entering={FadeInDown}
                     exiting={SlideOutDown}
                     style={styles.modalContainer}
                 >
