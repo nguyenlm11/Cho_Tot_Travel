@@ -11,21 +11,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function ResultScreen() {
     const { currentSearch } = useSearch();
-    
-    const {
-        location,
-        checkInDate,
-        checkOutDate,
-        numberOfNights,
-        rooms,
-        adults,
-        children,
-        priceFrom,
-        priceTo,
-        selectedStar,
-        latitude,
-        longitude,
-    } = currentSearch;
+
+    const { location, checkInDate, checkOutDate, numberOfNights, rooms, adults, children, priceFrom, priceTo,
+        selectedStar, latitude, longitude } = currentSearch;
 
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -94,7 +82,7 @@ export default function ResultScreen() {
     };
 
     const renderItem = ({ item, index }) => (
-        <Animated.View 
+        <Animated.View
             entering={FadeInDown.delay(index * 100)}
             style={styles.cardContainer}
         >
@@ -113,7 +101,7 @@ export default function ResultScreen() {
                             <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
                             {renderStars(item.rating)}
                         </View>
-                        
+
                         <View style={styles.locationContainer}>
                             <Ionicons name="location-outline" size={16} color={colors.primary} />
                             <Text style={styles.address} numberOfLines={1}>
@@ -121,9 +109,9 @@ export default function ResultScreen() {
                             </Text>
                         </View>
 
-                        <ScrollView 
-                            horizontal 
-                            showsHorizontalScrollIndicator={false} 
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
                             style={styles.featuresScroll}
                         >
                             {item.features.map((feature, index) => (
@@ -156,7 +144,7 @@ export default function ResultScreen() {
                 colors={[colors.primary, colors.primary + 'E6']}
                 style={styles.header}
             >
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
@@ -168,8 +156,8 @@ export default function ResultScreen() {
             </LinearGradient>
 
             <View style={styles.filterBar}>
-                <ScrollView 
-                    horizontal 
+                <ScrollView
+                    horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.filterScrollContent}
                 >
@@ -197,7 +185,7 @@ export default function ResultScreen() {
                     </TouchableOpacity>
                 </ScrollView>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={styles.editButton}
                     onPress={() => setEditModalVisible(true)}
                 >

@@ -78,27 +78,16 @@ const MainStack = () => {
 
     return (
         <Stack.Navigator screenOptions={defaultScreenOptions}>
-            <Stack.Screen
-                name="MainTabs"
-                component={BottomTabNavigator}
-                options={{ headerShown: false }}
-            />
+            <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="ListRoom" component={ListRoomScreen} />
             {/* Modal Screens */}
             <Stack.Group screenOptions={modalScreenOptions}>
-                <Stack.Screen
-                    name="ListRoom"
-                    component={ListRoomScreen}
-                    options={{
-                        headerShown: true,
-                        headerTitle: "Danh sách phòng",
-                    }}
-                />
                 <Stack.Screen
                     name="DetailRoom"
                     component={DetailRoomScreen}
@@ -115,28 +104,15 @@ const MainStack = () => {
 const RootNavigator = () => {
     return (
         <Stack.Navigator
+            screenOptions={defaultScreenOptions}
             initialRouteName="Splash"
-            screenOptions={{ headerShown: false }}
         >
-            {/* Auth Stack */}
-            <Stack.Group>
-                <Stack.Screen name="Splash" component={SplashScreen} />
-                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-                <Stack.Screen name="Login" component={LoginScreen} />
-                <Stack.Screen name="Register" component={RegisterScreen} />
-                <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-            </Stack.Group>
-
-            {/* Main Stack */}
-            <Stack.Screen
-                name="MainTabs"
-                component={MainStack}
-                options={{
-                    gestureEnabled: false,
-                    animationEnabled: true,
-                    ...TransitionPresets.SlideFromRightIOS,
-                }}
-            />
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+            <Stack.Screen name="MainTabs" component={MainStack} />
         </Stack.Navigator>
     );
 };

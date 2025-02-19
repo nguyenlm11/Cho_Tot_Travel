@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, FlatList, Dimensions } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, FlatList, Dimensions, Platform, StatusBar } from 'react-native';
 import { FontAwesome6, MaterialIcons, Ionicons } from 'react-native-vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
+import ImageViewer from '../components/ImageViewer';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +20,7 @@ export default function HomeStayDetailScreen() {
     const navigation = useNavigation();
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [expanded, setExpanded] = useState(false);
+    const [imageViewerVisible, setImageViewerVisible] = useState(false);
 
     const handleListRoom = () => {
         navigation.navigate('ListRoom');
@@ -65,7 +67,12 @@ export default function HomeStayDetailScreen() {
                             setCurrentImageIndex(newIndex);
                         }}
                         renderItem={({ item }) => (
-                            <Image source={{ uri: item }} style={styles.hotelImage} />
+                            <TouchableOpacity 
+                                activeOpacity={0.9}
+                                onPress={() => setImageViewerVisible(true)}
+                            >
+                                <Image source={{ uri: item }} style={styles.hotelImage} />
+                            </TouchableOpacity>
                         )}
                         keyExtractor={(_, index) => index.toString()}
                     />
@@ -242,6 +249,13 @@ export default function HomeStayDetailScreen() {
                     </LinearGradient>
                 </TouchableOpacity>
             </Animated.View>
+
+            <ImageViewer
+                visible={imageViewerVisible}
+                images={hotelImages}
+                initialIndex={currentImageIndex}
+                onClose={() => setImageViewerVisible(false)}
+            />
         </View>
     );
 }
@@ -270,7 +284,7 @@ const styles = StyleSheet.create({
         height: 100,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingTop: 50,
+        paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 10,
         paddingHorizontal: 20,
     },
     blurButton: {

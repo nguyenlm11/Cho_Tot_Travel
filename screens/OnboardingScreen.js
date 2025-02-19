@@ -2,8 +2,9 @@ import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
 import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInRight, FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,7 +13,7 @@ const data = [
         id: '1',
         title: 'Dễ dàng đặt phòng\nchỉ với vài chạm',
         description: 'Tìm kiếm và đặt phòng nhanh chóng, tiện lợi với giao diện thân thiện.',
-        image: 'https://images.unsplash.com/photo-1553444862-65de13a9e728?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxMjA3fDB8MXxzZWFyY2h8M3x8aG9tZXN0YXl8fDB8fHx8MTYyNzkwODUxNg&ixlib=rb-1.2.1&q=80&w=1080',
+        image: 'https://images.unsplash.com/photo-1553444862-65de13a9e728',
     },
     {
         id: '2',
@@ -41,7 +42,7 @@ const OnboardingScreen = ({ navigation }) => {
             />
             
             <Animated.View 
-                entering={FadeInRight.delay(index * 100)}
+                entering={FadeInRight.delay(index * 100).springify()}
                 style={styles.contentContainer}
             >
                 <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
@@ -51,6 +52,21 @@ const OnboardingScreen = ({ navigation }) => {
             </Animated.View>
         </View>
     );
+
+    const handleNext = () => {
+        if (currentIndex < data.length - 1) {
+            flatListRef.current?.scrollToIndex({
+                index: currentIndex + 1,
+                animated: true,
+            });
+        } else {
+            navigation.replace('Login');
+        }
+    };
+
+    const handleSkip = () => {
+        navigation.replace('Login');
+    };
 
     return (
         <View style={styles.container}>
@@ -68,16 +84,18 @@ const OnboardingScreen = ({ navigation }) => {
                     const index = Math.round(event.nativeEvent.contentOffset.x / width);
                     setCurrentIndex(index);
                 }}
+                decelerationRate="fast"
             />
 
             <Animated.View 
-                entering={FadeIn}
+                entering={FadeInDown.delay(500).springify()}
                 style={styles.footer}
             >
                 <View style={styles.pagination}>
                     {data.map((_, index) => (
-                        <View
+                        <Animated.View
                             key={index}
+                            entering={FadeIn.delay(index * 100)}
                             style={[
                                 styles.dot,
                                 currentIndex === index && styles.activeDot,
@@ -89,25 +107,18 @@ const OnboardingScreen = ({ navigation }) => {
                 <View style={styles.buttonContainer}>
                     {currentIndex !== data.length - 1 && (
                         <TouchableOpacity 
-                            onPress={() => navigation.navigate('MainTabs')}
+                            onPress={handleSkip}
                             style={styles.skipButton}
                         >
-                            <Text style={styles.skipButtonText}>Bỏ qua</Text>
+                            <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                                <Text style={styles.skipButtonText}>Bỏ qua</Text>
+                            </BlurView>
                         </TouchableOpacity>
                     )}
 
                     <TouchableOpacity
                         style={styles.nextButton}
-                        onPress={() => {
-                            if (currentIndex < data.length - 1) {
-                                flatListRef.current?.scrollToIndex({
-                                    index: currentIndex + 1,
-                                    animated: true,
-                                });
-                            } else {
-                                navigation.navigate('MainTabs');
-                            }
-                        }}
+                        onPress={handleNext}
                     >
                         <LinearGradient
                             colors={[colors.primary, colors.primary + 'CC']}
@@ -116,6 +127,12 @@ const OnboardingScreen = ({ navigation }) => {
                             <Text style={styles.nextButtonText}>
                                 {currentIndex === data.length - 1 ? 'Bắt đầu' : 'Tiếp theo'}
                             </Text>
+                            <MaterialIcons 
+                                name="arrow-forward" 
+                                size={24} 
+                                color="#fff" 
+                                style={styles.arrowIcon}
+                            />
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
@@ -142,29 +159,30 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        height: '60%',
+        height: '70%',
     },
     contentContainer: {
         position: 'absolute',
-        bottom: 150,
+        bottom: 180,
         left: 20,
         right: 20,
     },
     blurContainer: {
-        padding: 20,
-        borderRadius: 20,
+        padding: 24,
+        borderRadius: 24,
         overflow: 'hidden',
+        backgroundColor: 'rgba(0,0,0,0.3)',
     },
     title: {
         fontSize: 32,
         fontWeight: 'bold',
         color: '#fff',
-        marginBottom: 15,
+        marginBottom: 16,
         lineHeight: 40,
     },
     description: {
         fontSize: 16,
-        color: 'rgba(255,255,255,0.8)',
+        color: 'rgba(255,255,255,0.9)',
         lineHeight: 24,
     },
     footer: {
@@ -172,12 +190,12 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        padding: 20,
+        padding: 24,
     },
     pagination: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
     dot: {
         width: 8,
@@ -196,7 +214,12 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     skipButton: {
-        padding: 15,
+        overflow: 'hidden',
+        borderRadius: 28,
+    },
+    blurButton: {
+        padding: 16,
+        paddingHorizontal: 24,
     },
     skipButtonText: {
         color: '#fff',
@@ -205,20 +228,26 @@ const styles = StyleSheet.create({
     },
     nextButton: {
         flex: 1,
-        marginLeft: 20,
+        marginLeft: 16,
         height: 56,
         borderRadius: 28,
         overflow: 'hidden',
     },
     gradientButton: {
         flex: 1,
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 24,
     },
     nextButtonText: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
+        marginRight: 8,
+    },
+    arrowIcon: {
+        marginLeft: 4,
     },
 });
 

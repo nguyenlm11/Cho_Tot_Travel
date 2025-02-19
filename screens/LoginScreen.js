@@ -15,6 +15,7 @@ export default function LoginScreen() {
     const handleLogin = () => {
         console.log("Email: ", email);
         console.log("Password: ", password);
+        navigation.navigate("MainTabs");
     }
 
     return (

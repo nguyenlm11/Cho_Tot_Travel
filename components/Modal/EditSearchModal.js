@@ -64,7 +64,12 @@ const EditSearchModal = ({ visible, onClose }) => {
     };
 
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+        <Modal
+            visible={visible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={onClose}
+        >
             <Animated.View
                 entering={FadeInDown}
                 style={styles.modalBackground}
@@ -221,7 +226,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        maxHeight: height * 0.9,
+        maxHeight: height * 0.65,
     },
     header: {
         padding: 20,
