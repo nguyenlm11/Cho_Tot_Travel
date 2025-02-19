@@ -60,7 +60,7 @@ const BottomTabNavigator = () => {
                 name="Booking"
                 component={BookingListScreen}
                 options={{
-                    tabBarLabel: 'Đặt phòng',
+                    tabBarLabel: 'Phòng đã đặt',
                 }}
             />
             <Tab.Screen
