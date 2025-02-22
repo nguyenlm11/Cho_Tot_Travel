@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, Dimensions } from 'react-native';
-import { FontAwesome, Ionicons } from 'react-native-vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, FadeInDown, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
@@ -13,13 +13,6 @@ export default function GuestModal({ visible, onClose, rooms, adults, children, 
     const [tempAdults, setTempAdults] = useState(adults);
     const [tempChildren, setTempChildren] = useState(children);
 
-    const handleConfirm = () => {
-        setRooms(tempRooms);
-        setAdults(tempAdults);
-        setChildren(tempChildren);
-        onClose();
-    };
-
     const handleClose = () => {
         setTempRooms(rooms);
         setTempAdults(adults);
@@ -27,54 +20,26 @@ export default function GuestModal({ visible, onClose, rooms, adults, children, 
         onClose();
     };
 
-    const renderCounter = (label, value, onDecrease, onIncrease, min, max) => (
-        <View style={styles.counterRow}>
-            <Text style={styles.counterLabel}>{label}</Text>
-            <View style={styles.counterControls}>
-                <TouchableOpacity
-                    onPress={onDecrease}
-                    style={[styles.counterButton, value === min && styles.disabledButton]}
-                    disabled={value === min}
-                >
-                    <LinearGradient
-                        colors={value === min ? ['#f0f0f0', '#e0e0e0'] : ['#fff', '#f8f9fa']}
-                        style={styles.gradientButton}
-                    >
-                        <Ionicons
-                            name="remove"
-                            size={24}
-                            color={value === min ? '#C0C0C0' : colors.primary}
-                        />
-                    </LinearGradient>
-                </TouchableOpacity>
-                <View style={styles.counterValueContainer}>
-                    <Text style={styles.counterValue}>{value}</Text>
-                </View>
-                <TouchableOpacity
-                    onPress={onIncrease}
-                    style={[styles.counterButton, value === max && styles.disabledButton]}
-                    disabled={value === max}
-                >
-                    <LinearGradient
-                        colors={value === max ? ['#f0f0f0', '#e0e0e0'] : ['#fff', '#f8f9fa']}
-                        style={styles.gradientButton}
-                    >
-                        <Ionicons
-                            name="add"
-                            size={24}
-                            color={value === max ? '#C0C0C0' : colors.primary}
-                        />
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-        </View>
-    );
+    const handleSave = () => {
+        setRooms(tempRooms);
+        setAdults(tempAdults);
+        setChildren(tempChildren);
+        onClose();
+    };
+
+    const handleIncrement = (setter, value, max) => {
+        if (value < max) setter(value + 1);
+    };
+
+    const handleDecrement = (setter, value, min) => {
+        if (value > min) setter(value - 1);
+    };
 
     return (
         <Modal
             visible={visible}
             animationType="slide"
-            transparent={true}
+            transparent
             onRequestClose={handleClose}
         >
             <Animated.View
@@ -82,62 +47,130 @@ export default function GuestModal({ visible, onClose, rooms, adults, children, 
                 style={styles.modalBackground}
             >
                 <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-                
-                <Animated.View
-                    entering={FadeInDown}
-                    exiting={SlideOutDown}
-                    style={styles.modalContainer}
+
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.keyboardView}
                 >
-                    <LinearGradient
-                        colors={[colors.primary, colors.primary + 'E6']}
-                        style={styles.header}
+                    <Animated.View
+                        entering={FadeInDown}
+                        exiting={SlideOutDown}
+                        style={styles.modalContainer}
                     >
-                        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                            <BlurView intensity={80} tint="dark" style={styles.blurButton}>
-                                <FontAwesome name="close" size={20} color="#fff" />
-                            </BlurView>
-                        </TouchableOpacity>
-                        <Text style={styles.modalTitle}>Chọn số phòng và khách</Text>
-                    </LinearGradient>
+                        <LinearGradient
+                            colors={[colors.primary, colors.primary + 'E6']}
+                            style={styles.header}
+                        >
+                            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+                                <BlurView intensity={80} tint="dark" style={styles.blurButton}>
+                                    <FontAwesome name="close" size={20} color="#fff" />
+                                </BlurView>
+                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>Số lượng khách & phòng</Text>
+                        </LinearGradient>
 
-                    <ScrollView style={styles.content}>
-                        {renderCounter(
-                            'Phòng',
-                            tempRooms,
-                            () => setTempRooms(Math.max(1, tempRooms - 1)),
-                            () => setTempRooms(Math.min(8, tempRooms + 1)),
-                            1,
-                            8
-                        )}
-                        {renderCounter(
-                            'Người lớn',
-                            tempAdults,
-                            () => setTempAdults(Math.max(1, tempAdults - 1)),
-                            () => setTempAdults(Math.min(32, tempAdults + 1)),
-                            1,
-                            32
-                        )}
-                        {renderCounter(
-                            'Trẻ em',
-                            tempChildren,
-                            () => setTempChildren(Math.max(0, tempChildren - 1)),
-                            () => setTempChildren(Math.min(6, tempChildren + 1)),
-                            0,
-                            6
-                        )}
-                    </ScrollView>
+                        <View style={styles.content}>
+                            {/* Rooms Selection */}
+                            <View style={styles.selectionCard}>
+                                <View style={styles.selectionInfo}>
+                                    <View style={styles.iconContainer}>
+                                        <FontAwesome name="bed" size={24} color={colors.primary} />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.selectionTitle}>Số phòng</Text>
+                                        <Text style={styles.selectionDesc}>Tối đa 5 phòng</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.counterContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.counterButton, tempRooms <= 1 && styles.counterButtonDisabled]}
+                                        onPress={() => handleDecrement(setTempRooms, tempRooms, 1)}
+                                        disabled={tempRooms <= 1}
+                                    >
+                                        <FontAwesome name="minus" size={20} color={tempRooms <= 1 ? '#ccc' : colors.primary} />
+                                    </TouchableOpacity>
+                                    <Text style={styles.counterText}>{tempRooms}</Text>
+                                    <TouchableOpacity
+                                        style={[styles.counterButton, tempRooms >= 5 && styles.counterButtonDisabled]}
+                                        onPress={() => handleIncrement(setTempRooms, tempRooms, 5)}
+                                        disabled={tempRooms >= 5}
+                                    >
+                                        <FontAwesome name="plus" size={20} color={tempRooms >= 5 ? '#ccc' : colors.primary} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
 
-                    <View style={styles.footer}>
-                        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                            {/* Adults Selection */}
+                            <View style={styles.selectionCard}>
+                                <View style={styles.selectionInfo}>
+                                    <View style={styles.iconContainer}>
+                                        <FontAwesome name="user" size={24} color={colors.primary} />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.selectionTitle}>Người lớn</Text>
+                                        <Text style={styles.selectionDesc}>Từ 13 tuổi trở lên</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.counterContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.counterButton, tempAdults <= 1 && styles.counterButtonDisabled]}
+                                        onPress={() => handleDecrement(setTempAdults, tempAdults, 1)}
+                                        disabled={tempAdults <= 1}
+                                    >
+                                        <FontAwesome name="minus" size={20} color={tempAdults <= 1 ? '#ccc' : colors.primary} />
+                                    </TouchableOpacity>
+                                    <Text style={styles.counterText}>{tempAdults}</Text>
+                                    <TouchableOpacity
+                                        style={[styles.counterButton, tempAdults >= 10 && styles.counterButtonDisabled]}
+                                        onPress={() => handleIncrement(setTempAdults, tempAdults, 10)}
+                                        disabled={tempAdults >= 10}
+                                    >
+                                        <FontAwesome name="plus" size={20} color={tempAdults >= 10 ? '#ccc' : colors.primary} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {/* Children Selection */}
+                            <View style={styles.selectionCard}>
+                                <View style={styles.selectionInfo}>
+                                    <View style={styles.iconContainer}>
+                                        <FontAwesome name="child" size={24} color={colors.primary} />
+                                    </View>
+                                    <View>
+                                        <Text style={styles.selectionTitle}>Trẻ em</Text>
+                                        <Text style={styles.selectionDesc}>Dưới 13 tuổi</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.counterContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.counterButton, tempChildren <= 0 && styles.counterButtonDisabled]}
+                                        onPress={() => handleDecrement(setTempChildren, tempChildren, 0)}
+                                        disabled={tempChildren <= 0}
+                                    >
+                                        <FontAwesome name="minus" size={20} color={tempChildren <= 0 ? '#ccc' : colors.primary} />
+                                    </TouchableOpacity>
+                                    <Text style={styles.counterText}>{tempChildren}</Text>
+                                    <TouchableOpacity
+                                        style={[styles.counterButton, tempChildren >= 5 && styles.counterButtonDisabled]}
+                                        onPress={() => handleIncrement(setTempChildren, tempChildren, 5)}
+                                        disabled={tempChildren >= 5}
+                                    >
+                                        <FontAwesome name="plus" size={20} color={tempChildren >= 5 ? '#ccc' : colors.primary} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                             <LinearGradient
                                 colors={[colors.primary, colors.primary + 'E6']}
-                                style={styles.gradientConfirmButton}
+                                style={styles.gradientButton}
                             >
-                                <Text style={styles.confirmButtonText}>Xác nhận</Text>
+                                <Text style={styles.saveButtonText}>Xác nhận</Text>
                             </LinearGradient>
                         </TouchableOpacity>
-                    </View>
-                </Animated.View>
+                    </Animated.View>
+                </KeyboardAvoidingView>
             </Animated.View>
         </Modal>
     );
@@ -146,20 +179,22 @@ export default function GuestModal({ visible, onClose, rooms, adults, children, 
 const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    keyboardView: {
+        flex: 1,
         justifyContent: 'flex-end',
     },
     modalContainer: {
         backgroundColor: '#fff',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        maxHeight: height * 0.9,
+        overflow: 'hidden',
     },
     header: {
         padding: 20,
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        alignItems: 'center',
     },
     closeButton: {
         position: 'absolute',
@@ -176,80 +211,82 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
+        textAlign: 'center',
     },
     content: {
         padding: 20,
     },
-    counterRow: {
+    selectionCard: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#fff',
-        padding: 16,
+        padding: 15,
+        marginBottom: 15,
         borderRadius: 12,
-        marginBottom: 16,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
     },
-    counterLabel: {
+    selectionInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.primary + '10',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    selectionTitle: {
         fontSize: 16,
-        color: '#333',
         fontWeight: '500',
+        color: '#333',
+        marginBottom: 4,
     },
-    counterControls: {
+    selectionDesc: {
+        fontSize: 13,
+        color: '#666',
+    },
+    counterContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     counterButton: {
-        borderRadius: 8,
-        overflow: 'hidden',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-    },
-    gradientButton: {
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primary + '10',
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
     },
-    counterValueContainer: {
-        minWidth: 50,
-        alignItems: 'center',
-        marginHorizontal: 12,
+    counterButtonDisabled: {
+        backgroundColor: '#f5f5f5',
     },
-    counterValue: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: colors.primary,
+    counterText: {
+        fontSize: 16,
+        fontWeight: '500',
+        marginHorizontal: 15,
+        minWidth: 20,
+        textAlign: 'center',
     },
-    footer: {
-        padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-    },
-    confirmButton: {
+    saveButton: {
+        margin: 20,
         borderRadius: 12,
         overflow: 'hidden',
     },
-    gradientConfirmButton: {
-        padding: 16,
+    gradientButton: {
+        paddingVertical: 15,
         alignItems: 'center',
     },
-    confirmButtonText: {
+    saveButtonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
-    },
-    disabledButton: {
-        opacity: 0.5,
+        fontWeight: '600',
     },
 });

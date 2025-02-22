@@ -206,7 +206,6 @@ export default function ResultScreen() {
                     showsVerticalScrollIndicator={false}
                 />
             )}
-
             <EditSearchModal
                 visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
@@ -224,6 +223,7 @@ export default function ResultScreen() {
                 longitude={longitude}
             />
         </View>
+
     );
 }
 
@@ -231,6 +231,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f8f9fa',
+        zIndex: 100,
     },
     header: {
         padding: 20,

@@ -1,43 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
-import { FontAwesome } from 'react-native-vector-icons';
-import { colors } from '../../constants/Colors';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import Slider from '@react-native-community/slider';
 import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
+import { Ionicons as Icon } from '@expo/vector-icons';
+import { colors } from '../../constants/Colors';
+import { FontAwesome } from 'react-native-vector-icons';
+import { Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function FilterModal({ visible, onClose, priceFrom, priceTo, selectedStar, setPriceFrom, setPriceTo, setSelectedStar }) {
-    const [tempPriceFrom, setTempPriceFrom] = useState(priceFrom);
-    const [tempPriceTo, setTempPriceTo] = useState(priceTo);
+    const [tempPriceFrom, setTempPriceFrom] = useState(priceFrom || 100000);
+    const [tempPriceTo, setTempPriceTo] = useState(priceTo || 5000000);
     const [tempSelectedStar, setTempSelectedStar] = useState(selectedStar);
 
+    const MIN_PRICE = 100000;
+    const MAX_PRICE = 5000000;
     const starOptions = [1, 2, 3, 4, 5];
 
-    useEffect(() => {
-        if (visible) {
-            setTempPriceFrom(priceFrom);
-            setTempPriceTo(priceTo);
-            setTempSelectedStar(selectedStar);
-        }
-    }, [visible, priceFrom, priceTo, selectedStar]);
-
-    const selectStar = (star) => {
-        setTempSelectedStar(tempSelectedStar === star ? null : star);
-    };
-
-    const handleConfirm = () => {
+    const handleSave = () => {
         setPriceFrom(tempPriceFrom);
         setPriceTo(tempPriceTo);
         setSelectedStar(tempSelectedStar);
         onClose();
     };
 
-    const clearFilters = () => {
-        setTempPriceFrom('');
-        setTempPriceTo('');
+    const handleClearFilters = () => {
+        setTempPriceFrom(100000);
+        setTempPriceTo(5000000);
         setTempSelectedStar(null);
+    };
+
+    const formatPrice = (price) => {
+        return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
     return (
@@ -55,7 +52,6 @@ export default function FilterModal({ visible, onClose, priceFrom, priceTo, sele
 
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
                     style={styles.keyboardView}
                 >
                     <Animated.View
@@ -75,72 +71,92 @@ export default function FilterModal({ visible, onClose, priceFrom, priceTo, sele
                             <Text style={styles.modalTitle}>Bộ lọc tìm kiếm</Text>
                         </LinearGradient>
 
-                        <View style={styles.content}>
+                        <ScrollView style={styles.content}>
+                            {/* Price Range Section */}
                             <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Khoảng giá mỗi đêm</Text>
-                                <View style={styles.priceInputContainer}>
-                                    <View style={styles.priceInput}>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Giá từ"
-                                            keyboardType="numeric"
-                                            value={tempPriceFrom}
-                                            onChangeText={setTempPriceFrom}
-                                        />
-                                        <Text style={styles.currency}>đ</Text>
+                                <Text style={styles.sectionTitle}>Khoảng giá</Text>
+                                <View style={styles.priceRangeContainer}>
+                                    <View style={styles.priceDisplay}>
+                                        <Text style={styles.priceLabel}>Từ</Text>
+                                        <Text style={styles.priceValue}>
+                                            {formatPrice(tempPriceFrom)}đ
+                                        </Text>
                                     </View>
-                                    <Text style={styles.separator}>-</Text>
-                                    <View style={styles.priceInput}>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Giá đến"
-                                            keyboardType="numeric"
-                                            value={tempPriceTo}
-                                            onChangeText={setTempPriceTo}
-                                        />
-                                        <Text style={styles.currency}>đ</Text>
+                                    <View style={styles.priceDisplay}>
+                                        <Text style={styles.priceLabel}>Đến</Text>
+                                        <Text style={styles.priceValue}>
+                                            {formatPrice(tempPriceTo)}đ
+                                        </Text>
                                     </View>
+                                </View>
+
+                                <View style={styles.sliderContainer}>
+                                    <Slider
+                                        style={styles.slider}
+                                        minimumValue={MIN_PRICE}
+                                        maximumValue={MAX_PRICE}
+                                        value={tempPriceFrom}
+                                        onValueChange={(value) => setTempPriceFrom(Math.round(value / 100000) * 100000)}
+                                        minimumTrackTintColor={colors.primary}
+                                        maximumTrackTintColor="#ddd"
+                                        thumbTintColor={colors.primary}
+                                    />
+                                    <Slider
+                                        style={styles.slider}
+                                        minimumValue={MIN_PRICE}
+                                        maximumValue={MAX_PRICE}
+                                        value={tempPriceTo}
+                                        onValueChange={(value) => setTempPriceTo(Math.round(value / 100000) * 100000)}
+                                        minimumTrackTintColor={colors.primary}
+                                        maximumTrackTintColor="#ddd"
+                                        thumbTintColor={colors.primary}
+                                    />
                                 </View>
                             </View>
 
+                            {/* Star Rating Section */}
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Hạng sao</Text>
                                 <View style={styles.starContainer}>
                                     {starOptions.map((star) => (
                                         <TouchableOpacity
                                             key={star}
-                                            onPress={() => selectStar(star)}
-                                            style={styles.starButton}
+                                            onPress={() => setTempSelectedStar(star === tempSelectedStar ? null : star)}
+                                            style={[
+                                                styles.starButton,
+                                                tempSelectedStar === star && styles.starButtonActive
+                                            ]}
                                         >
-                                            <LinearGradient
-                                                colors={tempSelectedStar === star
-                                                    ? [colors.primary, colors.primary + 'E6']
-                                                    : ['#fff', '#f8f9fa']}
-                                                style={styles.starGradient}
-                                            >
-                                                <Text style={[
-                                                    styles.starText,
-                                                    tempSelectedStar === star && styles.selectedStarText
-                                                ]}>
-                                                    {star} sao
-                                                </Text>
-                                            </LinearGradient>
+                                            <Text style={[
+                                                styles.starButtonText,
+                                                tempSelectedStar === star && styles.starButtonTextActive
+                                            ]}>
+                                                {star} <FontAwesome name="star" size={16} color={tempSelectedStar === star ? '#fff' : colors.primary} />
+                                            </Text>
                                         </TouchableOpacity>
                                     ))}
                                 </View>
                             </View>
-                        </View>
+                        </ScrollView>
 
-                        <View style={styles.footer}>
-                            <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
-                                <Text style={styles.clearButtonText}>Xóa bộ lọc</Text>
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity
+                                style={styles.clearFilterButton}
+                                onPress={handleClearFilters}
+                            >
+                                <Icon name="refresh" size={20} color={colors.primary} />
+                                <Text style={styles.clearFilterText}>Đặt lại</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleSave}
+                            >
                                 <LinearGradient
                                     colors={[colors.primary, colors.primary + 'E6']}
-                                    style={styles.gradientConfirmButton}
+                                    style={styles.gradientButton}
                                 >
-                                    <Text style={styles.confirmButtonText}>Áp dụng</Text>
+                                    <Text style={styles.saveButtonText}>Áp dụng</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
@@ -154,8 +170,7 @@ export default function FilterModal({ visible, onClose, priceFrom, priceTo, sele
 const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
     },
     keyboardView: {
         flex: 1,
@@ -165,13 +180,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        maxHeight: height * 0.9,
+        overflow: 'hidden',
+        maxHeight: '90%',
     },
     header: {
         padding: 20,
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        alignItems: 'center',
     },
     closeButton: {
         position: 'absolute',
@@ -188,52 +203,50 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
+        textAlign: 'center',
     },
     content: {
         padding: 20,
     },
     section: {
-        marginBottom: 24,
+        marginBottom: 25,
     },
     sectionTitle: {
         fontSize: 16,
         fontWeight: '600',
+        marginBottom: 15,
         color: '#333',
-        marginBottom: 12,
     },
-    priceInputContainer: {
+    priceRangeContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
+        marginBottom: 20,
     },
-    priceInput: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#e9ecef',
-        paddingHorizontal: 12,
+    priceDisplay: {
+        backgroundColor: '#f5f5f5',
+        padding: 12,
+        borderRadius: 10,
+        minWidth: '45%',
     },
-    input: {
-        flex: 1,
-        height: 50,
-        fontSize: 16,
-        color: '#333',
-    },
-    currency: {
-        fontSize: 16,
+    priceLabel: {
+        fontSize: 12,
         color: '#666',
-        marginLeft: 4,
+        marginBottom: 4,
     },
-    separator: {
-        marginHorizontal: 12,
+    priceValue: {
         fontSize: 16,
-        color: '#666',
+        fontWeight: '500',
+        color: colors.primary,
+    },
+    sliderContainer: {
+        marginTop: 10,
+    },
+    slider: {
+        width: '100%',
+        height: 40,
     },
     starContainer: {
         flexDirection: 'row',
@@ -241,60 +254,69 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     starButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    starGradient: {
-        paddingVertical: 12,
+        paddingVertical: 10,
         paddingHorizontal: 20,
-        alignItems: 'center',
+        borderRadius: 25,
+        backgroundColor: colors.primary + '10',
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
     },
-    starText: {
-        fontSize: 14,
-        color: '#666',
+    starButtonActive: {
+        backgroundColor: colors.primary,
+    },
+    starButtonText: {
+        fontSize: 16,
+        color: colors.primary,
         fontWeight: '500',
     },
-    selectedStarText: {
+    starButtonTextActive: {
         color: '#fff',
     },
-    footer: {
+    buttonContainer: {
         flexDirection: 'row',
         padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
+        paddingTop: 0,
         gap: 12,
     },
-    clearButton: {
+    clearFilterButton: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
-        borderRadius: 12,
-        padding: 16,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: colors.primary + '10',
         borderWidth: 1,
-        borderColor: '#e9ecef',
+        borderColor: colors.primary + '30',
     },
-    clearButtonText: {
-        color: '#666',
+    clearFilterText: {
+        marginLeft: 8,
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.primary,
+    },
+    saveButton: {
+        flex: 2,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    gradientButton: {
+        paddingVertical: 15,
+        alignItems: 'center',
+    },
+    saveButtonText: {
+        color: '#fff',
         fontSize: 16,
         fontWeight: '600',
     },
-    confirmButton: {
-        flex: 1,
-        borderRadius: 12,
-        overflow: 'hidden',
+    clearButton: {
+        position: 'absolute',
+        right: 15,
     },
-    gradientConfirmButton: {
-        padding: 16,
-        alignItems: 'center',
-    },
-    confirmButtonText: {
+    clearButtonText: {
         color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 14,
+        fontWeight: '500',
+        opacity: 0.9,
     },
 });
