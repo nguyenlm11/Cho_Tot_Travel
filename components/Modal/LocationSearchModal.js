@@ -5,7 +5,7 @@ import { Ionicons, FontAwesome } from "react-native-vector-icons";
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, FadeInDown, SlideInUp, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import axios from "axios";
 
 const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
