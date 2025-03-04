@@ -11,18 +11,21 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "chotottravel",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#fff"
     },
     "ios": {
+      "bundleIdentifier": "com.yourcompany.chotottravel",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Ứng dụng cần truy cập vị trí của bạn để gợi ý địa điểm gần nhất."
       },
       "supportsTablet": true
     },
     "android": {
+      "package": "com.yourcompany.chotottravel",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
