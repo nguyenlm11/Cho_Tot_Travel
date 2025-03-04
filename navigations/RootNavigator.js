@@ -15,7 +15,6 @@ import DetailRoomScreen from '../screens/DetailRoomScreen';
 import HomeStayDetailScreen from '../screens/HomeStayDetailScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import MapScreen from '../screens/MapScreen';
-
 import { colors } from '../constants/Colors';
 import CheckoutScreen from '../screens/CheckoutScreen';
 
@@ -78,7 +77,7 @@ const MainStack = () => {
 
     return (
         <Stack.Navigator screenOptions={defaultScreenOptions}>
-            <Stack.Screen name="MainTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
+            <Stack.Screen name="HomeTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
