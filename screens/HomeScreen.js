@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as Location from "expo-location";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking, ActivityIndicator, Dimensions, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -12,6 +12,8 @@ import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSearch } from '../contexts/SearchContext';
+import authApi from '../services/api/authApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -59,8 +61,10 @@ export default function HomeScreen() {
     const [priceTo, setPriceTo] = useState('');
     const [selectedStar, setSelectedStar] = useState(null);
     const navigation = useNavigation();
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
+    const [user, setUser] = useState(null);
+    const [error, setError] = useState(null);
 
     const handleSearch = async () => {
         setIsLoading(true);
@@ -190,156 +194,270 @@ export default function HomeScreen() {
         </View>
     );
 
+    useEffect(() => {
+        // Kiểm tra xác thực khi component mount
+        const checkAuthentication = async () => {
+            setIsLoading(true);
+            try {
+                const isAuthenticated = await authApi.checkAuth();
+                if (!isAuthenticated) {
+                    // Nếu không xác thực được, chuyển hướng đến màn hình đăng nhập
+                    await authApi.logout();
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Login' }],
+                    });
+                    return;
+                }
+
+                // Lấy thông tin người dùng
+                const userData = await authApi.getUserInfo();
+                setUser(userData);
+            } catch (err) {
+                console.error('Authentication error:', err);
+                setError('Có lỗi xảy ra khi kiểm tra xác thực');
+                // Xử lý lỗi xác thực
+                await authApi.logout();
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        checkAuthentication();
+    }, [navigation]);
+
+    const handleLogout = async () => {
+        try {
+            await authApi.logout();
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+            });
+        } catch (err) {
+            console.error('Logout error:', err);
+            setError('Có lỗi xảy ra khi đăng xuất');
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Đang tải...</Text>
+            </View>
+        );
+    }
+
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            {/* Header Section */}
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+
+            {/* Header */}
             <LinearGradient
-                colors={[colors.primary, colors.primary + 'CC']}
+                colors={[colors.primary, colors.secondary]}
                 style={styles.header}
             >
                 <View style={styles.headerContent}>
-                    <Animated.Text
-                        entering={FadeIn}
-                        style={styles.welcomeText}
-                    >
-                        Chào mừng bạn!
-                    </Animated.Text>
+                    <Text style={styles.welcomeText}>
+                        Chào mừng, {user?.name || user?.username || 'Người dùng'}!
+                    </Text>
                     <Text style={styles.subText}>Tìm homestay cho chuyến đi của bạn</Text>
                 </View>
-                <TouchableOpacity style={styles.notificationButton}>
-                    <Icon name="notifications-outline" size={24} color="#fff" />
+                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                    <Icon name="log-out-outline" size={24} color="#fff" />
                 </TouchableOpacity>
             </LinearGradient>
 
             {/* Search Section */}
-            <Animated.View
-                entering={FadeInDown.delay(300)}
-                style={styles.searchSection}
-            >
-                {/* Location Search */}
+            <View style={styles.searchSection}>
                 <TouchableOpacity
-                    style={styles.searchCard}
+                    style={styles.searchBar}
                     onPress={() => setLocationModalVisible(true)}
                 >
-                    <View style={styles.searchIconContainer}>
-                        <Icon name="location-outline" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.searchContent}>
-                        <Text style={styles.searchLabel}>Địa điểm</Text>
-                        <Text
-                            style={styles.searchText}
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                        >
-                            {location || "Bạn muốn đi đâu?"}
-                        </Text>
-                    </View>
-                    <Icon name="chevron-forward" size={20} color="#999" />
+                    <Icon name="search" size={20} color="#4A4A4A" />
+                    <Text style={styles.searchText}>
+                        {location || "Bạn muốn đi đâu?"}
+                    </Text>
                 </TouchableOpacity>
 
-                {/* Date Selection */}
-                <TouchableOpacity
-                    style={styles.searchCard}
-                    onPress={() => setCalendarVisible(true)}
-                >
-                    <View style={styles.searchIconContainer}>
-                        <Icon name="calendar-outline" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.searchContent}>
-                        <Text style={styles.searchLabel}>Ngày</Text>
-                        <Text style={styles.searchText}>
-                            {checkInDate ? `${checkInDate} • ${numberOfNights} đêm` : "Chọn ngày"}
-                        </Text>
-                    </View>
-                    <Icon name="chevron-forward" size={20} color="#999" />
-                </TouchableOpacity>
+                <View style={styles.dateRow}>
+                    <TouchableOpacity
+                        style={styles.dateButton}
+                        onPress={() => setCalendarVisible(true)}
+                    >
+                        <Icon name="calendar-outline" size={20} color="#4A4A4A" />
+                        <View>
+                            <Text style={styles.dateLabel}>Nhận phòng</Text>
+                            <Text style={styles.dateText}>{checkInDate.split(',')[1]}</Text>
+                        </View>
+                    </TouchableOpacity>
 
-                {/* Guest Selection */}
-                <TouchableOpacity
-                    style={styles.searchCard}
-                    onPress={() => setGuestModalVisible(true)}
-                >
-                    <View style={styles.searchIconContainer}>
-                        <Icon name="people-outline" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.searchContent}>
-                        <Text style={styles.searchLabel}>Khách & Phòng</Text>
-                        <Text style={styles.searchText}>
-                            {rooms ?
-                                `${rooms} phòng • ${adults} người lớn${children > 0 ? ` • ${children} trẻ em` : ''}`
-                                : "Số lượng khách"}
-                        </Text>
-                    </View>
-                    <Icon name="chevron-forward" size={20} color="#999" />
-                </TouchableOpacity>
+                    <View style={styles.dateDivider} />
 
-                {/* Filter Selection */}
-                <TouchableOpacity
-                    style={styles.searchCard}
-                    onPress={() => setFilterModalVisible(true)}
-                >
-                    <View style={styles.searchIconContainer}>
-                        <Icon name="filter-outline" size={22} color={colors.primary} />
-                    </View>
-                    <View style={styles.searchContent}>
-                        <Text style={styles.searchLabel}>Bộ lọc</Text>
-                        <Text style={styles.searchText}>
-                            {!priceFrom && !priceTo && !selectedStar ? (
-                                'Tất cả'
-                            ) : (
-                                <>
-                                    {priceFrom || priceTo ? `${priceFrom?.toLocaleString() || 0}đ - ${priceTo?.toLocaleString() || 'Max'}đ` : ''}
-                                    {selectedStar ? (priceFrom || priceTo ? ' • ' : '') + `${selectedStar} sao` : ''}
-                                </>
-                            )}
-                        </Text>
-                    </View>
-                    <Icon name="chevron-forward" size={20} color="#999" />
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.dateButton}
+                        onPress={() => setCalendarVisible(true)}
+                    >
+                        <Icon name="calendar-outline" size={20} color="#4A4A4A" />
+                        <View>
+                            <Text style={styles.dateLabel}>Trả phòng</Text>
+                            <Text style={styles.dateText}>{checkOutDate.split(',')[1]}</Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
 
-                {/* Search Button */}
+                <View style={styles.guestRow}>
+                    <TouchableOpacity
+                        style={styles.guestButton}
+                        onPress={() => setGuestModalVisible(true)}
+                    >
+                        <Icon name="people-outline" size={20} color="#4A4A4A" />
+                        <View>
+                            <Text style={styles.guestLabel}>Khách & Phòng</Text>
+                            <Text style={styles.guestText}>
+                                {adults + children} khách, {rooms} phòng
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.filterButton}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <Icon name="options-outline" size={20} color="#4A4A4A" />
+                        <Text style={styles.filterText}>Bộ lọc</Text>
+                    </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity
-                    style={[styles.searchButton, isLoading && styles.searchButtonDisabled]}
+                    style={styles.searchButton}
                     onPress={handleSearch}
                     disabled={isLoading}
                 >
                     <LinearGradient
-                        colors={[colors.primary, colors.primary + 'E6']}
-                        style={styles.gradientButton}
+                        colors={[colors.primary, colors.secondary]}
+                        style={styles.searchButtonGradient}
                     >
                         {isLoading ? (
-                            <ActivityIndicator color="#fff" size="small" />
+                            <ActivityIndicator size="small" color="#fff" />
                         ) : (
                             <>
-                                <Icon name="search-outline" size={20} color="#fff" />
+                                <Icon name="search" size={20} color="#fff" />
                                 <Text style={styles.searchButtonText}>Tìm kiếm</Text>
                             </>
                         )}
                     </LinearGradient>
                 </TouchableOpacity>
-            </Animated.View>
+            </View>
 
+            <ScrollView style={styles.scrollView}>
+                {/* Recent Searches */}
+                {searchHistory.length > 0 && renderSearchHistory()}
+
+                {/* Trending Section */}
+                <View style={styles.trendingSection}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Xu hướng tìm kiếm</Text>
+                        <TouchableOpacity>
+                            <Text style={styles.viewAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.trendingList}
+                    >
+                        {trendingHomestays.map((item, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                style={styles.trendingItem}
+                                onPress={() => navigation.navigate('HomeStayDetail', { id: index + 1 })}
+                            >
+                                <Image
+                                    source={{ uri: item.image }}
+                                    style={styles.trendingImage}
+                                />
+                                <View style={styles.trendingContent}>
+                                    <Text style={styles.trendingName}>{item.name}</Text>
+                                    <View style={styles.trendingLocation}>
+                                        <Icon name="location-outline" size={14} color="#4A4A4A" />
+                                        <Text style={styles.locationText}>{item.location}</Text>
+                                    </View>
+                                    <View style={styles.trendingRating}>
+                                        <Icon name="star" size={14} color="#FFD700" />
+                                        <Text style={styles.ratingText}>
+                                            {item.rating} ({item.reviews} đánh giá)
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.trendingPrice}>
+                                        {item.price} <Text style={styles.priceUnit}>đ/đêm</Text>
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                {/* Promotions Section */}
+                <View style={styles.promotionsSection}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Ưu đãi đặc biệt</Text>
+                        <TouchableOpacity>
+                            <Text style={styles.viewAllText}>Xem tất cả</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.promotionCard}>
+                        <LinearGradient
+                            colors={['#FF6B6B', '#FF8E53']}
+                            style={styles.promotionGradient}
+                        >
+                            <View style={styles.promotionContent}>
+                                <Text style={styles.promotionTitle}>Giảm 20% cho đặt phòng đầu tiên</Text>
+                                <Text style={styles.promotionDescription}>
+                                    Áp dụng cho khách hàng mới khi đặt phòng lần đầu tiên
+                                </Text>
+                                <TouchableOpacity style={styles.promotionButton}>
+                                    <Text style={styles.promotionButtonText}>Sử dụng ngay</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <Image
+                                // source={require('../assets/promotion.png')}
+                                style={styles.promotionImage}
+                            />
+                        </LinearGradient>
+                    </View>
+                </View>
+            </ScrollView>
+
+            {/* Modals */}
             <LocationSearchModal
                 visible={isLocationModalVisible}
                 onClose={() => setLocationModalVisible(false)}
                 onLocationSelected={handleLocationSelected}
             />
+
             <CalendarModal
                 visible={isCalendarVisible}
                 onClose={() => setCalendarVisible(false)}
                 onDateSelect={handleDateSelect}
                 selectedDate={selectedDate}
                 numberOfNights={numberOfNights}
-                setNumberOfNights={setNumberOfNights}
             />
+
             <GuestModal
                 visible={isGuestModalVisible}
                 onClose={() => setGuestModalVisible(false)}
                 rooms={rooms}
-                adults={adults}
-                children={children}
                 setRooms={setRooms}
+                adults={adults}
                 setAdults={setAdults}
+                children={children}
                 setChildren={setChildren}
             />
 
@@ -347,79 +465,13 @@ export default function HomeScreen() {
                 visible={isFilterModalVisible}
                 onClose={() => setFilterModalVisible(false)}
                 priceFrom={priceFrom}
-                priceTo={priceTo}
-                selectedStar={selectedStar}
                 setPriceFrom={setPriceFrom}
+                priceTo={priceTo}
                 setPriceTo={setPriceTo}
+                selectedStar={selectedStar}
                 setSelectedStar={setSelectedStar}
             />
-
-            {/* Trending Homestays */}
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Homestay nổi bật</Text>
-                    <TouchableOpacity style={styles.viewAllButton}>
-                        <Text style={styles.viewAllText}>Xem tất cả</Text>
-                        <MaterialIcons name="chevron-right" size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                </View>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.homestaysScroll}
-                >
-                    {trendingHomestays.map((homestay, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={styles.homestayCard}
-                        >
-                            <Image
-                                source={{ uri: homestay.image }}
-                                style={styles.homestayImage}
-                            />
-                            <View style={styles.homestayContent}>
-                                <Text style={styles.homestayName}>{homestay.name}</Text>
-                                <View style={styles.locationRow}>
-                                    <Icon name="location-outline" size={14} color="#666" />
-                                    <Text style={styles.locationText}>{homestay.location}</Text>
-                                </View>
-                                <View style={styles.ratingRow}>
-                                    <Icon name="star" size={14} color="#FFD700" />
-                                    <Text style={styles.ratingText}>{homestay.rating}</Text>
-                                    <Text style={styles.reviewCount}>({homestay.reviews} đánh giá)</Text>
-                                </View>
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.price}>{homestay.price}đ</Text>
-                                    <Text style={styles.perNight}>/đêm</Text>
-                                </View>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
-
-            {/* Promotion Section */}
-            <TouchableOpacity style={styles.promotionBanner}>
-                <LinearGradient
-                    colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)']}
-                    style={styles.promotionGradient}
-                >
-                    <Image
-                        source={{ uri: 'https://images.unsplash.com/photo-1566073771259-6a8506099945' }}
-                        style={styles.promotionImage}
-                    />
-                    <View style={styles.promotionContent}>
-                        <Text style={styles.promotionTitle}>Ưu đãi mùa hè</Text>
-                        <Text style={styles.promotionDesc}>Giảm đến 30% cho đặt phòng từ 2 đêm</Text>
-                        <View style={styles.promotionButton}>
-                            <Text style={styles.promotionButtonText}>Xem ngay</Text>
-                        </View>
-                    </View>
-                </LinearGradient>
-            </TouchableOpacity>
-
-            {renderSearchHistory()}
-        </ScrollView>
+        </View>
     );
 }
 
@@ -428,12 +480,26 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f8f9fa',
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: colors.textSecondary,
+    },
     header: {
         paddingTop: 60,
         paddingBottom: 30,
         paddingHorizontal: 20,
         borderBottomLeftRadius: 30,
         borderBottomRightRadius: 30,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     headerContent: {
         flex: 1,
@@ -449,66 +515,121 @@ const styles = StyleSheet.create({
         color: '#fff',
         opacity: 0.9,
     },
-    notificationButton: {
-        position: 'absolute',
-        top: 60,
-        right: 20,
+    logoutButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     searchSection: {
         marginTop: -25,
         marginHorizontal: 20,
-        padding: 15,
         backgroundColor: '#fff',
         borderRadius: 15,
+        padding: 15,
         shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowRadius: 8,
+        elevation: 5,
     },
-    searchCard: {
+    searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        borderRadius: 10,
+        paddingHorizontal: 15,
         paddingVertical: 12,
-        paddingHorizontal: 5,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    searchIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary + '10',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    searchContent: {
-        flex: 1,
-    },
-    searchLabel: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 2,
+        marginBottom: 15,
     },
     searchText: {
-        fontSize: 15,
-        color: '#333',
+        marginLeft: 10,
+        fontSize: 16,
+        color: '#4A4A4A',
+    },
+    dateRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 15,
+    },
+    dateButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+    },
+    dateDivider: {
+        width: 15,
+    },
+    dateLabel: {
+        marginLeft: 10,
+        fontSize: 12,
+        color: '#4A4A4A',
+        opacity: 0.7,
+    },
+    dateText: {
+        marginLeft: 10,
+        fontSize: 14,
+        color: '#4A4A4A',
+        fontWeight: '500',
+    },
+    guestRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 15,
+    },
+    guestButton: {
+        flex: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5',
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        marginRight: 15,
+    },
+    guestLabel: {
+        marginLeft: 10,
+        fontSize: 12,
+        color: '#4A4A4A',
+        opacity: 0.7,
+    },
+    guestText: {
+        marginLeft: 10,
+        fontSize: 14,
+        color: '#4A4A4A',
+        fontWeight: '500',
+    },
+    filterButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f5f5f5',
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+    },
+    filterText: {
+        marginLeft: 5,
+        fontSize: 14,
+        color: '#4A4A4A',
         fontWeight: '500',
     },
     searchButton: {
-        marginTop: 15,
-        borderRadius: 10,
-        overflow: 'hidden',
+        marginTop: 5,
     },
-    gradientButton: {
+    searchButtonGradient: {
         flexDirection: 'row',
-        alignItems: 'center',
+        height: 50,
+        borderRadius: 25,
         justifyContent: 'center',
-        paddingVertical: 12,
+        alignItems: 'center',
     },
     searchButtonText: {
         color: '#fff',
@@ -516,44 +637,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginLeft: 8,
     },
+    scrollView: {
+        flex: 1,
+        paddingTop: 20,
+    },
     recentSearch: {
-        padding: 20,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 15,
-    },
-    recentItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 15,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        marginBottom: 8,
-        marginRight: 12,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.22,
-        shadowRadius: 2.22,
-        minWidth: 250,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
-    },
-    itemTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#495057',
-    },
-    itemDetails: {
-        fontSize: 12,
-        color: '#6c757d',
-        marginTop: 4,
-    },
-    section: {
-        padding: 20,
+        paddingHorizontal: 20,
+        marginBottom: 20,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -561,113 +651,141 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 15,
     },
-    viewAllButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#4A4A4A',
+    },
+    clearText: {
+        fontSize: 14,
+        color: colors.primary,
     },
     viewAllText: {
         fontSize: 14,
         color: colors.primary,
-        marginRight: 5,
     },
-    homestaysScroll: {
-        padding: 10,
-    },
-    homestayCard: {
+    recentItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 15,
+        padding: 15,
+        marginRight: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        elevation: 2,
         width: width * 0.7,
+    },
+    itemTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#4A4A4A',
+        marginLeft: 10,
+        marginBottom: 5,
+    },
+    itemDetails: {
+        fontSize: 14,
+        color: '#4A4A4A',
+        opacity: 0.7,
+        marginLeft: 10,
+    },
+    trendingSection: {
+        paddingHorizontal: 20,
+        marginBottom: 20,
+    },
+    trendingList: {
+        marginBottom: 10,
+    },
+    trendingItem: {
         backgroundColor: '#fff',
         borderRadius: 15,
         marginRight: 15,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowRadius: 5,
+        elevation: 2,
+        width: width * 0.7,
+        overflow: 'hidden',
     },
-    homestayImage: {
+    trendingImage: {
         width: '100%',
-        height: 180,
-        borderTopLeftRadius: 15,
-        borderTopRightRadius: 15,
+        height: 150,
     },
-    homestayContent: {
+    trendingContent: {
         padding: 15,
     },
-    homestayName: {
+    trendingName: {
         fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 8,
+        fontWeight: '600',
+        color: '#4A4A4A',
+        marginBottom: 5,
     },
-    locationRow: {
+    trendingLocation: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 5,
     },
     locationText: {
-        fontSize: 13,
-        color: '#666',
-        marginLeft: 4,
+        fontSize: 14,
+        color: '#4A4A4A',
+        opacity: 0.7,
+        marginLeft: 5,
     },
-    ratingRow: {
+    trendingRating: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 5,
     },
     ratingText: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: '#333',
-        marginLeft: 4,
-        marginRight: 4,
+        fontSize: 14,
+        color: '#4A4A4A',
+        opacity: 0.7,
+        marginLeft: 5,
     },
-    reviewCount: {
-        fontSize: 13,
-        color: '#666',
-    },
-    priceRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-    },
-    price: {
+    trendingPrice: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '700',
         color: colors.primary,
     },
-    perNight: {
-        fontSize: 12,
-        color: '#666',
-        marginLeft: 4,
+    priceUnit: {
+        fontSize: 14,
+        fontWeight: '400',
+        color: '#4A4A4A',
+        opacity: 0.7,
     },
-    promotionBanner: {
-        margin: 20,
-        height: 150,
+    promotionsSection: {
+        paddingHorizontal: 20,
+        marginBottom: 30,
+    },
+    promotionCard: {
         borderRadius: 15,
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
     },
     promotionGradient: {
-        flex: 1,
         flexDirection: 'row',
-        alignItems: 'center',
-    },
-    promotionImage: {
-        position: 'absolute',
-        width: '100%',
-        height: '100%',
-    },
-    promotionContent: {
-        flex: 1,
         padding: 20,
     },
-    promotionTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginBottom: 8,
+    promotionContent: {
+        flex: 2,
     },
-    promotionDesc: {
+    promotionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#fff',
+        marginBottom: 10,
+    },
+    promotionDescription: {
         fontSize: 14,
         color: '#fff',
+        opacity: 0.9,
         marginBottom: 15,
     },
     promotionButton: {
@@ -678,15 +796,12 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     promotionButtonText: {
-        color: colors.primary,
-        fontWeight: '500',
-    },
-    clearText: {
-        color: colors.primary,
-        fontSize: 14,
+        color: '#FF6B6B',
         fontWeight: '600',
     },
-    searchButtonDisabled: {
-        opacity: 0.7,
+    promotionImage: {
+        flex: 1,
+        height: 100,
+        resizeMode: 'contain',
     },
 });

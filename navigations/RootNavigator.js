@@ -76,8 +76,15 @@ const MainStack = () => {
     );
 
     return (
-        <Stack.Navigator screenOptions={defaultScreenOptions}>
-            <Stack.Screen name="HomeTabs" component={BottomTabNavigator} options={{ headerShown: false }} />
+        <Stack.Navigator
+            screenOptions={defaultScreenOptions}
+            initialRouteName="HomeTabs"
+        >
+            <Stack.Screen
+                name="HomeTabs"
+                component={BottomTabNavigator}
+                options={{ headerShown: false }}
+            />
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
@@ -111,7 +118,7 @@ const RootNavigator = () => {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
-            <Stack.Screen name="MainTabs" component={MainStack} />
+            <Stack.Screen name="MainTabs" component={MainStack} options={{ headerShown: false }} />
         </Stack.Navigator>
     );
 };

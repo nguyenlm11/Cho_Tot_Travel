@@ -43,7 +43,7 @@ export default function BookingDetailScreen({ route }) {
                             <FontAwesome5 name="moon" size={20} color="#666" style={styles.icon} />
                             <Text style={styles.detailLabel}>Số đêm</Text>
                         </View>
-                        <Text style={styles.detailValue}>2 đêm</Text>
+                        <Text style={styles.detailValue}>1 đêm</Text>
                     </View>
 
                     <View style={styles.detailRow}>
@@ -51,7 +51,7 @@ export default function BookingDetailScreen({ route }) {
                             <FontAwesome5 name="user" size={23} color="#666" style={styles.icon} />
                             <Text style={styles.detailLabel}>Khách</Text>
                         </View>
-                        <Text style={styles.detailValue}>2 người lớn, 1 trẻ em</Text>
+                        <Text style={styles.detailValue}>1 người lớn</Text>
                     </View>
 
                     <View style={styles.detailRow}>
@@ -59,7 +59,7 @@ export default function BookingDetailScreen({ route }) {
                             <Ionicons name="bed-outline" size={20} color="#666" style={styles.icon} />
                             <Text style={styles.detailLabel}>Loại giường</Text>
                         </View>
-                        <Text style={styles.detailValue}>2 giường đơn, 1 giường cỡ queen</Text>
+                        <Text style={styles.detailValue}>2 giường đơn</Text>
                     </View>
 
                     <View style={styles.detailRow}>
@@ -67,7 +67,7 @@ export default function BookingDetailScreen({ route }) {
                             <FontAwesome5 name="clock" size={20} color="#666" style={styles.icon} />
                             <Text style={styles.detailLabel}>Nhận phòng</Text>
                         </View>
-                        <Text style={styles.detailValue}>Thứ Tư, 02/02/2022 (15:00 - 03:00)</Text>
+                        <Text style={styles.detailValue}>Thứ Ba, 04/03/2025 (15:00 - 03:00)</Text>
                     </View>
 
                     <View style={styles.detailRow}>
@@ -75,7 +75,7 @@ export default function BookingDetailScreen({ route }) {
                             <FontAwesome5 name="clock" size={20} color="#666" style={styles.icon} />
                             <Text style={styles.detailLabel}>Trả phòng</Text>
                         </View>
-                        <Text style={styles.detailValue}>Thứ Sáu, 04/02/2022 (trước 11:00)</Text>
+                        <Text style={styles.detailValue}>Thứ Tư, 05/03/2025 (trước 11:00)</Text>
                     </View>
 
                     <View style={styles.detailRow}>

@@ -9,7 +9,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useNavigation } from '@react-navigation/native';
 import WebView from 'react-native-webview';
 import axios from 'axios';
-import { BASE_URL } from '../config';
+// import { BASE_URL } from '../config';
 
 const CheckoutScreen = () => {
   const { currentSearch } = useSearch();
@@ -48,7 +48,7 @@ const CheckoutScreen = () => {
     const checkoutData = {
       orderInfo: `Thanh toán đặt phòng tại The Imperial Vũng Tàu - ${formData.fullName}`,
       amount: totalAmount,
-      returnUrl: `${BASE_URL}/payment-return`,
+      // returnUrl: `${BASE_URL}/payment-return`,
       paymentMethod: selectedPaymentMethod,
       customerInfo: formData,
       bookingDetails: {
@@ -63,26 +63,26 @@ const CheckoutScreen = () => {
     };
 
     setLoading(true);
-    try {
-      const response = await axios.post(`${BASE_URL}/create-payment`, checkoutData, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000,
-      });
-      setPaymentUrl(response.data.paymentUrl);
-    } catch (error) {
-      if (error.code === 'ECONNABORTED') {
-        alert('Hết thời gian kết nối đến server. Vui lòng thử lại!');
-      } else if (error.response) {
-        alert(`Lỗi từ server: ${error.response.data.message || 'Không xác định'}`);
-      } else {
-        alert('Không thể kết nối đến server. Kiểm tra mạng của bạn!');
-      }
-      console.error('Lỗi khi tạo thanh toán:', error);
-    } finally {
-      setLoading(false);
-    }
+    // try {
+    //   const response = await axios.post(`${BASE_URL}/create-payment`, checkoutData, {
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     timeout: 10000,
+    //   });
+    //   setPaymentUrl(response.data.paymentUrl);
+    // } catch (error) {
+    //   if (error.code === 'ECONNABORTED') {
+    //     alert('Hết thời gian kết nối đến server. Vui lòng thử lại!');
+    //   } else if (error.response) {
+    //     alert(`Lỗi từ server: ${error.response.data.message || 'Không xác định'}`);
+    //   } else {
+    //     alert('Không thể kết nối đến server. Kiểm tra mạng của bạn!');
+    //   }
+    //   console.error('Lỗi khi tạo thanh toán:', error);
+    // } finally {
+    //   setLoading(false);
+    // }
   };
 
   const handleWebViewNavigation = (navState) => {
@@ -118,12 +118,6 @@ const CheckoutScreen = () => {
           onNavigationStateChange={handleWebViewNavigation}
           style={styles.webview}
         />
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => setPaymentUrl(null)}
-        >
-          <Text style={styles.cancelButtonText}>Hủy thanh toán</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -147,11 +141,11 @@ const CheckoutScreen = () => {
         {/* Hotel Info Card */}
         <View style={styles.card}>
           <Image
-            source={{ uri: 'https://example.com/hotel-image.jpg' }}
+            source={{ uri: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
             style={styles.hotelImage}
           />
           <View style={styles.hotelDetails}>
-            <Text style={styles.hotelName}>The Imperial Vũng Tàu</Text>
+            <Text style={styles.hotelName}>Smile Apartment District 2</Text>
             <View style={styles.infoRow}>
               <Icon name="bed-outline" size={16} color="#666" />
               <Text style={styles.infoText}>
@@ -295,7 +289,7 @@ const CheckoutScreen = () => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={[
               styles.paymentMethodOption,
               selectedPaymentMethod === 'cod' && styles.paymentMethodSelected
@@ -319,7 +313,7 @@ const CheckoutScreen = () => {
                 <View style={styles.paymentRadioInner} />
               )}
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Payment Summary */}
@@ -331,7 +325,7 @@ const CheckoutScreen = () => {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Giá phòng</Text>
             <Text style={styles.summaryValue}>
-              {(500000 * (currentSearch?.numberOfNights || 0)).toLocaleString()} đ
+              {(576000 * (currentSearch?.numberOfNights || 0)).toLocaleString()} đ
             </Text>
           </View>
           <View style={styles.summaryRow}>
@@ -347,7 +341,7 @@ const CheckoutScreen = () => {
             <Text style={styles.totalLabel}>Tổng cộng</Text>
             <Text style={styles.totalAmount}>
               {(
-                500000 * (currentSearch?.numberOfNights || 0) +
+                576000 * (currentSearch?.numberOfNights || 0) +
                 selectedServices.reduce((total, service) => total + parseInt(service.price), 0)
               ).toLocaleString()} đ
             </Text>
@@ -720,18 +714,6 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
-  },
-  cancelButton: {
-    backgroundColor: '#ff4d4d',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    margin: 16,
-  },
-  cancelButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
 

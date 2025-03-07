@@ -84,7 +84,7 @@ const ListRoomScreen = () => {
             breakfast: true,
             refund: false,
             wifi: true,
-            price: '2.000.000'
+            price: '550.000'
         },
         {
             image: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg',
@@ -95,7 +95,7 @@ const ListRoomScreen = () => {
             breakfast: true,
             refund: false,
             wifi: true,
-            price: '2.000.000'
+            price: '576.000'
         },
         {
             image: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg',
