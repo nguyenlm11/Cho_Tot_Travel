@@ -7,6 +7,8 @@ import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import OTPVerificationScreen from '../screens/OTPVerificationScreen';
 import ResultScreen from '../screens/ResultScreen';
 import BookingDetailScreen from '../screens/BookingDetailScreen';
@@ -76,15 +78,8 @@ const MainStack = () => {
     );
 
     return (
-        <Stack.Navigator
-            screenOptions={defaultScreenOptions}
-            initialRouteName="HomeTabs"
-        >
-            <Stack.Screen
-                name="HomeTabs"
-                component={BottomTabNavigator}
-                options={{ headerShown: false }}
-            />
+        <Stack.Navigator screenOptions={defaultScreenOptions} initialRouteName="HomeTabs">
+            <Stack.Screen name="HomeTabs" component={BottomTabNavigator} />
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
@@ -109,14 +104,13 @@ const MainStack = () => {
 
 const RootNavigator = () => {
     return (
-        <Stack.Navigator
-            screenOptions={defaultScreenOptions}
-            initialRouteName="Splash"
-        >
+        <Stack.Navigator screenOptions={defaultScreenOptions} initialRouteName="Splash">
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
             <Stack.Screen name="MainTabs" component={MainStack} options={{ headerShown: false }} />
         </Stack.Navigator>

@@ -160,20 +160,20 @@ const authApi = {
     }
   },
 
-  // Quên mật khẩu
+  // Quên mật khẩu - Yêu cầu token reset
   forgotPassword: async (email) => {
     try {
-      const response = await apiClient.post('/api/account/forgot-password', { email });
+      const response = await apiClient.post('/api/account/Reset-Password-Token', { email });
       return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
     }
   },
 
-  // Đặt lại mật khẩu
+  // Đặt lại mật khẩu với token
   resetPassword: async (resetData) => {
     try {
-      const response = await apiClient.post('/api/account/reset-password', resetData);
+      const response = await apiClient.post('/api/account/Reset-Password', resetData);
       return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
