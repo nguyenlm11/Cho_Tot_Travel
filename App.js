@@ -30,7 +30,7 @@ const AppContent = () => {
         setIsReady(true);
       }
     };
-    
+
     checkInitialAuth();
   }, []);
   
