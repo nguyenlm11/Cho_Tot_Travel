@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import * as Location from "expo-location";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, Linking, ActivityIndicator, Dimensions, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import CalendarModal from '../components/Modal/CalendarModal';
 import GuestModal from '../components/Modal/GuestModal';
@@ -10,10 +9,8 @@ import FilterModal from '../components/Modal/FilterModal';
 import LocationSearchModal from '../components/Modal/LocationSearchModal';
 import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSearch } from '../contexts/SearchContext';
 import authApi from '../services/api/authApi';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -179,7 +176,7 @@ export default function HomeScreen() {
                     >
                         <Icon name="location-outline" size={20} color="#4A4A4A" />
                         <View>
-                            <Text style={styles.itemTitle}>{item.location}</Text>
+                            <Text style={styles.itemTitle} numberOfLines={2}>{item.location}</Text>
                             <Text style={styles.itemDetails}>
                                 {item.checkInDate} - {item.checkOutDate}
                             </Text>
@@ -253,7 +250,7 @@ export default function HomeScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
 
             {/* Header */}
@@ -279,7 +276,7 @@ export default function HomeScreen() {
                     onPress={() => setLocationModalVisible(true)}
                 >
                     <Icon name="search" size={20} color="#4A4A4A" />
-                    <Text style={styles.searchText}>
+                    <Text style={styles.searchText} numberOfLines={2}>
                         {location || "Bạn muốn đi đâu?"}
                     </Text>
                 </TouchableOpacity>
@@ -354,7 +351,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.scrollView}>
+            <View style={styles.scrollView}>
                 {/* Recent Searches */}
                 {searchHistory.length > 0 && renderSearchHistory()}
 
@@ -433,7 +430,7 @@ export default function HomeScreen() {
                         </LinearGradient>
                     </View>
                 </View>
-            </ScrollView>
+            </View>
 
             {/* Modals */}
             <LocationSearchModal
@@ -471,7 +468,7 @@ export default function HomeScreen() {
                 selectedStar={selectedStar}
                 setSelectedStar={setSelectedStar}
             />
-        </View>
+        </ScrollView>
     );
 }
 
@@ -643,7 +640,7 @@ const styles = StyleSheet.create({
     },
     recentSearch: {
         paddingHorizontal: 20,
-        marginBottom: 20,
+        marginBottom: 10,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -671,6 +668,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         padding: 15,
         marginRight: 15,
+        marginBottom: 15,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,

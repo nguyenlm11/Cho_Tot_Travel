@@ -13,7 +13,7 @@ import { colors } from './constants/Colors';
 const AppContent = () => {
   const [isReady, setIsReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState('Splash');
-  
+
   useEffect(() => {
     const checkInitialAuth = async () => {
       try {
@@ -21,11 +21,11 @@ const AppContent = () => {
         if (token) {
           setInitialRoute('MainTabs');
         } else {
-          setInitialRoute('Splash');
+          setInitialRoute('Onboarding');
         }
       } catch (error) {
         console.error('Error checking initial auth:', error);
-        setInitialRoute('Splash');
+        setInitialRoute('Onboarding');
       } finally {
         setIsReady(true);
       }
@@ -33,7 +33,7 @@ const AppContent = () => {
 
     checkInitialAuth();
   }, []);
-  
+
   if (!isReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -44,7 +44,7 @@ const AppContent = () => {
       </View>
     );
   }
-  
+
   return (
     <NavigationContainer>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
