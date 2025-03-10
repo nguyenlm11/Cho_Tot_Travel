@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Cấu hình API
 const API_URL = 'http://192.168.2.17:7221';
+// const API_URL = 'http://10.87.14.181:7221';
 const API_TIMEOUT = 60000;
 
 // Tạo instance axios với cấu hình cơ bản

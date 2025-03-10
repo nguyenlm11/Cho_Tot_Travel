@@ -19,6 +19,7 @@ import ReviewScreen from '../screens/ReviewScreen';
 import MapScreen from '../screens/MapScreen';
 import { colors } from '../constants/Colors';
 import CheckoutScreen from '../screens/CheckoutScreen';
+import SecurityScreen from '../screens/SecurityScreen';
 
 const Stack = createStackNavigator();
 
@@ -85,6 +86,7 @@ const MainStack = () => {
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+            <Stack.Screen name="Security" component={SecurityScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="ListRoom" component={ListRoomScreen} />
             {/* Modal Screens */}
@@ -102,10 +104,20 @@ const MainStack = () => {
     );
 };
 
-const RootNavigator = () => {
+const RootNavigator = ({ initialRouteName = 'Splash' }) => {
     return (
         <Stack.Navigator screenOptions={defaultScreenOptions} initialRouteName="Splash">
-            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen
+                name="Splash"
+                component={SplashScreen}
+                listeners={({ navigation }) => ({
+                    state: () => {
+                        setTimeout(() => {
+                            navigation.replace(initialRouteName);
+                        }, 2000);
+                    }
+                })}
+            />
             <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
