@@ -20,6 +20,7 @@ import MapScreen from '../screens/MapScreen';
 import { colors } from '../constants/Colors';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import SecurityScreen from '../screens/SecurityScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
 
 const Stack = createStackNavigator();
 
@@ -124,6 +125,7 @@ const RootNavigator = ({ initialRouteName = 'Splash' }) => {
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
             <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="MainTabs" component={MainStack} options={{ headerShown: false }} />
         </Stack.Navigator>
     );

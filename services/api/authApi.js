@@ -183,7 +183,7 @@ const authApi = {
   // Đổi mật khẩu
   changePassword: async (changeData) => {
     try {
-      const response = await apiClient.post('/api/account/Change-Password', changeData);
+      const response = await apiClient.post('/api/account/change-password', changeData);
       return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
@@ -198,15 +198,12 @@ const authApi = {
 
       // Kiểm tra token có hết hạn chưa
       const decoded = getUserFromToken(token);
-      if (!decoded.exp) return false;
-
-      const currentTime = Math.floor(Date.now() / 1000);
-      if (decoded.exp < currentTime) {
-        // Token đã hết hạn, thử làm mới token
+      if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+        // Token đã hết hạn, thử refresh
         try {
           await authApi.refreshToken();
           return true;
-        } catch (error) {
+        } catch (refreshError) {
           return false;
         }
       }
@@ -227,7 +224,7 @@ const authApi = {
       return true;
     } catch (error) {
       console.error('Error during logout:', error);
-      return false;
+      throw new Error('Có lỗi xảy ra khi đăng xuất');
     }
   },
 
@@ -235,16 +232,46 @@ const authApi = {
   getUserInfo: async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
-      return userData ? JSON.parse(userData) : null;
+      if (!userData) {
+        throw new Error('Không tìm thấy thông tin người dùng');
+      }
+      return JSON.parse(userData);
     } catch (error) {
       console.error('Error getting user info:', error);
-      return null;
+      throw new Error('Có lỗi xảy ra khi lấy thông tin người dùng');
     }
   },
 
-  // Lấy thông tin từ token
-  decodeToken: (token) => {
-    return getUserFromToken(token);
+  // Cập nhật thông tin người dùng
+  updateUserInfo: async (userData) => {
+    try {
+      // Kiểm tra xem có userId không
+      if (!userData.userId) {
+        throw new Error('Thiếu userId để cập nhật thông tin người dùng');
+      }
+      
+      // Tách userId ra khỏi userData để sử dụng trong query parameter
+      const { userId, ...userDataWithoutId } = userData;
+      
+      // Gọi API cập nhật thông tin người dùng với userId là query parameter
+      const response = await apiClient.put(`/api/account/Update-Account?userId=${userId}`, userDataWithoutId);
+      
+      // Cập nhật thông tin trong AsyncStorage
+      const currentUserData = await AsyncStorage.getItem('user');
+      if (currentUserData) {
+        const parsedUserData = JSON.parse(currentUserData);
+        const updatedUserData = {
+          ...parsedUserData,
+          ...userDataWithoutId,
+          userId // Đảm bảo userId vẫn được giữ lại
+        };
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUserData));
+      }
+      
+      return response.data;
+    } catch (error) {
+      throw new Error(handleAuthError(error));
+    }
   }
 };
 

@@ -1,31 +1,21 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Cấu hình API
-const API_URL = 'http://192.168.2.17:7221';
-// const API_URL = 'http://10.87.14.181:7221';
-const API_TIMEOUT = 60000;
-
-// Tạo instance axios với cấu hình cơ bản
+// Tạo instance axios với cấu hình mặc định
 const apiClient = axios.create({
-  baseURL: API_URL,
-  timeout: API_TIMEOUT,
+  baseURL: 'http://192.168.2.17:7221',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
 });
 
-// Interceptor cho request
+// Thêm interceptor để tự động thêm token vào header
 apiClient.interceptors.request.use(
   async (config) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch (error) {
-      console.error('Error getting token:', error);
+    const token = await AsyncStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -34,64 +24,61 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Hàm xử lý lỗi API
-export const handleApiError = (error, defaultMessage = 'Đã xảy ra lỗi. Vui lòng thử lại sau.') => {
+// Hàm xử lý lỗi chung
+const handleError = (error) => {
   if (error.response) {
-    // Lỗi từ server với status code
-    const { data, status } = error.response;
-    
-    // Xử lý các mã lỗi phổ biến
-    switch (status) {
-      case 400:
-        return data.message || 'Yêu cầu không hợp lệ';
-      case 401:
-        return data.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại';
-      case 403:
-        return data.message || 'Bạn không có quyền truy cập vào tài nguyên này';
-      case 404:
-        return data.message || 'Không tìm thấy tài nguyên yêu cầu';
-      case 409:
-        return data.message || 'Dữ liệu đã tồn tại';
-      case 422:
-        return data.message || 'Dữ liệu không hợp lệ';
-      case 500:
-        return data.message || 'Lỗi máy chủ. Vui lòng thử lại sau';
-      default:
-        return data.message || defaultMessage;
+    // Lỗi từ server với mã trạng thái
+    const status = error.response.status;
+    const data = error.response.data;
+
+    if (status === 400) {
+      return data.message || 'Yêu cầu không hợp lệ';
+    } else if (status === 401) {
+      return 'Bạn cần đăng nhập để thực hiện hành động này';
+    } else if (status === 403) {
+      return 'Bạn không có quyền thực hiện hành động này';
+    } else if (status === 404) {
+      return 'Không tìm thấy tài nguyên yêu cầu';
+    } else if (status === 500) {
+      return 'Lỗi máy chủ, vui lòng thử lại sau';
     }
+
+    return data.message || 'Có lỗi xảy ra';
   } else if (error.request) {
-    // Không nhận được response
-    return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng';
+    // Không nhận được phản hồi từ server
+    return 'Không thể kết nối đến máy chủ, vui lòng kiểm tra kết nối mạng';
   } else {
-    // Lỗi khi setup request
-    return error.message || defaultMessage;
+    // Lỗi khi thiết lập request
+    return error.message || 'Có lỗi xảy ra khi gửi yêu cầu';
   }
 };
 
 // Hàm xử lý lỗi xác thực
-export const handleAuthError = (error) => {
+const handleAuthError = (error) => {
   if (error.response) {
-    const { data, status } = error.response;
-    
-    switch (status) {
-      case 400:
-        return data.message || 'Thông tin đăng nhập không hợp lệ';
-      case 401:
-        return data.message || 'Tên đăng nhập hoặc mật khẩu không chính xác';
-      case 403:
-        return data.message || 'Tài khoản của bạn đã bị khóa';
-      case 404:
-        return data.message || 'Tài khoản không tồn tại';
-      case 409:
-        return data.message || 'Email đã được sử dụng';
-      case 422:
-        return data.message || 'Thông tin không hợp lệ';
-      default:
-        return handleApiError(error, 'Đăng nhập thất bại. Vui lòng thử lại sau');
+    const status = error.response.status;
+    const data = error.response.data;
+
+    if (status === 400) {
+      if (data.message && data.message.includes('username')) {
+        return 'Tên đăng nhập đã tồn tại';
+      } else if (data.message && data.message.includes('email')) {
+        return 'Email đã được sử dụng';
+      } else if (data.message && data.message.includes('password')) {
+        return 'Mật khẩu không đáp ứng yêu cầu bảo mật';
+      }
+      return data.message || 'Thông tin đăng nhập không hợp lệ';
+    } else if (status === 401) {
+      return 'Tên đăng nhập hoặc mật khẩu không chính xác';
+    } else if (status === 403) {
+      return 'Tài khoản của bạn không có quyền truy cập';
+    } else if (status === 404) {
+      return 'Không tìm thấy tài khoản';
     }
   }
-  
-  return handleApiError(error, 'Đăng nhập thất bại. Vui lòng thử lại sau');
+
+  return handleError(error);
 };
 
+export { handleError, handleAuthError };
 export default apiClient; 

@@ -1,57 +1,84 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SearchContext = createContext();
 
 export const SearchProvider = ({ children }) => {
+    const [currentSearch, setCurrentSearch] = useState(null);
     const [searchHistory, setSearchHistory] = useState([]);
-    const [currentSearch, setCurrentSearch] = useState({
-        location: '',
-        checkInDate: '',
-        checkOutDate: '', 
-        numberOfNights: 1,
-        rooms: 1,
-        adults: 1,
-        children: 0,
-        priceFrom: '',
-        priceTo: '',
-        selectedStar: null,
-        latitude: '',
-        longitude: '',
-    });
+    const [loading, setLoading] = useState(true);
 
-    const addToSearchHistory = (searchData) => {
-        setSearchHistory(prevHistory => {
-            // Giới hạn lịch sử tìm kiếm đến 5 items
-            const newHistory = [searchData, ...prevHistory.slice(0, 4)];
-            // Lọc bỏ các tìm kiếm trùng lặp
-            return newHistory.filter((item, index, self) =>
-                index === self.findIndex((t) => t.location === item.location)
+    useEffect(() => {
+        const loadSearchHistory = async () => {
+            try {
+                const savedHistory = await AsyncStorage.getItem('searchHistory');
+                if (savedHistory) {
+                    setSearchHistory(JSON.parse(savedHistory));
+                }
+            } catch (err) {
+                console.error('Error loading search history:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadSearchHistory();
+    }, []);
+
+    const updateCurrentSearch = (searchData) => {
+        setCurrentSearch(searchData);
+    };
+
+    const addToSearchHistory = async (searchData) => {
+        try {
+            const existingIndex = searchHistory.findIndex(
+                item => 
+                    item.location === searchData.location &&
+                    item.checkInDate === searchData.checkInDate &&
+                    item.checkOutDate === searchData.checkOutDate &&
+                    item.rooms === searchData.rooms &&
+                    item.adults === searchData.adults &&
+                    item.children === searchData.children
             );
-        });
+
+            let newHistory = [...searchHistory];
+            
+            if (existingIndex !== -1) {
+                newHistory.splice(existingIndex, 1);
+            }
+            
+            newHistory = [searchData, ...newHistory];
+            
+            if (newHistory.length > 5) {
+                newHistory = newHistory.slice(0, 5);
+            }
+            
+            setSearchHistory(newHistory);
+            await AsyncStorage.setItem('searchHistory', JSON.stringify(newHistory));
+        } catch (err) {
+            console.error('Error adding to search history:', err);
+        }
     };
 
-    const clearSearchHistory = () => {
-        setSearchHistory([]);
+    const clearSearchHistory = async () => {
+        try {
+            setSearchHistory([]);
+            await AsyncStorage.removeItem('searchHistory');
+        } catch (err) {
+            console.error('Error clearing search history:', err);
+        }
     };
 
-    const updateCurrentSearch = (newSearchData) => {
-        setCurrentSearch(prev => ({
-            ...prev,
-            ...newSearchData
-        }));
+    const value = {
+        currentSearch,
+        searchHistory,
+        loading,
+        updateCurrentSearch,
+        addToSearchHistory,
+        clearSearchHistory,
     };
 
-    return (
-        <SearchContext.Provider value={{
-            searchHistory,
-            currentSearch,
-            addToSearchHistory,
-            clearSearchHistory,
-            updateCurrentSearch,
-        }}>
-            {children}
-        </SearchContext.Provider>
-    );
+    return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;
 };
 
 export const useSearch = () => {
