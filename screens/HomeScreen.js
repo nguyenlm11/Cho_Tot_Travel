@@ -11,6 +11,7 @@ import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSearch } from '../contexts/SearchContext';
 import authApi from '../services/api/authApi';
+import { useLocationPermissions } from '../hooks/useLocationPermissions';
 
 const { width } = Dimensions.get('window');
 
@@ -62,6 +63,7 @@ export default function HomeScreen() {
     const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
     const [user, setUser] = useState(null);
     const [error, setError] = useState(null);
+    const { isLocationEnabled, checkLocationSettings } = useLocationPermissions();
 
     const handleSearch = async () => {
         setIsLoading(true);
@@ -92,6 +94,12 @@ export default function HomeScreen() {
             setIsLoading(false);
         }
     };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            checkLocationSettings();
+        }, [])
+    );
 
     useFocusEffect(
         React.useCallback(() => {

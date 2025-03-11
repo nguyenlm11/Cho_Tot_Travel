@@ -16,16 +16,18 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Kiểm tra xem người dùng đã đăng nhập chưa khi ứng dụng khởi động
+  // Kiểm tra trạng thái đăng nhập khi ứng dụng khởi động
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const userData = await authApi.getUserInfo();
-        if (userData) {
+        const isAuthenticated = await authApi.checkAuth();
+        if (isAuthenticated) {
+          const userData = await authApi.getUserInfo();
           setUser(userData);
         }
-      } catch (error) {
-        console.error('Error loading user data:', error);
+      } catch (err) {
+        console.error('Error loading user:', err);
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -34,92 +36,148 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  // Đăng ký tài khoản mới
+  // Đăng ký
   const register = async (userData) => {
+    setLoading(true);
     setError(null);
     try {
-      // Chỉ trả về dữ liệu đăng ký, không lưu vào state
-      return await authApi.register(userData);
-    } catch (error) {
-      setError(error.message || 'Đăng ký thất bại');
-      throw error;
-    }
-  };
-
-  // Xác nhận tài khoản bằng OTP
-  const confirmAccount = async (email, code) => {
-    setError(null);
-    try {
-      const response = await authApi.confirmAccount(email, code);
-      // Lưu thông tin người dùng vào state sau khi xác nhận OTP thành công
-      setUser(response);
+      const response = await authApi.register(userData);
+      
+      // Lưu dữ liệu đăng ký tạm thời để sử dụng sau khi xác nhận OTP
+      await AsyncStorage.setItem('tempRegistration', JSON.stringify(userData));
+      
       return response;
-    } catch (error) {
-      setError(error.message || 'Xác minh tài khoản thất bại');
-      throw error;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Gửi lại mã OTP
-  const resendOTP = async (email) => {
+  // Xác nhận tài khoản
+  const confirmAccount = async (email, code) => {
+    setLoading(true);
     setError(null);
     try {
-      return await authApi.resendOTP(email);
-    } catch (error) {
-      setError(error.message || 'Gửi lại OTP thất bại');
-      throw error;
+      const userData = await authApi.confirmAccount(email, code);
+      setUser(userData);
+      return userData;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   // Đăng nhập
   const login = async (credentials) => {
+    setLoading(true);
     setError(null);
     try {
-      const response = await authApi.login(credentials);
-      // Lưu thông tin người dùng vào state sau khi đăng nhập thành công
-      setUser(response);
-      return response;
-    } catch (error) {
-      setError(error.message || 'Đăng nhập thất bại');
-      throw error;
+      const userData = await authApi.login(credentials);
+      setUser(userData);
+      return userData;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   // Đăng xuất
   const logout = async () => {
+    setLoading(true);
+    setError(null);
     try {
       await authApi.logout();
       setUser(null);
-    } catch (error) {
-      console.error('Error during logout:', error);
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Kiểm tra xác thực
-  const checkAuth = async () => {
+  // Cập nhật thông tin người dùng
+  const updateUserInfo = async (userData) => {
+    setLoading(true);
+    setError(null);
     try {
-      return await authApi.checkAuth();
-    } catch (error) {
-      console.error('Error checking auth:', error);
-      return false;
+      const updatedUser = await authApi.updateUserInfo(userData);
+      setUser(prev => ({ ...prev, ...userData }));
+      return updatedUser;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        error,
-        register,
-        confirmAccount,
-        resendOTP,
-        login,
-        logout,
-        checkAuth,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  // Đổi mật khẩu
+  const changePassword = async (passwordData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.changePassword(passwordData);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Quên mật khẩu
+  const forgotPassword = async (email) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.forgotPassword(email);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Đặt lại mật khẩu
+  const resetPassword = async (resetData) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.resetPassword(resetData);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Giá trị context
+  const value = {
+    user,
+    loading,
+    error,
+    register,
+    confirmAccount,
+    login,
+    logout,
+    updateUserInfo,
+    changePassword,
+    forgotPassword,
+    resetPassword,
+    isAuthenticated: !!user,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }; 
