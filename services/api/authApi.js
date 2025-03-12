@@ -249,13 +249,13 @@ const authApi = {
       if (!userData.userId) {
         throw new Error('Thiếu userId để cập nhật thông tin người dùng');
       }
-      
+
       // Tách userId ra khỏi userData để sử dụng trong query parameter
       const { userId, ...userDataWithoutId } = userData;
-      
+
       // Gọi API cập nhật thông tin người dùng với userId là query parameter
       const response = await apiClient.put(`/api/account/Update-Account?userId=${userId}`, userDataWithoutId);
-      
+
       // Cập nhật thông tin trong AsyncStorage
       const currentUserData = await AsyncStorage.getItem('user');
       if (currentUserData) {
@@ -267,12 +267,22 @@ const authApi = {
         };
         await AsyncStorage.setItem('user', JSON.stringify(updatedUserData));
       }
-      
+
       return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
     }
-  }
+  },
+
+  getCurrentUser: async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    } catch {
+      return null;
+    }
+  },
+
 };
 
 export default authApi; 

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
 import RootNavigator from './navigations/RootNavigator';
 import 'react-native-gesture-handler';
 import * as Updates from 'expo-updates';
@@ -74,10 +73,8 @@ export default function App() {
   // }, []);
 
   return (
-    <AuthProvider>
-      <SearchProvider>
-        <AppContent />
-      </SearchProvider>
-    </AuthProvider>
+    <SearchProvider>
+      <AppContent />
+    </SearchProvider>
   );
 }

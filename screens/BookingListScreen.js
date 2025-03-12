@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Modal, TouchableOpacity, Button } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Modal, TouchableOpacity, Button, Platform, StatusBar } from 'react-native';
 import { FontAwesome6, Ionicons } from 'react-native-vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 
 const bookings = [
     {
@@ -67,33 +70,52 @@ export default function BookingListScreen() {
         return acc;
     }, {});
 
-    const renderBookingItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.bookingCard}
-            onPress={() =>
-                navigation.navigate('BookingDetail', {
-                    id: item.id,
-                    hotelName: item.hotelName,
-                    bookingCode: item.bookingCode,
-                    price: item.price,
-                    status: item.status,
-                    statusColor: item.statusColor,
-                })
-            }
+    const renderHeader = () => (
+        <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            style={styles.header}
         >
-            <View style={[styles.statusBadge, { backgroundColor: item.statusColor }]}>
-                <Text style={styles.statusText}>{item.status}</Text>
-            </View>
-            <View style={styles.nameContainer}>
-                <FontAwesome6 name="hotel" size={20} color="#333" />
-                <Text style={styles.hotelName}>{item.hotelName}</Text>
-            </View>
-            <View style={styles.hrLine} />
-            <View style={styles.priceContainer}>
-                <Text style={styles.bookingCode}>Mã đặt chỗ: {item.bookingCode}</Text>
-                <Text style={styles.price}>{item.price}</Text>
-            </View>
-        </TouchableOpacity>
+            <Text style={styles.headerText}>Danh sách đặt phòng</Text>
+            <TouchableOpacity 
+                style={styles.filterButton} 
+                onPress={() => setModalVisible(true)}
+            >
+                <BlurView intensity={80} tint="light" style={styles.blurButton}>
+                    <Ionicons name="options-outline" size={24} color="#fff" />
+                </BlurView>
+            </TouchableOpacity>
+        </LinearGradient>
+    );
+
+    const renderBookingItem = ({ item }) => (
+        <Animated.View entering={FadeInDown}>
+            <TouchableOpacity
+                style={styles.bookingCard}
+                onPress={() =>
+                    navigation.navigate('BookingDetail', {
+                        id: item.id,
+                        hotelName: item.hotelName,
+                        bookingCode: item.bookingCode,
+                        price: item.price,
+                        status: item.status,
+                        statusColor: item.statusColor,
+                    })
+                }
+            >
+                <View style={[styles.statusBadge, { backgroundColor: item.statusColor }]}>
+                    <Text style={styles.statusText}>{item.status}</Text>
+                </View>
+                <View style={styles.nameContainer}>
+                    <FontAwesome6 name="hotel" size={20} color={colors.textPrimary} />
+                    <Text style={styles.hotelName}>{item.hotelName}</Text>
+                </View>
+                <View style={styles.hrLine} />
+                <View style={styles.priceContainer}>
+                    <Text style={styles.bookingCode}>Mã đặt chỗ: {item.bookingCode}</Text>
+                    <Text style={styles.price}>{item.price}</Text>
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
     );
 
     const renderMonthSection = ({ item: month }) => (
@@ -103,25 +125,22 @@ export default function BookingListScreen() {
                 data={filteredGroupedBookings[month]}
                 keyExtractor={(item) => item.id}
                 renderItem={renderBookingItem}
+                showsVerticalScrollIndicator={false}
             />
         </View>
     );
 
     return (
-        <View style={{ flex: 1 }}>
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+            
             <FlatList
                 data={Object.keys(filteredGroupedBookings)}
                 keyExtractor={(item) => item}
                 renderItem={renderMonthSection}
-                ListHeaderComponent={() => (
-                    <View style={styles.header}>
-                        <Text style={styles.headerText}>Danh sách đặt phòng</Text>
-                        <TouchableOpacity onPress={() => setModalVisible(true)}>
-                            <Ionicons name="settings-sharp" size={20} color="#fff" />
-                        </TouchableOpacity>
-                    </View>
-                )}
-                contentContainerStyle={styles.container}
+                ListHeaderComponent={renderHeader}
+                contentContainerStyle={styles.listContainer}
+                showsVerticalScrollIndicator={false}
             />
 
             <Modal
@@ -130,30 +149,48 @@ export default function BookingListScreen() {
                 transparent={true}
                 onRequestClose={() => setModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Lọc theo trạng thái</Text>
+                <BlurView intensity={80} tint="light" style={styles.modalOverlay}>
+                    <Animated.View 
+                        entering={FadeIn}
+                        style={styles.modalContent}
+                    >
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Lọc theo trạng thái</Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                <Ionicons name="close" size={24} color={colors.textPrimary} />
+                            </TouchableOpacity>
+                        </View>
+                        
                         {['Đang xử lý', 'Đặt thành công', 'Đặt thất bại', 'Đã hủy'].map((status) => (
                             <TouchableOpacity
                                 key={status}
-                                style={styles.filterButton}
+                                style={[
+                                    styles.filterOption,
+                                    filterStatus === status && styles.filterOptionActive
+                                ]}
                                 onPress={() => {
                                     setFilterStatus(status);
                                     setModalVisible(false);
                                 }}
                             >
-                                <Text style={styles.filterText}>{status}</Text>
+                                <Text style={[
+                                    styles.filterText,
+                                    filterStatus === status && styles.filterTextActive
+                                ]}>{status}</Text>
                             </TouchableOpacity>
                         ))}
-                        <Button
-                            title="Bỏ lọc"
+                        
+                        <TouchableOpacity
+                            style={styles.clearFilterButton}
                             onPress={() => {
                                 setFilterStatus(null);
                                 setModalVisible(false);
                             }}
-                        />
-                    </View>
-                </View>
+                        >
+                            <Text style={styles.clearFilterText}>Bỏ lọc</Text>
+                        </TouchableOpacity>
+                    </Animated.View>
+                </BlurView>
             </Modal>
         </View>
     );
@@ -161,111 +198,168 @@ export default function BookingListScreen() {
 
 const styles = StyleSheet.create({
     container: {
+        flex: 1,
+        backgroundColor: '#f8f9fa',
+    },
+    listContainer: {
         paddingBottom: 20,
-        backgroundColor: '#fff',
     },
     header: {
+        paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 20,
+        paddingBottom: 30,
+        paddingHorizontal: 20,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 20,
-        paddingTop: 100,
-        backgroundColor: colors.primary,
     },
     headerText: {
-        fontSize: 20,
-        color: '#fff',
+        fontSize: 24,
         fontWeight: 'bold',
+        color: '#fff',
+    },
+    filterButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    blurButton: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     monthSection: {
-        marginVertical: 10,
+        marginTop: 20,
+        paddingHorizontal: 20,
     },
     monthTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 10,
-        paddingHorizontal: 15,
+        color: colors.textPrimary,
+        marginBottom: 15,
     },
     bookingCard: {
-        backgroundColor: '#F5F5F5',
-        borderRadius: 8,
+        backgroundColor: '#fff',
+        borderRadius: 15,
         padding: 15,
-        marginHorizontal: 15,
-        marginBottom: 10,
-        elevation: 2,
+        marginBottom: 15,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
     },
     statusBadge: {
         alignSelf: 'flex-start',
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        borderRadius: 15,
-        marginBottom: 8,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        marginBottom: 10,
     },
     statusText: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#fff',
     },
     nameContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     hotelName: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginTop: 5,
-        marginBottom: 5,
-        marginLeft: 8,
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.textPrimary,
+        marginLeft: 10,
+        flex: 1,
     },
     hrLine: {
-        borderBottomWidth: 1,
-        borderBottomColor: '#D1D1D1',
-        marginBottom: 8,
-        marginTop: 8,
+        height: 1,
+        backgroundColor: '#f0f0f0',
+        marginVertical: 12,
     },
     priceContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignContent: 'center',
+        alignItems: 'center',
     },
     bookingCode: {
-        fontSize: 15,
-        color: '#757575',
-        marginBottom: 5,
+        fontSize: 14,
+        color: colors.textSecondary,
     },
     price: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
-        color: '#007BFF',
+        color: colors.primary,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
-        alignItems: 'center',
     },
     modalContent: {
         backgroundColor: '#fff',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
         padding: 20,
-        borderRadius: 10,
-        width: '100%',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 20,
     },
     modalTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
-        marginBottom: 15,
+        color: colors.textPrimary,
     },
-    filterButton: {
-        padding: 10,
-        backgroundColor: '#F1F1F1',
-        borderRadius: 8,
-        width: '100%',
-        alignItems: 'center',
-        marginVertical: 5,
+    filterOption: {
+        paddingVertical: 12,
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        marginBottom: 10,
+        backgroundColor: '#f5f5f5',
+    },
+    filterOptionActive: {
+        backgroundColor: colors.primary + '20',
     },
     filterText: {
         fontSize: 16,
-        color: '#333',
+        color: colors.textPrimary,
+    },
+    filterTextActive: {
+        color: colors.primary,
+        fontWeight: '600',
+    },
+    clearFilterButton: {
+        marginTop: 10,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: 10,
+        backgroundColor: '#f5f5f5',
+    },
+    clearFilterText: {
+        fontSize: 16,
+        color: colors.textSecondary,
+        fontWeight: '600',
     },
 });

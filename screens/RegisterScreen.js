@@ -5,8 +5,8 @@ import { colors } from "../constants/Colors";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useAuth } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import authApi from '../services/api/authApi';
 
 export default function RegisterScreen() {
     const [username, setUsername] = useState("");
@@ -22,7 +22,6 @@ export default function RegisterScreen() {
     const [isLoading, setIsLoading] = useState(false);
     const [apiError, setApiError] = useState("");
     const navigation = useNavigation();
-    const { register } = useAuth();
 
     const [errors, setErrors] = useState({
         username: false,
@@ -50,11 +49,9 @@ export default function RegisterScreen() {
         return phoneRegex.test(phone);
     };
 
-    const handleRegister = async () => {
-        // Reset API error
-        setApiError("");
-
-        // Validate form
+    const validateForm = () => {
+        setApiError('');
+        
         let newErrors = {
             username: username.trim() === "",
             email: !validateEmail(email),
@@ -69,15 +66,23 @@ export default function RegisterScreen() {
 
         const hasError = Object.values(newErrors).some(error => error);
         if (hasError) {
+            return false;
+        }
+
+        return true;
+    };
+
+    const handleRegister = async () => {
+        setApiError('');
+        
+        if (!validateForm()) {
             return;
         }
 
-        // Form is valid, proceed with API call
         setIsLoading(true);
 
         try {
-            // Call register API with additional fields
-            const response = await register({
+            const response = await authApi.register({
                 userName: username,
                 email,
                 password,
@@ -86,15 +91,8 @@ export default function RegisterScreen() {
                 phone
             });
             
-            // Lưu thông tin đăng ký tạm thời để sử dụng sau khi xác minh OTP
-            if (response) {
-                await AsyncStorage.setItem('tempRegistration', JSON.stringify(response));
-            }
-            
-            // Đối với người dùng đăng ký account, sau khi đăng ký thành công sẽ chuyển qua màn hình nhập OTP
             navigation.navigate('OTPVerification', { email, isNewUser: true });
         } catch (error) {
-            console.error('Registration error:', error);
             setApiError(error.message || 'Đăng ký thất bại. Vui lòng thử lại sau.');
         } finally {
             setIsLoading(false);
@@ -117,12 +115,6 @@ export default function RegisterScreen() {
                         entering={FadeInDown.duration(1000).springify()}
                         style={styles.headerContainer}
                     >
-                        <TouchableOpacity
-                            style={styles.backButton}
-                            onPress={() => navigation.goBack()}
-                        >
-                            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                        </TouchableOpacity>
                         <Image source={require('../assets/mobile-register.png')} style={styles.image} />
                     </Animated.View>
 
@@ -149,7 +141,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Tên đăng nhập"
-                                value={username}
+                                value={username.trim()}
                                 onChangeText={setUsername}
                                 keyboardType="default"
                                 autoCapitalize="none"
@@ -164,7 +156,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Họ và tên"
-                                value={name}
+                                value={name.trim()}
                                 onChangeText={setName}
                                 keyboardType="default"
                                 editable={!isLoading}
@@ -178,7 +170,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Email"
-                                value={email}
+                                value={email.trim()}
                                 onChangeText={setEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
@@ -193,7 +185,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Số điện thoại"
-                                value={phone}
+                                value={phone.trim()}
                                 onChangeText={setPhone}
                                 keyboardType="phone-pad"
                                 editable={!isLoading}
@@ -207,7 +199,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Địa chỉ"
-                                value={address}
+                                value={address.trim()}
                                 onChangeText={setAddress}
                                 keyboardType="default"
                                 editable={!isLoading}
@@ -221,7 +213,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Mật khẩu"
-                                value={password}
+                                value={password.trim()}
                                 onChangeText={setPassword}
                                 secureTextEntry={secureText}
                                 editable={!isLoading}
@@ -238,7 +230,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Xác nhận mật khẩu"
-                                value={confirmPassword}
+                                value={confirmPassword.trim()}
                                 onChangeText={setConfirmPassword}
                                 secureTextEntry={secureTextConfirm}
                                 editable={!isLoading}
@@ -333,13 +325,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         position: 'relative',
         paddingTop: 10,
-    },
-    backButton: {
-        position: 'absolute',
-        left: 0,
-        top: 15,
-        zIndex: 10,
-        padding: 5,
     },
     image: {
         width: 250,
@@ -522,4 +507,3 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
 });
-

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Image, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
-import { useAuth } from '../contexts/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import authApi from '../services/api/authApi';
 
 export default function SettingsScreen() {
     const navigation = useNavigation();
-    const { user, logout } = useAuth();
+
+    // State management
     const [isLoading, setIsLoading] = useState(false);
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
@@ -17,47 +20,42 @@ export default function SettingsScreen() {
     const [locationEnabled, setLocationEnabled] = useState(true);
 
     useEffect(() => {
-        // Lấy thông tin người dùng từ AsyncStorage
-        const loadUserData = async () => {
-            try {
-                const userData = await AsyncStorage.getItem('user');
-                if (userData) {
-                    const parsedUser = JSON.parse(userData);
-                    setUserName(parsedUser.name || parsedUser.userName || 'Người dùng');
-                    setUserEmail(parsedUser.email || '');
-                }
-            } catch (error) {
-                console.error('Error loading user data:', error);
-            }
-        };
-
         loadUserData();
     }, []);
 
-    const handleLogout = async () => {
+    const loadUserData = async () => {
+        try {
+            const userData = await authApi.getCurrentUser();
+            setUserName(userData.name || userData.userName || 'Người dùng');
+            setUserEmail(userData.email || '');
+        } catch (error) {
+            console.error('Error loading user data:', error);
+        }
+    };
+
+    const handleLogout = () => {
         Alert.alert(
             'Đăng xuất',
             'Bạn có chắc chắn muốn đăng xuất?',
             [
-                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Hủy',
+                    style: 'cancel'
+                },
                 {
                     text: 'Đăng xuất',
+                    style: 'destructive',
                     onPress: async () => {
-                        setIsLoading(true);
                         try {
-                            await logout();
+                            await authApi.logout();
                             navigation.reset({
                                 index: 0,
                                 routes: [{ name: 'Login' }],
                             });
                         } catch (error) {
-                            console.error('Logout error:', error);
-                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi đăng xuất. Vui lòng thử lại.');
-                        } finally {
-                            setIsLoading(false);
+                            Alert.alert('Lỗi', 'Không thể đăng xuất. Vui lòng thử lại.');
                         }
-                    },
-                    style: 'destructive'
+                    }
                 }
             ]
         );
@@ -82,6 +80,47 @@ export default function SettingsScreen() {
         </TouchableOpacity>
     );
 
+    const renderHeader = () => (
+        <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            style={styles.header}
+        >
+            <Text style={styles.headerTitle}>Cài đặt</Text>
+        </LinearGradient>
+    );
+
+    const renderProfileSection = () => (
+        <Animated.View
+            entering={FadeInDown.delay(100)}
+            style={styles.profileSection}
+        >
+            <View style={styles.profileImageContainer}>
+                <Image
+                    style={styles.profileImage}
+                // source={require('../assets/avatar-placeholder.png')}
+                />
+                <BlurView intensity={80} tint="light" style={styles.editImageButton}>
+                    <Ionicons name="camera" size={20} color={colors.primary} />
+                </BlurView>
+            </View>
+            <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{userName}</Text>
+                <Text style={styles.profileEmail}>{userEmail}</Text>
+            </View>
+            <TouchableOpacity
+                style={styles.editProfileButton}
+                onPress={() => navigation.navigate('EditProfile')}
+            >
+                <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    style={styles.editProfileGradient}
+                >
+                    <Text style={styles.editProfileText}>Chỉnh sửa</Text>
+                </LinearGradient>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
@@ -93,31 +132,20 @@ export default function SettingsScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Cài đặt</Text>
-            </View>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+            {renderHeader()}
 
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                {/* User Profile Section */}
-                <View style={styles.profileSection}>
-                    <Image
-                        // source={require('../assets/avatar-placeholder.png')} 
-                        style={styles.profileImage}
-                    />
-                    <View style={styles.profileInfo}>
-                        <Text style={styles.profileName}>{userName}</Text>
-                        <Text style={styles.profileEmail}>{userEmail}</Text>
-                    </View>
-                    <TouchableOpacity
-                        style={styles.editProfileButton}
-                        onPress={() => navigation.navigate('EditProfile')}
-                    >
-                        <Text style={styles.editProfileText}>Chỉnh sửa</Text>
-                    </TouchableOpacity>
-                </View>
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+            >
+                {renderProfileSection()}
 
-                {/* Settings Sections */}
-                <View style={styles.section}>
+                {/* Account Settings */}
+                <Animated.View
+                    entering={FadeInDown.delay(200)}
+                    style={styles.section}
+                >
                     <Text style={styles.sectionTitle}>Tài khoản</Text>
                     {renderSettingItem(
                         <Ionicons name="person-outline" size={22} color={colors.primary} />,
@@ -139,13 +167,18 @@ export default function SettingsScreen() {
                         <Switch
                             value={notificationsEnabled}
                             onValueChange={setNotificationsEnabled}
-                            trackColor={{ false: '#D1D1D6', true: colors.primary + '80' }}
+                            trackColor={{ false: '#D1D1D6', true: colors.primary + '40' }}
                             thumbColor={notificationsEnabled ? colors.primary : '#F4F3F4'}
+                            ios_backgroundColor="#D1D1D6"
                         />
                     )}
-                </View>
+                </Animated.View>
 
-                <View style={styles.section}>
+                {/* App Settings */}
+                <Animated.View
+                    entering={FadeInDown.delay(300)}
+                    style={styles.section}
+                >
                     <Text style={styles.sectionTitle}>Ứng dụng</Text>
                     {renderSettingItem(
                         <Ionicons name="moon-outline" size={22} color={colors.primary} />,
@@ -155,8 +188,9 @@ export default function SettingsScreen() {
                         <Switch
                             value={darkModeEnabled}
                             onValueChange={setDarkModeEnabled}
-                            trackColor={{ false: '#D1D1D6', true: colors.primary + '80' }}
+                            trackColor={{ false: '#D1D1D6', true: colors.primary + '40' }}
                             thumbColor={darkModeEnabled ? colors.primary : '#F4F3F4'}
+                            ios_backgroundColor="#D1D1D6"
                         />
                     )}
                     {renderSettingItem(
@@ -167,8 +201,9 @@ export default function SettingsScreen() {
                         <Switch
                             value={locationEnabled}
                             onValueChange={setLocationEnabled}
-                            trackColor={{ false: '#D1D1D6', true: colors.primary + '80' }}
+                            trackColor={{ false: '#D1D1D6', true: colors.primary + '40' }}
                             thumbColor={locationEnabled ? colors.primary : '#F4F3F4'}
+                            ios_backgroundColor="#D1D1D6"
                         />
                     )}
                     {renderSettingItem(
@@ -177,9 +212,13 @@ export default function SettingsScreen() {
                         'Thay đổi ngôn ngữ ứng dụng',
                         () => navigation.navigate('Language')
                     )}
-                </View>
+                </Animated.View>
 
-                <View style={styles.section}>
+                {/* Other Settings */}
+                <Animated.View
+                    entering={FadeInDown.delay(400)}
+                    style={styles.section}
+                >
                     <Text style={styles.sectionTitle}>Khác</Text>
                     {renderSettingItem(
                         <Ionicons name="help-circle-outline" size={22} color={colors.primary} />,
@@ -199,20 +238,23 @@ export default function SettingsScreen() {
                         'Phiên bản, thông tin ứng dụng',
                         () => navigation.navigate('About')
                     )}
-                </View>
+                </Animated.View>
 
                 {/* Logout Button */}
-                <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={handleLogout}
+                <Animated.View
+                    entering={FadeInDown.delay(500)}
+                    style={styles.logoutSection}
                 >
-                    <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
-                    <Text style={styles.logoutText}>Đăng xuất</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={handleLogout}
+                    >
+                        <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
+                        <Text style={styles.logoutText}>Đăng xuất</Text>
+                    </TouchableOpacity>
 
-                <View style={styles.versionContainer}>
                     <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
-                </View>
+                </Animated.View>
             </ScrollView>
         </View>
     );
@@ -221,62 +263,90 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#f8f9fa',
     },
     header: {
-        paddingTop: 60,
-        paddingBottom: 15,
+        paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 20,
+        paddingBottom: 30,
         paddingHorizontal: 20,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
     },
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: colors.textPrimary,
+        color: '#fff',
     },
     scrollView: {
         flex: 1,
     },
     profileSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
+        marginTop: -20,
+        marginHorizontal: 20,
         backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        borderRadius: 15,
+        padding: 20,
+        flexDirection: 'column',
+        alignItems: 'center',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    profileImageContainer: {
+        position: 'relative',
+        marginBottom: 15,
     },
     profileImage: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         backgroundColor: '#F0F0F0',
     },
+    editImageButton: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     profileInfo: {
-        flex: 1,
-        marginLeft: 15,
+        alignItems: 'center',
     },
     profileName: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
         color: colors.textPrimary,
+        marginBottom: 5,
     },
     profileEmail: {
         fontSize: 14,
         color: colors.textSecondary,
-        marginTop: 3,
+        marginBottom: 15,
     },
     editProfileButton: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 20,
-        backgroundColor: colors.primary + '15',
+        borderRadius: 25,
+        overflow: 'hidden',
+    },
+    editProfileGradient: {
+        paddingVertical: 8,
+        paddingHorizontal: 20,
     },
     editProfileText: {
         fontSize: 14,
-        color: colors.primary,
-        fontWeight: '500',
+        color: '#fff',
+        fontWeight: '600',
     },
     section: {
         marginTop: 20,
@@ -286,20 +356,32 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: colors.textSecondary,
-        marginBottom: 10,
+        marginBottom: 15,
     },
     settingItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        backgroundColor: '#fff',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 10,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
     },
     settingIconContainer: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: colors.primary + '10',
+        backgroundColor: colors.primary + '15',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -311,32 +393,45 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
         color: colors.textPrimary,
+        marginBottom: 4,
     },
     settingSubtitle: {
         fontSize: 13,
         color: colors.textSecondary,
-        marginTop: 2,
+    },
+    logoutSection: {
+        marginTop: 30,
+        paddingHorizontal: 20,
+        paddingBottom: 30,
+        alignItems: 'center',
     },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 30,
-        marginHorizontal: 20,
-        paddingVertical: 15,
         backgroundColor: '#FFF1F0',
-        borderRadius: 15,
+        paddingVertical: 15,
+        paddingHorizontal: 30,
+        borderRadius: 25,
+        width: '100%',
+        marginBottom: 20,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#FF3B30',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
     },
     logoutText: {
         marginLeft: 10,
         fontSize: 16,
         fontWeight: '600',
         color: '#FF3B30',
-    },
-    versionContainer: {
-        alignItems: 'center',
-        marginTop: 20,
-        marginBottom: 30,
     },
     versionText: {
         fontSize: 13,
@@ -346,7 +441,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#f8f9fa',
     },
     loadingText: {
         marginTop: 10,

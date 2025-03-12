@@ -5,10 +5,8 @@ import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/Colors";
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useAuth } from '../contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const { width, height } = Dimensions.get("window");
+import authApi from '../services/api/authApi';
 
 export default function LoginScreen() {
     const [username, setUsername] = useState("");
@@ -17,86 +15,59 @@ export default function LoginScreen() {
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [apiError, setApiError] = useState("");
-    
     const navigation = useNavigation();
-    const { login } = useAuth();
-    
-    // Kiểm tra xem có thông tin đăng nhập đã lưu không
+
+    // Kiểm tra và load thông tin đăng nhập đã lưu
     useEffect(() => {
-        const loadSavedCredentials = async () => {
-            try {
-                const savedRememberMe = await AsyncStorage.getItem('rememberMe');
-                const savedUsername = await AsyncStorage.getItem('savedUsername');
-                
-                if (savedRememberMe === 'true' && savedUsername) {
-                    setRememberMe(true);
-                    setUsername(savedUsername);
-                }
-            } catch (error) {
-                console.error('Error loading saved credentials:', error);
-            }
-        };
-        
         loadSavedCredentials();
     }, []);
-    
-    const validateForm = () => {
-        if (!username.trim()) {
-            Alert.alert('Lỗi', 'Vui lòng nhập tên đăng nhập hoặc email');
-            return false;
+
+    const loadSavedCredentials = async () => {
+        try {
+            const savedRememberMe = await AsyncStorage.getItem('rememberMe');
+            const savedUsername = await AsyncStorage.getItem('savedUsername');
+
+            if (savedRememberMe === 'true' && savedUsername) {
+                setRememberMe(true);
+                setUsername(savedUsername);
+            }
+        } catch (error) {
+            console.error('Error loading saved credentials:', error);
         }
-        
-        if (!password.trim()) {
-            Alert.alert('Lỗi', 'Vui lòng nhập mật khẩu');
-            return false;
+    };
+
+    const saveCredentials = async () => {
+        try {
+            if (rememberMe) {
+                await AsyncStorage.setItem('savedUsername', username);
+                await AsyncStorage.setItem('rememberMe', 'true');
+            } else {
+                await AsyncStorage.multiRemove(['savedUsername', 'rememberMe']);
+            }
+        } catch (error) {
+            console.error('Error saving credentials:', error);
         }
-        
-        return true;
     };
 
     const handleLogin = async () => {
-        // Reset API error
-        setApiError("");
-        
-        // Validate form
-        if (!validateForm()) {
+        if (!username || !password) {
+            setApiError('Vui lòng nhập đầy đủ thông tin');
             return;
         }
-        
-        // Form is valid, proceed with API call
+
         setIsLoading(true);
-        
+        setApiError('');
+
         try {
-            // Call login API
-            const response = await login({
-                username: username,
-                password: password
-            });
-            
-            // Save remember me state
-            if (rememberMe) {
-                await AsyncStorage.setItem('rememberMe', 'true');
-                await AsyncStorage.setItem('savedUsername', username);
-            } else {
-                await AsyncStorage.removeItem('rememberMe');
-                await AsyncStorage.removeItem('savedUsername');
-            }
-            
-            // Đối với người dùng đã có account, sau khi login thành công sẽ vào trực tiếp HomeScreen.js
+            await authApi.login({ username, password });
+
+            await saveCredentials();
             navigation.reset({
                 index: 0,
                 routes: [{ name: 'MainTabs' }],
             });
         } catch (error) {
-            console.error('Login error in screen:', error);
-            // Hiển thị thông báo lỗi rõ ràng
-            if (error.message.includes('không chính xác')) {
-                setApiError('Tên đăng nhập hoặc mật khẩu không chính xác');
-            } else if (error.message.includes('kết nối')) {
-                setApiError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng');
-            } else {
-                setApiError(error.message || 'Đăng nhập thất bại. Vui lòng thử lại sau.');
-            }
+            setApiError(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
         } finally {
             setIsLoading(false);
         }
@@ -113,15 +84,15 @@ export default function LoginScreen() {
                     contentContainerStyle={styles.scrollContainer}
                     showsVerticalScrollIndicator={false}
                 >
-                    <Animated.View 
+                    <Animated.View
                         entering={FadeInDown.duration(1000).springify()}
                         style={styles.headerContainer}
                     >
                         <Image source={require('../assets/mobile-login.png')} style={styles.image} />
                     </Animated.View>
-                    
+
                     {/* Input Fields */}
-                    <Animated.View 
+                    <Animated.View
                         entering={FadeInUp.delay(200).duration(1000).springify()}
                         style={styles.formContainer}
                     >
@@ -129,21 +100,21 @@ export default function LoginScreen() {
                             <Text style={styles.welcomeText}>Chào mừng trở lại</Text>
                             <Text style={styles.titleText}>Đăng nhập</Text>
                         </View>
-                        
+
                         {/* API Error Message */}
                         {apiError ? (
                             <View style={styles.apiErrorContainer}>
                                 <Text style={styles.apiErrorText}>{apiError}</Text>
                             </View>
                         ) : null}
-                        
+
                         {/* Username/Email Input */}
                         <View style={styles.inputBox}>
                             <Ionicons name="person-outline" size={22} color={colors.textSecondary} style={styles.icon} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="Tên đăng nhập hoặc email"
-                                value={username}
+                                value={username.trim()}
                                 onChangeText={setUsername}
                                 autoCapitalize="none"
                             />
@@ -156,22 +127,22 @@ export default function LoginScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Mật khẩu"
-                                value={password}
+                                value={password.trim()}
                                 onChangeText={setPassword}
                                 secureTextEntry={secureText}
                             />
                             <TouchableOpacity onPress={() => setSecureText(!secureText)} style={styles.eyeIcon}>
-                                <Ionicons 
-                                    name={secureText ? "eye-off-outline" : "eye-outline"} 
-                                    size={22} 
-                                    color={colors.textSecondary} 
+                                <Ionicons
+                                    name={secureText ? "eye-off-outline" : "eye-outline"}
+                                    size={22}
+                                    color={colors.textSecondary}
                                 />
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.optionsContainer}>
-                            <TouchableOpacity 
-                                style={styles.rememberContainer} 
+                            <TouchableOpacity
+                                style={styles.rememberContainer}
                                 onPress={() => setRememberMe(!rememberMe)}
                             >
                                 <View style={[styles.checkbox, rememberMe && styles.checkedBox]}>
@@ -179,8 +150,8 @@ export default function LoginScreen() {
                                 </View>
                                 <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
                             </TouchableOpacity>
-                            
-                            <TouchableOpacity 
+
+                            <TouchableOpacity
                                 style={styles.forgot}
                                 onPress={() => navigation.navigate('ForgotPassword')}
                             >
@@ -193,8 +164,8 @@ export default function LoginScreen() {
                         entering={FadeInUp.delay(400).duration(1000).springify()}
                         style={styles.buttonsContainer}
                     >
-                        <TouchableOpacity 
-                            style={[styles.loginButton, isLoading && styles.disabledButton]} 
+                        <TouchableOpacity
+                            style={[styles.loginButton, isLoading && styles.disabledButton]}
                             onPress={handleLogin}
                             activeOpacity={0.8}
                             disabled={isLoading}
