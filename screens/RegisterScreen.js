@@ -156,7 +156,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Họ và tên"
-                                value={name.trim()}
+                                value={name}
                                 onChangeText={setName}
                                 keyboardType="default"
                                 editable={!isLoading}
@@ -199,7 +199,7 @@ export default function RegisterScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Địa chỉ"
-                                value={address.trim()}
+                                value={address}
                                 onChangeText={setAddress}
                                 keyboardType="default"
                                 editable={!isLoading}
