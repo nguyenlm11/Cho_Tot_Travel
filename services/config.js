@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tạo instance axios với cấu hình mặc định
 const apiClient = axios.create({
-  baseURL: 'http://192.168.2.17:7221',
+  // baseURL: 'http://192.168.2.17:7221',
+  baseURL: 'http://hungnv.iselab.cloud:7221',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -27,12 +28,12 @@ apiClient.interceptors.request.use(
 // Hàm xử lý lỗi chung
 const handleError = (error) => {
   if (error.response) {
-    // Lỗi từ server với mã trạng thái
     const status = error.response.status;
     const data = error.response.data;
-
+    // Kiểm tra nếu data là chuỗi, dùng trực tiếp; nếu là object, dùng data.message
+    const errorMessage = typeof data === 'string' ? data : data.message || 'Có lỗi xảy ra';
     if (status === 400) {
-      return data.message || 'Yêu cầu không hợp lệ';
+      return errorMessage || 'Yêu cầu không hợp lệ';
     } else if (status === 401) {
       return 'Bạn cần đăng nhập để thực hiện hành động này';
     } else if (status === 403) {
@@ -43,12 +44,10 @@ const handleError = (error) => {
       return 'Lỗi máy chủ, vui lòng thử lại sau';
     }
 
-    return data.message || 'Có lỗi xảy ra';
+    return errorMessage;
   } else if (error.request) {
-    // Không nhận được phản hồi từ server
     return 'Không thể kết nối đến máy chủ, vui lòng kiểm tra kết nối mạng';
   } else {
-    // Lỗi khi thiết lập request
     return error.message || 'Có lỗi xảy ra khi gửi yêu cầu';
   }
 };
@@ -60,14 +59,17 @@ const handleAuthError = (error) => {
     const data = error.response.data;
 
     if (status === 400) {
-      if (data.message && data.message.includes('username')) {
+      const errorMessage = typeof data === 'string' ? data : data.message || 'Thông tin đăng nhập không hợp lệ';
+      if (errorMessage.includes('username')) {
         return 'Tên đăng nhập đã tồn tại';
-      } else if (data.message && data.message.includes('email')) {
+      } else if (errorMessage.includes('confirm')) {
+        return 'Bạn cần xác nhận email trước khi đăng nhập';
+      } else if (errorMessage.includes('email')) {
         return 'Email đã được sử dụng';
-      } else if (data.message && data.message.includes('password')) {
+      } else if (errorMessage.includes('password')) {
         return 'Mật khẩu không đáp ứng yêu cầu bảo mật';
       }
-      return data.message || 'Thông tin đăng nhập không hợp lệ';
+      return errorMessage; // Trả về thông báo lỗi gốc nếu không khớp
     } else if (status === 401) {
       return 'Tên đăng nhập hoặc mật khẩu không chính xác';
     } else if (status === 403) {
