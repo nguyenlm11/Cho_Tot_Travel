@@ -57,6 +57,7 @@ const getUserFromToken = (token) => {
   try {
     const decoded = jwtDecode(token);
     return {
+      userId: decoded.AccountID,
       email: decoded.email,
       username: decoded.given_name,
       role: decoded.role,
@@ -68,18 +69,18 @@ const getUserFromToken = (token) => {
   }
 };
 
+// Thêm hàm kiểm tra role
+const validateCustomerRole = (userData) => {
+  if (!userData || userData.role !== 'Customer') {
+    throw new Error('Tài khoản không có quyền truy cập. Chỉ khách hàng mới được phép đăng nhập.');
+  }
+};
+
 const authApi = {
   // Đăng ký tài khoản
   register: async (userData) => {
     try {
       const response = await apiClient.post('/api/account/register-Customer', userData);
-
-      // Kiểm tra xem response có chứa token không
-      if (response.data && (response.data.token || response.data['access-token'])) {
-        // Nếu có token, lưu ngay lập tức
-        await saveAuthData(response.data);
-      }
-
       return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
@@ -90,24 +91,7 @@ const authApi = {
   confirmAccount: async (email, code) => {
     try {
       const response = await apiClient.post(`/api/account/confirmation/${email}/${code}`);
-
-      // Lấy dữ liệu đăng ký tạm thời nếu có
-      const tempRegistrationData = await AsyncStorage.getItem('tempRegistration');
-      let combinedData = response.data;
-
-      if (tempRegistrationData) {
-        const registrationData = JSON.parse(tempRegistrationData);
-        combinedData = {
-          ...registrationData,
-          ...response.data
-        };
-        // Xóa dữ liệu tạm thời sau khi đã kết hợp
-        await AsyncStorage.removeItem('tempRegistration');
-      }
-
-      // Lưu thông tin người dùng và token
-      const userData = await saveAuthData(combinedData);
-      return userData;
+      return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
     }
@@ -127,9 +111,16 @@ const authApi = {
   login: async (credentials) => {
     try {
       const response = await apiClient.post('/api/account/login', credentials);
-      // Lưu thông tin người dùng và token
-      const userData = await saveAuthData(response.data);
-      return userData;
+
+      // Kiểm tra và giải mã token để lấy thông tin role
+      const token = response.data.token || response.data['access-token'];
+      console.log(response.data.token);
+      if (token) {
+        const userData = getUserFromToken(token);
+        validateCustomerRole(userData);
+      }
+      await saveAuthData(response.data);
+      return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));
     }
@@ -245,16 +236,22 @@ const authApi = {
   // Cập nhật thông tin người dùng
   updateUserInfo: async (userData) => {
     try {
-      // Kiểm tra xem có userId không
       if (!userData.userId) {
         throw new Error('Thiếu userId để cập nhật thông tin người dùng');
       }
 
-      // Tách userId ra khỏi userData để sử dụng trong query parameter
-      const { userId, ...userDataWithoutId } = userData;
+      // Tách userId ra khỏi userData để tránh trùng lặp trong body
+      const { userId, ...updateData } = userData;
 
-      // Gọi API cập nhật thông tin người dùng với userId là query parameter
-      const response = await apiClient.put(`/api/account/Update-Account?userId=${userId}`, userDataWithoutId);
+      // Gọi API với userId trong query parameter
+      const response = await apiClient.put(`/api/account/Update-Account?userId=${userId}`, {
+        userName: updateData.username,
+        email: updateData.email,
+        name: updateData.name,
+        address: updateData.address,
+        phone: updateData.phone,
+        role: updateData.role
+      });
 
       // Cập nhật thông tin trong AsyncStorage
       const currentUserData = await AsyncStorage.getItem('user');
@@ -262,8 +259,8 @@ const authApi = {
         const parsedUserData = JSON.parse(currentUserData);
         const updatedUserData = {
           ...parsedUserData,
-          ...userDataWithoutId,
-          userId // Đảm bảo userId vẫn được giữ lại
+          ...updateData,
+          userId
         };
         await AsyncStorage.setItem('user', JSON.stringify(updatedUserData));
       }

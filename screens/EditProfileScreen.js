@@ -42,7 +42,7 @@ export default function EditProfileScreen() {
                     address: userData.address || '',
                     phone: userData.phone || '',
                     role: userData.role || '',
-                    userId: userData.userId || ''
+                    userId: userData.userID || ''
                 });
             }
         } catch (error) {
@@ -86,8 +86,23 @@ export default function EditProfileScreen() {
         setApiSuccess('');
 
         try {
-            await authApi.updateUserInfo(formData);
+            if (!formData.userId) {
+                throw new Error('Không tìm thấy ID người dùng');
+            }
+
+            await authApi.updateUserInfo({
+                ...formData,
+                username: formData.username.trim(),
+                email: formData.email.trim(),
+                name: formData.name.trim(),
+                address: formData.address.trim(),
+                phone: formData.phone.trim()
+            });
+
             setApiSuccess('Cập nhật thông tin thành công!');
+
+            await loadUserData();
+
             setTimeout(() => {
                 navigation.goBack();
             }, 1500);

@@ -51,7 +51,7 @@ export default function RegisterScreen() {
 
     const validateForm = () => {
         setApiError('');
-        
+
         let newErrors = {
             username: username.trim() === "",
             email: !validateEmail(email),
@@ -74,7 +74,7 @@ export default function RegisterScreen() {
 
     const handleRegister = async () => {
         setApiError('');
-        
+
         if (!validateForm()) {
             return;
         }
@@ -82,16 +82,22 @@ export default function RegisterScreen() {
         setIsLoading(true);
 
         try {
-            const response = await authApi.register({
+            await authApi.register({
                 userName: username,
                 email,
                 password,
                 name,
                 address,
-                phone
+                phone,
+                bankAccountNumber: 'string',
+                taxCode: 'string',
             });
-            
-            navigation.navigate('OTPVerification', { email, isNewUser: true });
+
+            navigation.navigate('OTPVerification', { 
+                email, 
+                isNewUser: true,
+                message: 'Vui lòng kiểm tra email của bạn để lấy mã xác thực'
+            });
         } catch (error) {
             setApiError(error.message || 'Đăng ký thất bại. Vui lòng thử lại sau.');
         } finally {
