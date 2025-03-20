@@ -7,6 +7,7 @@ import { SearchProvider } from './contexts/SearchContext';
 import { StatusBar, View, ActivityIndicator, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from './constants/Colors';
+import { UserProvider } from './contexts/UserContext';
 
 // Component để kiểm tra trạng thái xác thực ban đầu
 const AppContent = () => {
@@ -73,8 +74,10 @@ export default function App() {
   // }, []);
 
   return (
-    <SearchProvider>
-      <AppContent />
-    </SearchProvider>
+    <UserProvider>
+      <SearchProvider>
+        <AppContent />
+      </SearchProvider>
+    </UserProvider>
   );
 }

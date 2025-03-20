@@ -7,9 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import authApi from '../services/api/authApi';
+import { useUser } from '../contexts/UserContext';
 
 export default function SettingsScreen() {
     const navigation = useNavigation();
+    const { userData, refreshUserData } = useUser();
 
     // State management
     const [isLoading, setIsLoading] = useState(false);
@@ -20,18 +22,15 @@ export default function SettingsScreen() {
     const [locationEnabled, setLocationEnabled] = useState(true);
 
     useEffect(() => {
-        loadUserData();
-    }, []);
+        refreshUserData();
+    }, [refreshUserData]);
 
-    const loadUserData = async () => {
-        try {
-            const userData = await authApi.getCurrentUser();
+    useEffect(() => {
+        if (userData) {
             setUserName(userData.name || userData.userName || 'Người dùng');
             setUserEmail(userData.email || '');
-        } catch (error) {
-            console.error('Error loading user data:', error);
         }
-    };
+    }, [userData]);
 
     const handleLogout = () => {
         Alert.alert(
