@@ -20,10 +20,7 @@ const saveAuthData = async (data) => {
 
   // Lưu thông tin người dùng
   try {
-    // Lấy token để giải mã
     const token = data.token || data['access-token'];
-
-    // Giải mã JWT để lấy thông tin
     const userInfo = token ? getUserFromToken(token) : {};
 
     // Chuẩn hóa dữ liệu để đảm bảo tính nhất quán
@@ -114,7 +111,6 @@ const authApi = {
 
       // Kiểm tra và giải mã token để lấy thông tin role
       const token = response.data.token || response.data['access-token'];
-      console.log(response.data.token);
       if (token) {
         const userData = getUserFromToken(token);
         validateCustomerRole(userData);
@@ -239,8 +235,6 @@ const authApi = {
       if (!userData.userId) {
         throw new Error('Thiếu userId để cập nhật thông tin người dùng');
       }
-
-      // Tách userId ra khỏi userData để tránh trùng lặp trong body
       const { userId, ...updateData } = userData;
 
       // Gọi API với userId trong query parameter
@@ -253,7 +247,6 @@ const authApi = {
         role: updateData.role
       });
 
-      // Cập nhật thông tin trong AsyncStorage
       const currentUserData = await AsyncStorage.getItem('user');
       if (currentUserData) {
         const parsedUserData = JSON.parse(currentUserData);
@@ -264,7 +257,6 @@ const authApi = {
         };
         await AsyncStorage.setItem('user', JSON.stringify(updatedUserData));
       }
-
       return response.data;
     } catch (error) {
       throw new Error(handleAuthError(error));

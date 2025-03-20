@@ -11,6 +11,7 @@ import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSearch } from '../contexts/SearchContext';
 import authApi from '../services/api/authApi';
+import { useUser } from '../contexts/UserContext';
 
 const { width } = Dimensions.get('window');
 
@@ -58,10 +59,10 @@ export default function HomeScreen() {
     const [priceTo, setPriceTo] = useState('');
     const [selectedStar, setSelectedStar] = useState(null);
     const navigation = useNavigation();
-    const [isLoading, setIsLoading] = useState(true);
+    const { userData, refreshUserData } = useUser();
+    const [isLoading, setIsLoading] = useState(false);
     const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
-    const [user, setUser] = useState(null);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
 
     const handleSearch = async () => {
         setIsLoading(true);
@@ -192,13 +193,11 @@ export default function HomeScreen() {
     );
 
     useEffect(() => {
-        // Kiểm tra xác thực khi component mount
         const checkAuthentication = async () => {
             setIsLoading(true);
             try {
                 const isAuthenticated = await authApi.checkAuth();
                 if (!isAuthenticated) {
-                    // Nếu không xác thực được, chuyển hướng đến màn hình đăng nhập
                     await authApi.logout();
                     navigation.reset({
                         index: 0,
@@ -207,13 +206,10 @@ export default function HomeScreen() {
                     return;
                 }
 
-                // Lấy thông tin người dùng
-                const userData = await authApi.getCurrentUser();
-                setUser(userData);
+                await refreshUserData();
             } catch (err) {
                 console.error('Authentication error:', err);
                 setError('Có lỗi xảy ra khi kiểm tra xác thực');
-                // Xử lý lỗi xác thực
                 await authApi.logout();
                 navigation.reset({
                     index: 0,
@@ -225,7 +221,7 @@ export default function HomeScreen() {
         };
 
         checkAuthentication();
-    }, [navigation]);
+    }, [navigation, refreshUserData]);
 
     const handleLogout = async () => {
         try {
@@ -260,7 +256,7 @@ export default function HomeScreen() {
             >
                 <View style={styles.headerContent}>
                     <Text style={styles.welcomeText}>
-                        Chào mừng, {user?.name || user?.username || 'Người dùng'}!
+                        Chào mừng, {userData?.name || userData?.username || 'Người dùng'}!
                     </Text>
                     <Text style={styles.subText}>Tìm homestay cho chuyến đi của bạn</Text>
                 </View>

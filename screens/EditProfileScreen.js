@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import authApi from '../services/api/authApi';
+import { useUser } from '../contexts/UserContext';
 
 export default function EditProfileScreen() {
     const navigation = useNavigation();
@@ -26,6 +27,7 @@ export default function EditProfileScreen() {
     const [errors, setErrors] = useState({});
     const [apiError, setApiError] = useState('');
     const [apiSuccess, setApiSuccess] = useState('');
+    const { refreshUserData } = useUser();
 
     useEffect(() => {
         loadUserData();
@@ -99,9 +101,10 @@ export default function EditProfileScreen() {
                 phone: formData.phone.trim()
             });
 
+            // Refresh user data in context
+            await refreshUserData();
+            
             setApiSuccess('Cập nhật thông tin thành công!');
-
-            await loadUserData();
 
             setTimeout(() => {
                 navigation.goBack();
@@ -298,7 +301,7 @@ export default function EditProfileScreen() {
                             <TextInput
                                 style={styles.input}
                                 placeholder="Nhập địa chỉ"
-                                value={formData.address.trim()}
+                                value={formData.address}
                                 onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
                             />
                         </View>
