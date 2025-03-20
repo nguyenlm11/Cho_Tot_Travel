@@ -60,14 +60,18 @@ export default function LoginScreen() {
 
         try {
             await authApi.login({ username, password });
-
             await saveCredentials();
             navigation.reset({
                 index: 0,
                 routes: [{ name: 'MainTabs' }],
             });
         } catch (error) {
-            setApiError(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+            // Hiển thị thông báo lỗi cụ thể về quyền truy cập
+            if (error.message.includes('không có quyền truy cập')) {
+                setApiError('Chỉ tài khoản khách hàng mới được phép đăng nhập');
+            } else {
+                setApiError(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+            }
         } finally {
             setIsLoading(false);
         }

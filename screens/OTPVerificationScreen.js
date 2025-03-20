@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Alert, StatusBar
+    Alert, StatusBar, ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -74,33 +74,23 @@ export default function OTPVerificationScreen() {
         setApiError('');
 
         try {
-            // Xác thực OTP và lưu tokens
+            // Chỉ xác thực OTP, không lưu tokens
             await authApi.confirmAccount(email, otpCode);
-            
-            if (isNewUser) {
-                // Sau khi xác thực thành công và lưu tokens, chuyển vào home
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'MainTabs' }],
-                });
-            } else {
-                // Case khác (ví dụ: reset password)
-                Alert.alert(
-                    'Thành công',
-                    'Xác thực email thành công!',
-                    [
-                        {
-                            text: 'OK',
-                            onPress: () => {
-                                navigation.reset({
-                                    index: 0,
-                                    routes: [{ name: 'Login' }],
-                                });
-                            }
+            Alert.alert(
+                'Thành công',
+                'Xác thực email thành công! Vui lòng đăng nhập để tiếp tục.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            navigation.reset({
+                                index: 0,
+                                routes: [{ name: 'Login' }],
+                            });
                         }
-                    ]
-                );
-            }
+                    }
+                ]
+            );
         } catch (error) {
             setApiError(error.message || 'Mã OTP không chính xác');
         } finally {
@@ -207,7 +197,7 @@ export default function OTPVerificationScreen() {
                             <LinearGradient
                                 colors={[colors.primary, colors.secondary]}
                                 start={{ x: 0, y: 0 }}
-                                end= {{ x: 1, y: 1 }}
+                                end={{ x: 1, y: 1 }}
                                 style={styles.gradientButton}
                             >
                                 {isLoading ? (
