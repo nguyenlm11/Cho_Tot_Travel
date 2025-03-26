@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions, Alert } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
@@ -7,74 +7,89 @@ import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-export default function CalendarModal({ visible, onClose, onDateSelect, selectedDate, numberOfNights }) {
+export default function CalendarModal({ visible, onClose, onDateSelect, selectedDate }) {
     const [step, setStep] = useState(1);
-    const [tempDate, setTempDate] = useState(selectedDate);
-    const [tempNights, setTempNights] = useState(numberOfNights);
+    const [checkInDate, setCheckInDate] = useState(selectedDate);
+    const [checkOutDate, setCheckOutDate] = useState(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (visible) {
             setStep(1);
             if (selectedDate) {
                 const date = new Date(selectedDate);
                 if (!isNaN(date.getTime())) {
-                    setTempDate(date.toISOString().split('T')[0]);
+                    setCheckInDate(date.toISOString().split('T')[0]);
+                    setCheckOutDate(null);
                 } else {
-                    setTempDate(new Date().toISOString().split('T')[0]);
+                    resetDates();
                 }
             } else {
-                setTempDate(new Date().toISOString().split('T')[0]);
+                resetDates();
             }
-            setTempNights(numberOfNights || 1);
         }
-    }, [visible, selectedDate, numberOfNights]);
+    }, [visible, selectedDate]);
 
-    const calculateCheckoutDate = (checkInDate, nights) => {
-        const checkOut = new Date(checkInDate);
-        if (!isNaN(checkOut.getTime())) {
-            checkOut.setDate(checkOut.getDate() + nights);
-            return checkOut.toLocaleDateString('vi-VN', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'numeric',
-                year: 'numeric'
-            });
-        }
-        return '';
+    const resetDates = () => {
+        const today = new Date();
+        setCheckInDate(today.toISOString().split('T')[0]);
+        setCheckOutDate(null);
     };
 
-    const handleIncrease = () => {
-        if (tempNights < 30) {
-            setTempNights(prev => prev + 1);
-        }
+    const formatDisplayDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return `${date.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
     };
 
-    const handleDecrease = () => {
-        if (tempNights > 1) {
-            setTempNights(prev => prev - 1);
-        }
-    };
-
-    const handleConfirm = () => {
-        const formattedDate = new Date(tempDate);
-        const formattedText = `${formattedDate.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${formattedDate.getDate()}/${formattedDate.getMonth() + 1}/${formattedDate.getFullYear()}`;
-        onDateSelect({ dateString: tempDate, formattedDate: formattedText }, tempNights);
-    };
-
+    // Xử lý khi người dùng bấm vào ngày
     const handleDayPress = (day) => {
-        setTempDate(day.dateString);
-        setStep(2);
+        if (step === 1) {
+            setCheckInDate(day.dateString);
+            setCheckOutDate(null);
+        } else {
+            const selectedDate = new Date(day.dateString);
+            const startDate = new Date(checkInDate);
+            // Kiểm tra ngày check-out phải sau ngày check-in
+            if (selectedDate <= startDate) {
+                Alert.alert("Lỗi", "Ngày trả phòng phải sau ngày nhận phòng");
+                return;
+            }
+            // Kiểm tra ngày check-out không được quá 30 ngày sau ngày check-in
+            const maxCheckOutDate = new Date(checkInDate);
+            maxCheckOutDate.setDate(maxCheckOutDate.getDate() + 30);
+
+            if (selectedDate > maxCheckOutDate) {
+                Alert.alert("Lỗi", "Thời gian lưu trú không được quá 30 ngày");
+                return;
+            }
+            setCheckOutDate(day.dateString);
+        }
     };
 
-    const handleBack = () => setStep(1);
+    const handleBack = () => {
+        setStep(1);
+    };
 
     const handleModalClose = () => {
         setStep(1);
         onClose();
     };
 
+    const handleConfirm = () => {
+        if (!checkInDate || !checkOutDate) return;
+        const formattedCheckIn = formatDisplayDate(checkInDate);
+        const formattedCheckOut = formatDisplayDate(checkOutDate);
+        onDateSelect({
+            dateString: checkInDate,
+            formattedDate: formattedCheckIn,
+            checkOutDateString: checkOutDate,
+            formattedCheckOutDate: formattedCheckOut,
+        });
+    };
+
+    // Hiển thị chỉ báo bước
     const renderStepIndicator = () => (
         <View style={styles.stepIndicator}>
             <View style={[styles.stepDot, step === 1 && styles.activeStepDot]} />
@@ -82,6 +97,59 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
             <View style={[styles.stepDot, step === 2 && styles.activeStepDot]} />
         </View>
     );
+
+    // Tạo đánh dấu cho lịch
+    const getMarkedDates = () => {
+        const markedDates = {};
+        if (checkInDate) {
+            markedDates[checkInDate] = {
+                selected: true,
+                startingDay: true,
+                color: colors.primary
+            };
+        }
+
+        if (checkOutDate) {
+            markedDates[checkOutDate] = {
+                selected: true,
+                endingDay: true,
+                color: colors.primary
+            };
+        }
+        // Nếu cả hai ngày đã được chọn, đánh dấu các ngày ở giữa
+        if (checkInDate && checkOutDate) {
+            let start = new Date(checkInDate);
+            let end = new Date(checkOutDate);
+
+            for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+                const dateString = d.toISOString().split('T')[0];
+
+                if (dateString !== checkInDate && dateString !== checkOutDate) {
+                    markedDates[dateString] = {
+                        selected: true,
+                        color: colors.primary + '80'
+                    };
+                }
+            }
+        }
+        return markedDates;
+    };
+
+    // Tính ngày tối đa cho check-out (30 ngày sau check-in)
+    const getMaxDate = () => {
+        if (!checkInDate) return undefined;
+        const maxDate = new Date(checkInDate);
+        maxDate.setDate(maxDate.getDate() + 30);
+        return maxDate.toISOString().split('T')[0];
+    };
+
+    // Tính ngày tối thiểu cho check-out (ngày sau check-in)
+    const getMinDate = () => {
+        if (!checkInDate) return undefined;
+        const minDate = new Date(checkInDate);
+        minDate.setDate(minDate.getDate() + 1);
+        return minDate.toISOString().split('T')[0];
+    };
 
     return (
         <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={handleModalClose}>
@@ -105,40 +173,55 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                             </BlurView>
                         </TouchableOpacity>
                         <Text style={styles.modalTitle}>
-                            {step === 1 ? 'Chọn ngày nhận phòng' : 'Chọn số đêm nghỉ'}
+                            {step === 1 ? 'Chọn ngày nhận phòng' : 'Chọn ngày trả phòng'}
                         </Text>
                         {renderStepIndicator()}
                     </LinearGradient>
 
-                    {step === 1 ? (
-                        <Animated.View entering={FadeIn}>
-                            <Calendar
-                                minDate={new Date().toISOString().split('T')[0]}
-                                markedDates={{
-                                    [tempDate]: { selected: true, selectedColor: colors.primary }
-                                }}
-                                onDayPress={handleDayPress}
-                                monthFormat={'MM/yyyy'}
-                                markingType={'simple'}
-                                theme={{
-                                    selectedDayBackgroundColor: colors.primary,
-                                    selectedDayTextColor: '#fff',
-                                    todayTextColor: colors.primary,
-                                    arrowColor: colors.primary,
-                                    textSectionTitleColor: '#333',
-                                    textDayFontSize: 16,
-                                    textMonthFontSize: 16,
-                                    textDayHeaderFontSize: 14,
-                                    'stylesheet.calendar.header': {
-                                        week: { marginTop: 5, flexDirection: 'row', justifyContent: 'space-around' }
-                                    }
-                                }}
-                            />
+                    <Animated.View entering={FadeIn}>
+                        <Calendar
+                            minDate={step === 1 ? new Date().toISOString().split('T')[0] : getMinDate()}
+                            maxDate={step === 2 ? getMaxDate() : undefined}
+                            markedDates={getMarkedDates()}
+                            onDayPress={handleDayPress}
+                            monthFormat={'MM/yyyy'}
+                            markingType={'period'}
+                            theme={{
+                                selectedDayBackgroundColor: colors.primary,
+                                selectedDayTextColor: '#fff',
+                                todayTextColor: colors.primary,
+                                arrowColor: colors.primary,
+                                textSectionTitleColor: '#333',
+                                textDayFontSize: 16,
+                                textMonthFontSize: 16,
+                                textDayHeaderFontSize: 14,
+                                'stylesheet.calendar.header': {
+                                    week: { marginTop: 5, flexDirection: 'row', justifyContent: 'space-around' }
+                                }
+                            }}
+                        />
+
+                        {step === 2 && checkInDate && checkOutDate && (
+                            <View style={styles.datePreview}>
+                                <View style={styles.dateRow}>
+                                    <Text style={styles.dateLabel}>Ngày nhận phòng:</Text>
+                                    <Text style={styles.dateValue}>{formatDisplayDate(checkInDate)}</Text>
+                                </View>
+                                <View style={[styles.dateRow, styles.checkoutRow]}>
+                                    <Text style={styles.dateLabel}>Ngày trả phòng:</Text>
+                                    <Text style={[styles.dateValue, styles.checkoutDate]}>
+                                        {formatDisplayDate(checkOutDate)}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+
+                        {step === 1 ? (
                             <View style={styles.continueButtonContainer}>
                                 <TouchableOpacity
-                                    style={[styles.continueButton, !tempDate && styles.disabledButton]}
+                                    style={[styles.continueButton, !checkInDate && styles.disabledButton]}
                                     onPress={() => setStep(2)}
-                                    disabled={!tempDate}
+                                    disabled={!checkInDate}
                                 >
                                     <LinearGradient
                                         colors={[colors.primary, colors.primary + 'E6']}
@@ -148,59 +231,22 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                                     </LinearGradient>
                                 </TouchableOpacity>
                             </View>
-                        </Animated.View>
-                    ) : (
-                        <Animated.View
-                            entering={FadeIn}
-                            style={styles.nightsSelectionContainer}
-                        >
-                            <Text style={styles.nightsTitle}>Số đêm nghỉ</Text>
-                            <View style={styles.stayDurationContainer}>
-                                <TouchableOpacity
-                                    style={[styles.durationButton, tempNights <= 1 && styles.disabledButton]}
-                                    onPress={handleDecrease}
-                                    disabled={tempNights <= 1}
-                                >
-                                    <FontAwesome name="minus" size={20} color={tempNights <= 1 ? '#ccc' : colors.primary} />
-                                </TouchableOpacity>
-                                <View style={styles.nightsDisplay}>
-                                    <Text style={styles.nightsNumber}>{tempNights}</Text>
-                                    <Text style={styles.nightsText}>đêm</Text>
-                                </View>
-                                <TouchableOpacity
-                                    style={[styles.durationButton, tempNights >= 30 && styles.disabledButton]}
-                                    onPress={handleIncrease}
-                                    disabled={tempNights >= 30}
-                                >
-                                    <FontAwesome name="plus" size={20} color={tempNights >= 30 ? '#ccc' : colors.primary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.datePreview}>
-                                <View style={styles.dateRow}>
-                                    <Text style={styles.dateLabel}>Nhận phòng:</Text>
-                                    <Text style={styles.dateValue}>
-                                        {new Date(tempDate).toLocaleDateString('vi-VN', {
-                                            weekday: 'long',
-                                            day: 'numeric',
-                                            month: 'numeric',
-                                            year: 'numeric'
-                                        })}
-                                    </Text>
-                                </View>
-                                <View style={[styles.dateRow, styles.checkoutRow]}>
-                                    <Text style={styles.dateLabel}>Trả phòng:</Text>
-                                    <Text style={[styles.dateValue, styles.checkoutDate]}>
-                                        {calculateCheckoutDate(tempDate, tempNights)}
-                                    </Text>
-                                </View>
-                            </View>
-
+                        ) : (
                             <View style={styles.buttonContainer}>
-                                <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-                                    <Text style={styles.backButtonText}>Quay lại</Text>
+                                <TouchableOpacity
+                                    style={styles.backButton}
+                                    onPress={handleBack}
+                                >
+                                    <Text style={{ color: colors.primary, fontWeight: '500', textAlign: 'center' }}>
+                                        Quay lại
+                                    </Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+
+                                <TouchableOpacity
+                                    style={[styles.confirmButton, !checkOutDate && styles.disabledButton]}
+                                    onPress={handleConfirm}
+                                    disabled={!checkOutDate}
+                                >
                                     <LinearGradient
                                         colors={[colors.primary, colors.primary + 'E6']}
                                         style={styles.gradientButton}
@@ -209,8 +255,8 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                                     </LinearGradient>
                                 </TouchableOpacity>
                             </View>
-                        </Animated.View>
-                    )}
+                        )}
+                    </Animated.View>
                 </Animated.View>
             </Animated.View>
         </Modal>
@@ -220,8 +266,8 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
 const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     calendarContainer: {
         backgroundColor: '#fff',
@@ -278,60 +324,11 @@ const styles = StyleSheet.create({
     activeStepLine: {
         backgroundColor: '#fff',
     },
-    nightsSelectionContainer: {
-        padding: 20,
-    },
-    nightsTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 20,
-        textAlign: 'center',
-    },
-    stayDurationContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 30,
-    },
-    durationButton: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
-    },
-    disabledButton: {
-        backgroundColor: '#f5f5f5',
-        elevation: 0,
-    },
-    nightsDisplay: {
-        marginHorizontal: 30,
-        alignItems: 'center',
-    },
-    nightsNumber: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: colors.primary,
-    },
-    nightsText: {
-        fontSize: 16,
-        color: '#666',
-        marginTop: 5,
-    },
     datePreview: {
         backgroundColor: '#f8f9fa',
         padding: 15,
         borderRadius: 12,
-        marginBottom: 30,
+        margin: 15,
     },
     dateRow: {
         flexDirection: 'row',
@@ -358,9 +355,17 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontWeight: '600',
     },
+    continueButtonContainer: {
+        padding: 15,
+    },
+    continueButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
     buttonContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        padding: 15,
     },
     backButton: {
         flex: 1,
@@ -380,27 +385,12 @@ const styles = StyleSheet.create({
         padding: 15,
         alignItems: 'center',
     },
-    backButtonText: {
-        color: colors.primary,
-        fontSize: 16,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
     confirmButtonText: {
         color: '#fff',
+        fontWeight: 'bold',
         fontSize: 16,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    continueButtonContainer: {
-        padding: 20,
-        paddingTop: 0,
-    },
-    continueButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
     },
     disabledButton: {
-        opacity: 0.5,
-    },
+        opacity: 0.6,
+    }
 });

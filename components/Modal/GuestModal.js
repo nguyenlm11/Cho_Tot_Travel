@@ -1,38 +1,67 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { FontAwesome } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
-export default function GuestModal({ visible, onClose, rooms, adults, children, setRooms, setAdults, setChildren }) {
-    const [tempRooms, setTempRooms] = useState(rooms);
+export default function GuestModal({ visible, onClose, adults, children, setAdults, setChildren }) {
     const [tempAdults, setTempAdults] = useState(adults);
     const [tempChildren, setTempChildren] = useState(children);
 
+    useEffect(() => {
+        if (visible) {
+            setTempAdults(adults);
+            setTempChildren(children);
+        }
+    }, [visible, adults, children]);
+
+    const incrementAdults = () => {
+        if (tempAdults < 10) {
+            setTempAdults(tempAdults + 1);
+        }
+    };
+
+    const decrementAdults = () => {
+        if (tempAdults > 1) {
+            setTempAdults(tempAdults - 1);
+        }
+    };
+
+    const incrementChildren = () => {
+        if (tempChildren < 5) {
+            setTempChildren(tempChildren + 1);
+        }
+    };
+
+    const decrementChildren = () => {
+        if (tempChildren > 0) {
+            setTempChildren(tempChildren - 1);
+        }
+    };
+
     const handleClose = () => {
-        setTempRooms(rooms);
         setTempAdults(adults);
         setTempChildren(children);
         onClose();
     };
 
     const handleSave = () => {
-        setRooms(tempRooms);
-        setAdults(tempAdults);
-        setChildren(tempChildren);
+        if (typeof setAdults === 'function') {
+            setAdults(tempAdults);
+        } else {
+            console.error("GuestModal - setAdults is not a function");
+        }
+
+        if (typeof setChildren === 'function') {
+            setChildren(tempChildren);
+        } else {
+            console.error("GuestModal - setChildren is not a function");
+        }
         onClose();
-    };
-
-    const handleIncrement = (setter, value, max) => {
-        if (value < max) setter(value + 1);
-    };
-
-    const handleDecrement = (setter, value, min) => {
-        if (value > min) setter(value - 1);
     };
 
     return (
@@ -66,109 +95,69 @@ export default function GuestModal({ visible, onClose, rooms, adults, children, 
                                     <FontAwesome name="close" size={20} color="#fff" />
                                 </BlurView>
                             </TouchableOpacity>
-                            <Text style={styles.modalTitle}>Số lượng khách & phòng</Text>
+                            <Text style={styles.modalTitle}>Số lượng khách</Text>
                         </LinearGradient>
 
                         <View style={styles.content}>
-                            {/* Rooms Selection */}
+                            {/* Adults */}
                             <View style={styles.selectionCard}>
                                 <View style={styles.selectionInfo}>
-                                    <View style={styles.iconContainer}>
-                                        <FontAwesome name="bed" size={24} color={colors.primary} />
-                                    </View>
-                                    <View>
-                                        <Text style={styles.selectionTitle}>Số phòng</Text>
-                                        <Text style={styles.selectionDesc}>Tối đa 5 phòng</Text>
-                                    </View>
+                                    <Text style={styles.selectionTitle}>Người lớn</Text>
+                                    <Text style={styles.selectionSubtitle}>Từ 13 tuổi trở lên</Text>
                                 </View>
                                 <View style={styles.counterContainer}>
                                     <TouchableOpacity
-                                        style={[styles.counterButton, tempRooms <= 1 && styles.counterButtonDisabled]}
-                                        onPress={() => handleDecrement(setTempRooms, tempRooms, 1)}
-                                        disabled={tempRooms <= 1}
-                                    >
-                                        <FontAwesome name="minus" size={20} color={tempRooms <= 1 ? '#ccc' : colors.primary} />
-                                    </TouchableOpacity>
-                                    <Text style={styles.counterText}>{tempRooms}</Text>
-                                    <TouchableOpacity
-                                        style={[styles.counterButton, tempRooms >= 5 && styles.counterButtonDisabled]}
-                                        onPress={() => handleIncrement(setTempRooms, tempRooms, 5)}
-                                        disabled={tempRooms >= 5}
-                                    >
-                                        <FontAwesome name="plus" size={20} color={tempRooms >= 5 ? '#ccc' : colors.primary} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            {/* Adults Selection */}
-                            <View style={styles.selectionCard}>
-                                <View style={styles.selectionInfo}>
-                                    <View style={styles.iconContainer}>
-                                        <FontAwesome name="user" size={24} color={colors.primary} />
-                                    </View>
-                                    <View>
-                                        <Text style={styles.selectionTitle}>Người lớn</Text>
-                                        <Text style={styles.selectionDesc}>Từ 13 tuổi trở lên</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.counterContainer}>
-                                    <TouchableOpacity
-                                        style={[styles.counterButton, tempAdults <= 1 && styles.counterButtonDisabled]}
-                                        onPress={() => handleDecrement(setTempAdults, tempAdults, 1)}
+                                        style={[styles.counterButton, tempAdults <= 1 && styles.disabledButton]}
+                                        onPress={decrementAdults}
                                         disabled={tempAdults <= 1}
                                     >
-                                        <FontAwesome name="minus" size={20} color={tempAdults <= 1 ? '#ccc' : colors.primary} />
+                                        <FontAwesome name="minus" size={16} color={tempAdults <= 1 ? "#ccc" : colors.primary} />
                                     </TouchableOpacity>
                                     <Text style={styles.counterText}>{tempAdults}</Text>
                                     <TouchableOpacity
-                                        style={[styles.counterButton, tempAdults >= 10 && styles.counterButtonDisabled]}
-                                        onPress={() => handleIncrement(setTempAdults, tempAdults, 10)}
+                                        style={[styles.counterButton, tempAdults >= 10 && styles.disabledButton]}
+                                        onPress={incrementAdults}
                                         disabled={tempAdults >= 10}
                                     >
-                                        <FontAwesome name="plus" size={20} color={tempAdults >= 10 ? '#ccc' : colors.primary} />
+                                        <FontAwesome name="plus" size={16} color={tempAdults >= 10 ? "#ccc" : colors.primary} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
 
-                            {/* Children Selection */}
+                            {/* Children */}
                             <View style={styles.selectionCard}>
                                 <View style={styles.selectionInfo}>
-                                    <View style={styles.iconContainer}>
-                                        <FontAwesome name="child" size={24} color={colors.primary} />
-                                    </View>
-                                    <View>
-                                        <Text style={styles.selectionTitle}>Trẻ em</Text>
-                                        <Text style={styles.selectionDesc}>Dưới 13 tuổi</Text>
-                                    </View>
+                                    <Text style={styles.selectionTitle}>Trẻ em</Text>
+                                    <Text style={styles.selectionSubtitle}>Từ 0-12 tuổi</Text>
                                 </View>
                                 <View style={styles.counterContainer}>
                                     <TouchableOpacity
-                                        style={[styles.counterButton, tempChildren <= 0 && styles.counterButtonDisabled]}
-                                        onPress={() => handleDecrement(setTempChildren, tempChildren, 0)}
+                                        style={[styles.counterButton, tempChildren <= 0 && styles.disabledButton]}
+                                        onPress={decrementChildren}
                                         disabled={tempChildren <= 0}
                                     >
-                                        <FontAwesome name="minus" size={20} color={tempChildren <= 0 ? '#ccc' : colors.primary} />
+                                        <FontAwesome name="minus" size={16} color={tempChildren <= 0 ? "#ccc" : colors.primary} />
                                     </TouchableOpacity>
                                     <Text style={styles.counterText}>{tempChildren}</Text>
                                     <TouchableOpacity
-                                        style={[styles.counterButton, tempChildren >= 5 && styles.counterButtonDisabled]}
-                                        onPress={() => handleIncrement(setTempChildren, tempChildren, 5)}
+                                        style={[styles.counterButton, tempChildren >= 5 && styles.disabledButton]}
+                                        onPress={incrementChildren}
                                         disabled={tempChildren >= 5}
                                     >
-                                        <FontAwesome name="plus" size={20} color={tempChildren >= 5 ? '#ccc' : colors.primary} />
+                                        <FontAwesome name="plus" size={16} color={tempChildren >= 5 ? "#ccc" : colors.primary} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
                         </View>
 
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                            <LinearGradient
-                                colors={[colors.primary, colors.primary + 'E6']}
-                                style={styles.gradientButton}
-                            >
+                        <View style={styles.footer}>
+                            <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
+                                <Text style={styles.cancelButtonText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                                 <Text style={styles.saveButtonText}>Xác nhận</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                            </TouchableOpacity>
+                        </View>
                     </Animated.View>
                 </KeyboardAvoidingView>
             </Animated.View>
@@ -189,12 +178,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        overflow: 'hidden',
+        maxHeight: height * 0.8,
     },
     header: {
         padding: 20,
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
+        alignItems: 'center',
     },
     closeButton: {
         position: 'absolute',
@@ -211,10 +201,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     modalTitle: {
-        fontSize: 24,
+        fontSize: 18,
         fontWeight: 'bold',
         color: '#fff',
-        textAlign: 'center',
     },
     content: {
         padding: 20,
@@ -223,34 +212,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        marginBottom: 20,
         padding: 15,
-        marginBottom: 15,
+        backgroundColor: '#f9f9f9',
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+        elevation: 1,
     },
     selectionInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary + '10',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
+        flex: 1,
     },
     selectionTitle: {
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: '600',
         color: '#333',
         marginBottom: 4,
     },
-    selectionDesc: {
-        fontSize: 13,
+    selectionSubtitle: {
+        fontSize: 14,
         color: '#666',
     },
     counterContainer: {
@@ -261,32 +243,57 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: colors.primary + '10',
+        backgroundColor: '#f0f0f0',
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    counterButtonDisabled: {
-        backgroundColor: '#f5f5f5',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
     },
     counterText: {
         fontSize: 16,
-        fontWeight: '500',
-        marginHorizontal: 15,
-        minWidth: 20,
+        fontWeight: '600',
+        marginHorizontal: 12,
+        minWidth: 24,
         textAlign: 'center',
     },
-    saveButton: {
-        margin: 20,
-        borderRadius: 12,
-        overflow: 'hidden',
+    disabledButton: {
+        backgroundColor: '#f5f5f5',
+        borderColor: '#eee',
     },
-    gradientButton: {
-        paddingVertical: 15,
+    footer: {
+        flexDirection: 'row',
+        padding: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+        marginBottom: 20,
+    },
+    cancelButton: {
+        flex: 1,
         alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        borderRadius: 8,
+        marginRight: 10,
+    },
+    cancelButtonText: {
+        color: colors.primary,
+        fontWeight: '600',
+    },
+    saveButton: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        borderRadius: 8,
+        marginRight: 10,
+        backgroundColor: colors.primary,
     },
     saveButtonText: {
         color: '#fff',
-        fontSize: 16,
         fontWeight: '600',
     },
 });

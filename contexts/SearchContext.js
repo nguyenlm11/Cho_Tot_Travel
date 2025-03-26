@@ -27,37 +27,38 @@ export const SearchProvider = ({ children }) => {
     }, []);
 
     const updateCurrentSearch = (searchData) => {
+        // console.log("SearchContext - Updating currentSearch:", searchData);
         setCurrentSearch(searchData);
     };
 
     const updateSearchResults = (results) => {
+        // console.log("SearchContext - Updating searchResults, count:", results?.length || 0);
         setSearchResults(results);
     };
 
     const addToSearchHistory = async (searchData) => {
         try {
             const existingIndex = searchHistory.findIndex(
-                item => 
+                item =>
                     item.location === searchData.location &&
                     item.checkInDate === searchData.checkInDate &&
                     item.checkOutDate === searchData.checkOutDate &&
-                    item.rooms === searchData.rooms &&
                     item.adults === searchData.adults &&
                     item.children === searchData.children
             );
 
             let newHistory = [...searchHistory];
-            
+
             if (existingIndex !== -1) {
                 newHistory.splice(existingIndex, 1);
             }
-            
+
             newHistory = [searchData, ...newHistory];
-            
+
             if (newHistory.length > 5) {
                 newHistory = newHistory.slice(0, 5);
             }
-            
+
             setSearchHistory(newHistory);
             await AsyncStorage.setItem('searchHistory', JSON.stringify(newHistory));
         } catch (err) {

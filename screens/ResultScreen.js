@@ -8,18 +8,12 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSearch } from '../contexts/SearchContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import homeStayApi from '../services/api/homeStayApi';
 
 export default function ResultScreen() {
     const { currentSearch, searchResults } = useSearch();
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const navigation = useNavigation();
-
-    useEffect(() => {
-        console.log('Current Search:', currentSearch);
-        console.log('Search Results:', searchResults);
-    }, [currentSearch, searchResults]);
 
     const handleMoveScreen = (homestayId) => {
         navigation.navigate('HomeStayDetail', { id: homestayId });
@@ -45,8 +39,6 @@ export default function ResultScreen() {
     };
 
     const renderItem = ({ item, index }) => {
-        console.log('Rendering item:', item);
-        
         return (
             <Animated.View
                 entering={FadeInDown.delay(index * 100)}
@@ -54,11 +46,11 @@ export default function ResultScreen() {
             >
                 <TouchableOpacity onPress={() => handleMoveScreen(item.homeStayID)} activeOpacity={0.9}>
                     <View style={styles.card}>
-                        <Image 
-                            style={styles.image} 
-                            source={{ 
-                                uri: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg' 
-                            }} 
+                        <Image
+                            style={styles.image}
+                            source={{
+                                uri: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg'
+                            }}
                         />
                         <LinearGradient
                             colors={['rgba(0,0,0,0.6)', 'transparent']}
@@ -145,17 +137,7 @@ export default function ResultScreen() {
                 >
                     <TouchableOpacity style={styles.filterChip}>
                         <Ionicons name="calendar-outline" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch?.checkInDate || 'Ngày nhận phòng'}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.filterChip}>
-                        <Ionicons name="moon-outline" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch?.numberOfNights || 1} đêm</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.filterChip}>
-                        <MaterialCommunityIcons name="door" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch?.rooms || 1} phòng</Text>
+                        <Text style={styles.filterText}>{currentSearch?.checkInDate || 'Ngày nhận phòng'} - {currentSearch?.checkOutDate || 'Ngày trả phòng'}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.filterChip}>
@@ -192,7 +174,7 @@ export default function ResultScreen() {
                     <Ionicons name="search-outline" size={60} color={colors.primary} />
                     <Text style={styles.noResultsText}>Không tìm thấy kết quả phù hợp</Text>
                     <Text style={styles.noResultsSubtext}>Vui lòng thử lại với tiêu chí tìm kiếm khác</Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.retryButton}
                         onPress={() => navigation.goBack()}
                     >
@@ -205,7 +187,7 @@ export default function ResultScreen() {
                     </TouchableOpacity>
                 </View>
             )}
-            
+
             <EditSearchModal
                 visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
