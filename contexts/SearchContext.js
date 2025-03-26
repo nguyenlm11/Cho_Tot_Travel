@@ -6,6 +6,7 @@ const SearchContext = createContext();
 export const SearchProvider = ({ children }) => {
     const [currentSearch, setCurrentSearch] = useState(null);
     const [searchHistory, setSearchHistory] = useState([]);
+    const [searchResults, setSearchResults] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -27,6 +28,10 @@ export const SearchProvider = ({ children }) => {
 
     const updateCurrentSearch = (searchData) => {
         setCurrentSearch(searchData);
+    };
+
+    const updateSearchResults = (results) => {
+        setSearchResults(results);
     };
 
     const addToSearchHistory = async (searchData) => {
@@ -72,8 +77,10 @@ export const SearchProvider = ({ children }) => {
     const value = {
         currentSearch,
         searchHistory,
+        searchResults,
         loading,
         updateCurrentSearch,
+        updateSearchResults,
         addToSearchHistory,
         clearSearchHistory,
     };
