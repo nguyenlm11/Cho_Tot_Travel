@@ -11,8 +11,8 @@ import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSearch } from '../contexts/SearchContext';
 import authApi from '../services/api/authApi';
-import { useUser } from '../contexts/UserContext';
 import homeStayApi from '../services/api/homeStayApi';
+import { useUser } from '../contexts/UserContext';
 
 const { width } = Dimensions.get('window');
 
@@ -39,7 +39,7 @@ export default function HomeScreen() {
     const today = new Date();
     const formattedToday = `${today.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
     const defaultCheckOut = new Date(today);
-    defaultCheckOut.setDate(defaultCheckOut.getDate() + numberOfNights);
+    defaultCheckOut.setDate(defaultCheckOut.getDate() + 1);
     const formattedCheckOut = `${defaultCheckOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${defaultCheckOut.getDate()}/${defaultCheckOut.getMonth() + 1}/${defaultCheckOut.getFullYear()}`;
 
     const [isLocationModalVisible, setLocationModalVisible] = useState(false);
@@ -47,13 +47,11 @@ export default function HomeScreen() {
     const [checkInDate, setCheckInDate] = useState(formattedToday);
     const [checkOutDate, setCheckOutDate] = useState(formattedCheckOut);
     const [selectedDate, setSelectedDate] = useState(today.toISOString().split('T')[0]);
-    const [numberOfNights, setNumberOfNights] = useState('');
     const [isGuestModalVisible, setGuestModalVisible] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
-    const [location, setLocation] = useState(1);
+    const [location, setLocation] = useState("Vị trí gần bạn");
     const [longitude, setLongitude] = useState('');
     const [latitude, setLatitude] = useState('');
-    const [rooms, setRooms] = useState(1);
     const [adults, setAdults] = useState(1);
     const [children, setChildren] = useState(0);
     const [priceFrom, setPriceFrom] = useState('');
@@ -70,16 +68,14 @@ export default function HomeScreen() {
         try {
             const checkInDateParts = checkInDate.split(', ')[1].split('/');
             const checkOutDateParts = checkOutDate.split(', ')[1].split('/');
-            
+
             const formattedCheckIn = `${checkInDateParts[2]}-${checkInDateParts[1].padStart(2, '0')}-${checkInDateParts[0].padStart(2, '0')}`;
             const formattedCheckOut = `${checkOutDateParts[2]}-${checkOutDateParts[1].padStart(2, '0')}-${checkOutDateParts[0].padStart(2, '0')}`;
-            
+
             const searchData = {
                 location,
                 checkInDate,
                 checkOutDate,
-                numberOfNights,
-                rooms,
                 adults,
                 children,
                 priceFrom,
@@ -88,9 +84,11 @@ export default function HomeScreen() {
                 latitude,
                 longitude,
                 formattedCheckIn,
-                formattedCheckOut,
+                formattedCheckOut
             };
-            
+
+            console.log("HomeScreen - Search data:", searchData);
+
             updateCurrentSearch(searchData);
             addToSearchHistory(searchData);
 
@@ -101,24 +99,16 @@ export default function HomeScreen() {
                 NumberOfChildren: children,
                 Latitude: latitude,
                 Longitude: longitude,
-                MaxDistance: 50,
+                MaxDistance: 30,
             };
-
-            console.log('Filter params:', filterParams);
-
             const results = await homeStayApi.filterHomeStays(filterParams);
-            console.log('Search results count:', results?.length || 0);
-            
-            if (results) {
-                updateSearchResults(results);
-            }
-            
+            updateSearchResults(results);
             navigation.navigate("Results");
         } catch (error) {
-            console.error('Search error details:', error);
+            console.error('Search error:', error);
             Alert.alert(
-                "Lỗi", 
-                `Có lỗi xảy ra khi tìm kiếm: ${error.message}`, 
+                "Lỗi",
+                "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại sau.",
                 [{ text: "Đóng" }]
             );
         } finally {
@@ -140,7 +130,6 @@ export default function HomeScreen() {
                         ]);
                     return;
                 }
-
                 const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                 setLatitude(position.coords.latitude);
                 setLongitude(position.coords.longitude);
@@ -154,8 +143,6 @@ export default function HomeScreen() {
             setLocation("Vị trí gần bạn");
             setCheckInDate(formattedToday);
             setSelectedDate(today.toISOString().split('T')[0]);
-            setNumberOfNights(1);
-            setRooms(1);
             setAdults(1);
             setChildren(0);
             setPriceFrom(null);
@@ -169,15 +156,11 @@ export default function HomeScreen() {
         }, [])
     );
 
-    const handleDateSelect = (date, nights) => {
-        setCheckInDate(date.formattedDate);
-        setSelectedDate(date.dateString);
-        setNumberOfNights(nights);
-
-        const checkOut = new Date(date.dateString);
-        checkOut.setDate(checkOut.getDate() + nights);
-        const checkOutText = `${checkOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${checkOut.getDate()}/${checkOut.getMonth() + 1}/${checkOut.getFullYear()}`;
-        setCheckOutDate(checkOutText);
+    const handleDateSelect = (dateInfo) => {
+        console.log("HomeScreen - Date selected:", dateInfo);
+        setCheckInDate(dateInfo.formattedDate);
+        setSelectedDate(dateInfo.dateString);
+        setCheckOutDate(dateInfo.formattedCheckOutDate);
         setCalendarVisible(false);
     };
 
@@ -237,7 +220,6 @@ export default function HomeScreen() {
                     });
                     return;
                 }
-
                 await refreshUserData();
             } catch (err) {
                 console.error('Authentication error:', err);
@@ -316,21 +298,10 @@ export default function HomeScreen() {
                     >
                         <Icon name="calendar-outline" size={20} color="#4A4A4A" />
                         <View>
-                            <Text style={styles.dateLabel}>Nhận phòng</Text>
-                            <Text style={styles.dateText}>{checkInDate.split(',')[1]}</Text>
-                        </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.dateDivider} />
-
-                    <TouchableOpacity
-                        style={styles.dateButton}
-                        onPress={() => setCalendarVisible(true)}
-                    >
-                        <Icon name="calendar-outline" size={20} color="#4A4A4A" />
-                        <View>
-                            <Text style={styles.dateLabel}>Trả phòng</Text>
-                            <Text style={styles.dateText}>{checkOutDate.split(',')[1]}</Text>
+                            <Text style={styles.dateLabel}>Nhận - Trả</Text>
+                            <Text style={styles.dateText}>
+                                {checkInDate.split(', ')[1]} - {checkOutDate.split(', ')[1]}
+                            </Text>
                         </View>
                     </TouchableOpacity>
                 </View>
@@ -342,9 +313,9 @@ export default function HomeScreen() {
                     >
                         <Icon name="people-outline" size={20} color="#4A4A4A" />
                         <View>
-                            <Text style={styles.guestLabel}>Khách & Phòng</Text>
+                            <Text style={styles.guestLabel}>Khách</Text>
                             <Text style={styles.guestText}>
-                                {adults + children} khách, {rooms} phòng
+                                {adults + children} khách {children > 0 ? `(${adults} người lớn, ${children} trẻ em)` : ''}
                             </Text>
                         </View>
                     </TouchableOpacity>
@@ -472,17 +443,14 @@ export default function HomeScreen() {
                 onClose={() => setCalendarVisible(false)}
                 onDateSelect={handleDateSelect}
                 selectedDate={selectedDate}
-                numberOfNights={numberOfNights}
             />
 
             <GuestModal
                 visible={isGuestModalVisible}
                 onClose={() => setGuestModalVisible(false)}
-                rooms={rooms}
-                setRooms={setRooms}
                 adults={adults}
-                setAdults={setAdults}
                 children={children}
+                setAdults={setAdults}
                 setChildren={setChildren}
             />
 
@@ -587,9 +555,6 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         paddingHorizontal: 15,
         paddingVertical: 12,
-    },
-    dateDivider: {
-        width: 15,
     },
     dateLabel: {
         marginLeft: 10,
