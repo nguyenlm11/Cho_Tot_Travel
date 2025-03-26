@@ -69,6 +69,31 @@ const homeStayApi = {
     } catch (error) {
       throw new Error(handleError(error));
     }
+  },
+
+  // Lọc homestay theo vị trí, ngày, số người, và khoảng cách
+  filterHomeStays: async (filterParams) => {
+    try {
+      // Loại bỏ các tham số null hoặc undefined
+      const cleanParams = {};
+      for (const key in filterParams) {
+        if (filterParams[key] !== null && filterParams[key] !== undefined) {
+          cleanParams[key] = filterParams[key];
+        }
+      }
+      
+      const response = await apiClient.get('/api/HomeStay/filter', { params: cleanParams });
+      console.log('API Response:', response.data);
+      
+      // Kiểm tra cấu trúc dữ liệu
+      const results = response.data.data || response.data || [];
+      console.log('Processed Results:', results);
+      
+      return results;
+    } catch (error) {
+      console.error('Filter API Error:', error.response || error);
+      throw new Error(handleError(error));
+    }
   }
 };
 

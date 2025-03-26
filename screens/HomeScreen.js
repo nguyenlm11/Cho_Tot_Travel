@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSearch } from '../contexts/SearchContext';
 import authApi from '../services/api/authApi';
 import { useUser } from '../contexts/UserContext';
+import homeStayApi from '../services/api/homeStayApi';
 
 const { width } = Dimensions.get('window');
 
@@ -61,12 +62,18 @@ export default function HomeScreen() {
     const navigation = useNavigation();
     const { userData, refreshUserData } = useUser();
     const [isLoading, setIsLoading] = useState(false);
-    const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory } = useSearch();
+    const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory, updateSearchResults } = useSearch();
     const [error, setError] = useState('');
 
     const handleSearch = async () => {
         setIsLoading(true);
         try {
+            const checkInDateParts = checkInDate.split(', ')[1].split('/');
+            const checkOutDateParts = checkOutDate.split(', ')[1].split('/');
+            
+            const formattedCheckIn = `${checkInDateParts[2]}-${checkInDateParts[1].padStart(2, '0')}-${checkInDateParts[0].padStart(2, '0')}`;
+            const formattedCheckOut = `${checkOutDateParts[2]}-${checkOutDateParts[1].padStart(2, '0')}-${checkOutDateParts[0].padStart(2, '0')}`;
+            
             const searchData = {
                 location,
                 checkInDate,
@@ -80,15 +87,40 @@ export default function HomeScreen() {
                 selectedStar,
                 latitude,
                 longitude,
+                formattedCheckIn,
+                formattedCheckOut,
             };
+            
             updateCurrentSearch(searchData);
             addToSearchHistory(searchData);
 
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            navigation.navigate("Results", searchData);
+            const filterParams = {
+                CheckInDate: formattedCheckIn,
+                CheckOutDate: formattedCheckOut,
+                NumberOfAdults: adults,
+                NumberOfChildren: children,
+                Latitude: latitude,
+                Longitude: longitude,
+                MaxDistance: 50,
+            };
+
+            console.log('Filter params:', filterParams);
+
+            const results = await homeStayApi.filterHomeStays(filterParams);
+            console.log('Search results count:', results?.length || 0);
+            
+            if (results) {
+                updateSearchResults(results);
+            }
+            
+            navigation.navigate("Results");
         } catch (error) {
-            console.error(error);
-            Alert.alert("Lỗi", "Có lỗi xảy ra khi tìm kiếm. Vui lòng thử lại.");
+            console.error('Search error details:', error);
+            Alert.alert(
+                "Lỗi", 
+                `Có lỗi xảy ra khi tìm kiếm: ${error.message}`, 
+                [{ text: "Đóng" }]
+            );
         } finally {
             setIsLoading(false);
         }

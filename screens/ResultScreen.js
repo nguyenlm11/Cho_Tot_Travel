@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
@@ -8,59 +8,22 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSearch } from '../contexts/SearchContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import homeStayApi from '../services/api/homeStayApi';
 
 export default function ResultScreen() {
-    const { currentSearch } = useSearch();
-
-    const { location, checkInDate, checkOutDate, numberOfNights, rooms, adults, children, priceFrom, priceTo,
-        selectedStar, latitude, longitude } = currentSearch;
-
+    const { currentSearch, searchResults } = useSearch();
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const navigation = useNavigation();
 
-    const handleMoveScreen = () => {
-        navigation.navigate('HomeStayDetail');
-    }
+    useEffect(() => {
+        console.log('Current Search:', currentSearch);
+        console.log('Search Results:', searchResults);
+    }, [currentSearch, searchResults]);
 
-    const mockData = [
-        {
-            id: '1',
-            image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
-            name: 'Khách sạn Imperial Vũng Tàu',
-            rating: 4.8,
-            address: 'Thùy Vân, Bãi Sau, TP Vũng Tàu',
-            distance: '7.17 km từ trung tâm',
-            features: ['Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc', 'Hồ bơi', 'Nhà hàng'],
-            price: 1058201,
-            originalPrice: 1599999,
-            availability: 'Chỉ còn 3 phòng trống!',
-        },
-        {
-            id: '2',
-            image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
-            name: 'Smiley Apartment District 2',
-            rating: 5,
-            address: 'Quận 2, Thành phố Hồ Chí Minh',
-            distance: '8.71 km từ địa điểm hiện tại',
-            features: ['Nhà bếp mini', 'Sân thượng/Sân hiên', 'Đưa đón sân bay', 'Dịch vụ trả phòng cấp tốc'],
-            price: 355555,
-            originalPrice: 420000,
-            availability: 'Chỉ còn 1 phòng có giá này!',
-        },
-        {
-            id: '3',
-            image: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg',
-            name: 'Smiley Apartment District 2',
-            rating: 3.5,
-            address: 'Quận 2, Thành phố Hồ Chí Minh',
-            distance: '8.71 km từ địa điểm hiện tại',
-            features: ['Nhà bếp mini', 'Sân thượng/Sân hiên'],
-            price: 355555,
-            originalPrice: 420000,
-            availability: 'Chỉ còn 1 phòng có giá này!',
-        },
-    ];
+    const handleMoveScreen = (homestayId) => {
+        navigation.navigate('HomeStayDetail', { id: homestayId });
+    }
 
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
@@ -81,62 +44,81 @@ export default function ResultScreen() {
         );
     };
 
-    const renderItem = ({ item, index }) => (
-        <Animated.View
-            entering={FadeInDown.delay(index * 100)}
-            style={styles.cardContainer}
-        >
-            <TouchableOpacity onPress={handleMoveScreen} activeOpacity={0.9}>
-                <View style={styles.card}>
-                    <Image style={styles.image} source={{ uri: item.image }} />
-                    <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'transparent']}
-                        style={styles.imageOverlay}
-                    />
-                    <View style={styles.favoriteButton}>
-                        <Ionicons name="heart-outline" size={24} color="#fff" />
-                    </View>
-                    <View style={styles.info}>
-                        <View style={styles.headerInfo}>
-                            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                            {renderStars(item.rating)}
+    const renderItem = ({ item, index }) => {
+        console.log('Rendering item:', item);
+        
+        return (
+            <Animated.View
+                entering={FadeInDown.delay(index * 100)}
+                style={styles.cardContainer}
+            >
+                <TouchableOpacity onPress={() => handleMoveScreen(item.homeStayID)} activeOpacity={0.9}>
+                    <View style={styles.card}>
+                        <Image 
+                            style={styles.image} 
+                            source={{ 
+                                uri: 'https://bazantravel.com/cdn/medias/uploads/30/30866-khach-san-imperial-vung-tau-700x438.jpg' 
+                            }} 
+                        />
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0.6)', 'transparent']}
+                            style={styles.imageOverlay}
+                        />
+                        <View style={styles.favoriteButton}>
+                            <Ionicons name="heart-outline" size={24} color="#fff" />
                         </View>
+                        <View style={styles.info}>
+                            <View style={styles.headerInfo}>
+                                <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                                {renderStars(4.5)}
+                            </View>
 
-                        <View style={styles.locationContainer}>
-                            <Ionicons name="location-outline" size={16} color={colors.primary} />
-                            <Text style={styles.address} numberOfLines={1}>
-                                {item.address} • {item.distance}
-                            </Text>
-                        </View>
-
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.featuresScroll}
-                        >
-                            {item.features.map((feature, index) => (
-                                <View key={index} style={styles.featureTag}>
-                                    <Text style={styles.featureText}>{feature}</Text>
-                                </View>
-                            ))}
-                        </ScrollView>
-
-                        <View style={styles.priceSection}>
-                            <View>
-                                <Text style={styles.originalPrice}>
-                                    {item.originalPrice.toLocaleString()} ₫
-                                </Text>
-                                <Text style={styles.price}>
-                                    {item.price.toLocaleString()} ₫
+                            <View style={styles.locationContainer}>
+                                <Ionicons name="location-outline" size={16} color={colors.primary} />
+                                <Text style={styles.address} numberOfLines={2}>
+                                    {item.address}
                                 </Text>
                             </View>
-                            <Text style={styles.availability}>{item.availability}</Text>
+
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={styles.featuresScroll}
+                            >
+                                <View style={styles.featureTag}>
+                                    <Text style={styles.featureText}>{item.area || 'Khu vực đẹp'}</Text>
+                                </View>
+                                <View style={styles.featureTag}>
+                                    <Text style={styles.featureText}>
+                                        {item.typeOfRental === 1 ? 'Cho thuê theo ngày' : 'Cho thuê theo giờ'}
+                                    </Text>
+                                </View>
+                                <View style={styles.featureTag}>
+                                    <Text style={styles.featureText}>Wifi miễn phí</Text>
+                                </View>
+                            </ScrollView>
+
+                            <View style={styles.priceSection}>
+                                <View>
+                                    <Text style={styles.originalPrice}>
+                                        1.200.000 ₫
+                                    </Text>
+                                    <Text style={styles.price}>
+                                        1.000.000 ₫
+                                    </Text>
+                                </View>
+                                <Text style={styles.availability}>
+                                    {item.status === 1 ? 'Có sẵn' : 'Hết phòng'}
+                                </Text>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </TouchableOpacity>
-        </Animated.View>
-    );
+                </TouchableOpacity>
+            </Animated.View>
+        );
+    };
+
+    const validResults = Array.isArray(searchResults) ? searchResults : [];
 
     return (
         <View style={styles.container}>
@@ -151,7 +133,7 @@ export default function ResultScreen() {
                     <Ionicons name="chevron-back" size={28} color='#fff' />
                 </TouchableOpacity>
                 <Text style={styles.headerText} numberOfLines={1}>
-                    {currentSearch.location}
+                    {currentSearch?.location || 'Kết quả tìm kiếm'}
                 </Text>
             </LinearGradient>
 
@@ -163,24 +145,24 @@ export default function ResultScreen() {
                 >
                     <TouchableOpacity style={styles.filterChip}>
                         <Ionicons name="calendar-outline" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch.checkInDate}</Text>
+                        <Text style={styles.filterText}>{currentSearch?.checkInDate || 'Ngày nhận phòng'}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.filterChip}>
                         <Ionicons name="moon-outline" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch.numberOfNights} đêm</Text>
+                        <Text style={styles.filterText}>{currentSearch?.numberOfNights || 1} đêm</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.filterChip}>
                         <MaterialCommunityIcons name="door" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch.rooms} phòng</Text>
+                        <Text style={styles.filterText}>{currentSearch?.rooms || 1} phòng</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.filterChip}>
                         <Ionicons name="people-outline" size={20} color="#ffffff" />
                         <Text style={styles.filterText}>
-                            {currentSearch.adults} người lớn
-                            {currentSearch.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
+                            {currentSearch?.adults || 1} người lớn
+                            {currentSearch?.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
                         </Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -197,33 +179,38 @@ export default function ResultScreen() {
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
                 </View>
-            ) : (
+            ) : validResults.length > 0 ? (
                 <FlatList
-                    data={mockData}
+                    data={validResults}
                     renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item) => item.homeStayID?.toString() || Math.random().toString()}
                     contentContainerStyle={styles.listContainer}
                     showsVerticalScrollIndicator={false}
                 />
+            ) : (
+                <View style={styles.noResultsContainer}>
+                    <Ionicons name="search-outline" size={60} color={colors.primary} />
+                    <Text style={styles.noResultsText}>Không tìm thấy kết quả phù hợp</Text>
+                    <Text style={styles.noResultsSubtext}>Vui lòng thử lại với tiêu chí tìm kiếm khác</Text>
+                    <TouchableOpacity 
+                        style={styles.retryButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <LinearGradient
+                            colors={[colors.primary, colors.secondary]}
+                            style={styles.retryButtonGradient}
+                        >
+                            <Text style={styles.retryButtonText}>Tìm kiếm lại</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
             )}
+            
             <EditSearchModal
                 visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
-                location={location}
-                checkInDate={checkInDate}
-                checkOutDate={checkOutDate}
-                numberOfNights={numberOfNights}
-                rooms={rooms}
-                adults={adults}
-                children={children}
-                priceFrom={priceFrom}
-                priceTo={priceTo}
-                selectedStar={selectedStar}
-                latitude={latitude}
-                longitude={longitude}
             />
         </View>
-
     );
 }
 
@@ -380,5 +367,39 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    noResultsContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    noResultsText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+        marginTop: 20,
+    },
+    noResultsSubtext: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        marginTop: 10,
+        marginBottom: 20,
+    },
+    retryButton: {
+        width: '80%',
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginTop: 10,
+    },
+    retryButtonGradient: {
+        paddingVertical: 15,
+        alignItems: 'center',
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
