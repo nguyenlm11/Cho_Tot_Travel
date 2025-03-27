@@ -21,6 +21,7 @@ import { colors } from '../constants/Colors';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import SecurityScreen from '../screens/SecurityScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import ServiceScreen from '../screens/ServiceScreen';
 
 const Stack = createStackNavigator();
 
@@ -84,6 +85,7 @@ const MainStack = () => {
             <Stack.Screen name="HomeTabs" component={BottomTabNavigator} />
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
+            <Stack.Screen name="ServiceScreen" component={ServiceScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />

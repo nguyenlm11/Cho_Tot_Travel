@@ -67,28 +67,12 @@ export default function HomestayDetailScreen() {
 
   const handleOpenMap = () => {
     if (!homestay) return;
-    
-    // Chuyển đến MapScreen với tọa độ và thông tin của homestay
     navigation.navigate('MapScreen', {
       latitude: homestay.latitude,
       longitude: homestay.longitude,
       title: homestay.name,
       address: homestay.address
     });
-  };
-
-  // Thêm hàm mới để mở ứng dụng bản đồ trên thiết bị
-  const openDeviceMap = () => {
-    if (!homestay) return;
-    
-    const { latitude, longitude } = homestay;
-    const label = encodeURIComponent(homestay.name);
-    const url = Platform.select({
-      ios: `maps:${latitude},${longitude}?q=${label}`,
-      android: `geo:${latitude},${longitude}?q=${label}`,
-    });
-    
-    Linking.openURL(url);
   };
 
   // Render service item
@@ -170,7 +154,6 @@ export default function HomestayDetailScreen() {
     itemVisiblePercentThreshold: 50
   };
 
-  // Loading state
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -180,7 +163,6 @@ export default function HomestayDetailScreen() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -289,9 +271,6 @@ export default function HomestayDetailScreen() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.mapButton} onPress={openDeviceMap}>
-              <Text style={styles.mapButtonText}>Mở bản đồ</Text>
-            </TouchableOpacity>
           </Animated.View>
 
           {/* Map Preview */}
@@ -341,17 +320,13 @@ export default function HomestayDetailScreen() {
                   <MaterialCommunityIcons name="room-service-outline" size={24} color={colors.primary} style={styles.sectionIcon} />
                   <Text style={styles.sectionTitle}>Dịch vụ</Text>
                 </View>
-                {homestay.services.length > 2 && (
-                  <TouchableOpacity
-                    style={styles.viewAllButton}
-                    onPress={() => setServicesExpanded(!servicesExpanded)}
-                  >
-                    <Text style={styles.viewAllText}>
-                      {servicesExpanded ? 'Thu gọn' : 'Xem tất cả'}
-                    </Text>
-                    <FontAwesome6 name={servicesExpanded ? 'angle-up' : 'angle-right'} size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('ServiceScreen', { homestayId })}
+                  style={styles.viewAllButton}
+                >
+                  <Text style={styles.viewAllText}>Xem tất cả</Text>
+                  <FontAwesome6 name="angle-right" size={16} color={colors.primary} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.servicesContainer}>
@@ -442,10 +417,10 @@ export default function HomestayDetailScreen() {
           {/* Spacer to ensure content isn't hidden behind booking section */}
           <View style={styles.bottomSpacer} />
         </View>
-      </ScrollView>
+      </ScrollView >
 
       {/* Floating Booking Section */}
-      <Animated.View
+      < Animated.View
         entering={FadeIn}
         style={styles.bookingSection}
       >
@@ -470,16 +445,17 @@ export default function HomestayDetailScreen() {
             </LinearGradient>
           </TouchableOpacity>
         </BlurView>
-      </Animated.View>
+      </Animated.View >
 
       {/* Image Viewer Modal */}
-      <ImageViewer
+      < ImageViewer
         visible={imageViewerVisible}
         images={images}
         initialIndex={currentImageIndex}
-        onClose={() => setImageViewerVisible(false)}
+        onClose={() => setImageViewerVisible(false)
+        }
       />
-    </View>
+    </View >
   );
 }
 
@@ -773,11 +749,11 @@ const styles = StyleSheet.create({
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 8,
   },
   viewAllText: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: '600',
     marginRight: 4,
   },
   // Services styles

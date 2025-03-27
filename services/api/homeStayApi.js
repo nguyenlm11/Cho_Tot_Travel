@@ -1,7 +1,6 @@
 import apiClient, { handleError } from '../config';
 
 const homeStayApi = {
-  // Lọc homestay theo vị trí, ngày, số người, và khoảng cách
   filterHomeStays: async (filterParams) => {
     try {
       const cleanParams = {};
@@ -11,9 +10,7 @@ const homeStayApi = {
         }
       }
       const response = await apiClient.get('/api/HomeStay/filter', { params: cleanParams });
-      // console.log('API Response:', response.data);
       const results = response.data.data || response.data || [];
-      // console.log('Processed Results:', results);
       return results;
     } catch (error) {
       console.error('Filter API Error:', error.response || error);
