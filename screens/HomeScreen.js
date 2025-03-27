@@ -99,7 +99,7 @@ export default function HomeScreen() {
                 NumberOfChildren: children,
                 Latitude: latitude,
                 Longitude: longitude,
-                MaxDistance: 30,
+                MaxDistance: 10,
             };
             const results = await homeStayApi.filterHomeStays(filterParams);
             updateSearchResults(results);
