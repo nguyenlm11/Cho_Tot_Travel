@@ -126,7 +126,7 @@ const EditSearchModal = ({ visible, onClose }) => {
                 NumberOfChildren: localSearch.children,
                 Latitude: localSearch.latitude,
                 Longitude: localSearch.longitude,
-                MaxDistance: 30
+                MaxDistance: 10
             };
             const results = await homeStayApi.filterHomeStays(filterParams);
             updateSearchResults(results);
