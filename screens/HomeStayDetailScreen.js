@@ -6,7 +6,7 @@ import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, FontAwesome6 } fro
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import axios from 'axios';
+import homeStayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import ImageViewer from '../components/ImageViewer';
 import MapView, { Marker } from 'react-native-maps';
@@ -33,9 +33,9 @@ export default function HomestayDetailScreen() {
   const fetchHomestayDetail = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://192.168.2.17:7221/api/homestay/GetHomeStayDetail/${homestayId}`);
-      if (response.data && response.data.data) {
-        setHomestay(response.data.data);
+      const response = await homeStayApi.getHomeStayDetail(homestayId);
+      if (response && response.data) {
+        setHomestay(response.data);
       } else {
         setError('Không tìm thấy thông tin homestay');
       }
@@ -67,13 +67,27 @@ export default function HomestayDetailScreen() {
 
   const handleOpenMap = () => {
     if (!homestay) return;
+    
+    // Chuyển đến MapScreen với tọa độ và thông tin của homestay
+    navigation.navigate('MapScreen', {
+      latitude: homestay.latitude,
+      longitude: homestay.longitude,
+      title: homestay.name,
+      address: homestay.address
+    });
+  };
 
+  // Thêm hàm mới để mở ứng dụng bản đồ trên thiết bị
+  const openDeviceMap = () => {
+    if (!homestay) return;
+    
     const { latitude, longitude } = homestay;
     const label = encodeURIComponent(homestay.name);
     const url = Platform.select({
       ios: `maps:${latitude},${longitude}?q=${label}`,
       android: `geo:${latitude},${longitude}?q=${label}`,
     });
+    
     Linking.openURL(url);
   };
 
@@ -275,6 +289,9 @@ export default function HomestayDetailScreen() {
                 </Text>
               </View>
             </View>
+            <TouchableOpacity style={styles.mapButton} onPress={openDeviceMap}>
+              <Text style={styles.mapButtonText}>Mở bản đồ</Text>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* Map Preview */}
