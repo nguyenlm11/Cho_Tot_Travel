@@ -95,10 +95,10 @@ export default function MapScreen() {
                 return null;
             }
             const location = await Location.getCurrentPositionAsync({});
-            return {
-                latitude: location.coords.latitude,
+        return {
+            latitude: location.coords.latitude,
                 longitude: location.coords.longitude
-            };
+        };
         } catch (error) {
             console.error('Lỗi lấy vị trí:', error);
             return null;
@@ -565,7 +565,7 @@ export default function MapScreen() {
                                     size={22}
                                     color={currentStepIndex === routeSteps.length - 1 ? "#aaa" : colors.primary}
                                 />
-                            </TouchableOpacity>
+            </TouchableOpacity>
                         </View>
                     </View>
                 )}
