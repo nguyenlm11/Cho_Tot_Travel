@@ -24,6 +24,7 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import ServiceScreen from '../screens/ServiceScreen';
 import HomestayRentalScreen from '../screens/HomestayRentalScreen';
 import HomestayRentalDetailScreen from '../screens/HomestayRentalDetailScreen';
+import RoomTypeScreen from '../screens/RoomTypeScreen';
 
 const Stack = createStackNavigator();
 
@@ -90,6 +91,7 @@ const MainStack = () => {
             <Stack.Screen name="ServiceScreen" component={ServiceScreen} />
             <Stack.Screen name="HomestayRentalScreen" component={HomestayRentalScreen} />
             <Stack.Screen name="HomestayRentalDetail" component={HomestayRentalDetailScreen} />
+            <Stack.Screen name="RoomType" component={RoomTypeScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />

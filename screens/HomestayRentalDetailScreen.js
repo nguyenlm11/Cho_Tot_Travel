@@ -56,8 +56,8 @@ export default function HomestayRentalDetailScreen() {
     };
 
     const handleViewRoomTypes = () => {
-        navigation.navigate('ListRoom', {
-            rentalId: rental.homeStayRentalID
+        navigation.navigate('RoomType', {
+            rentalId: rental.homeStayRentalID,
         });
     };
 
@@ -394,11 +394,15 @@ export default function HomestayRentalDetailScreen() {
                 style={styles.bookingSection}
             >
                 <BlurView intensity={80} tint="light" style={styles.bookingBlur}>
-                    <View style={styles.priceContainer}>
-                        <Text style={styles.priceLabel}>Giá mỗi đêm</Text>
-                        <Text style={styles.price}>{price?.toLocaleString('vi-VN')}₫</Text>
-                        <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
-                    </View>
+                    {rental.rentWhole ? (
+                        <View style={styles.priceContainer}>
+                            <Text style={styles.priceLabel}>Giá mỗi đêm</Text>
+                            <Text style={styles.price}>{price?.toLocaleString('vi-VN')}₫</Text>
+                            <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.priceContainer}></View>
+                    )}
 
                     <TouchableOpacity
                         style={styles.bookButton}
