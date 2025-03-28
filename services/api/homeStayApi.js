@@ -27,7 +27,24 @@ const homeStayApi = {
       console.error('Error fetching homestay detail:', error);
       throw error;
     }
-  }
+  },
+
+  getHomeStayRentals: async (filterParams) => {
+    try {
+      const cleanParams = {};
+      for (const key in filterParams) {
+        if (filterParams[key] !== null && filterParams[key] !== undefined) {
+          cleanParams[key] = filterParams[key];
+        }
+      }
+      const response = await apiClient.get('/api/homestayrental/filter', { params: cleanParams });
+      const results = response.data.data || response.data || [];
+      return results;
+    } catch (error) {
+      console.error('Error in getHomeStayRentals:', error.response?.data || error.message);
+      throw new Error(handleError(error));
+    }
+  },
 };
 
 export default homeStayApi; 

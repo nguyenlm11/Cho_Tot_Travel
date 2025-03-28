@@ -48,7 +48,7 @@ export default function HomestayDetailScreen() {
   };
 
   const handleListRoom = () => {
-    navigation.navigate('ListRoom', { homestayId });
+    navigation.navigate('HomestayRentalScreen', { homestayId });
   };
 
   const handleShare = async () => {
@@ -336,14 +336,6 @@ export default function HomestayDetailScreen() {
                   keyExtractor={(item, index) => `service-${index}`}
                   scrollEnabled={false}
                 />
-
-                {servicesExpanded && (
-                  <View style={styles.sectionFooter}>
-                    <Text style={styles.sectionNote}>
-                      * Giá dịch vụ có thể thay đổi, vui lòng liên hệ chủ nhà để biết thêm chi tiết
-                    </Text>
-                  </View>
-                )}
               </View>
             </Animated.View>
           )}
@@ -441,7 +433,7 @@ export default function HomestayDetailScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.gradientButton}
             >
-              <Text style={styles.bookButtonText}>Chọn phòng</Text>
+              <Text style={styles.bookButtonText}>Xem căn</Text>
             </LinearGradient>
           </TouchableOpacity>
         </BlurView>

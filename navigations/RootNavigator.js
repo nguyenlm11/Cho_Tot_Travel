@@ -22,6 +22,7 @@ import CheckoutScreen from '../screens/CheckoutScreen';
 import SecurityScreen from '../screens/SecurityScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import ServiceScreen from '../screens/ServiceScreen';
+import HomestayRentalScreen from '../screens/HomestayRentalScreen';
 
 const Stack = createStackNavigator();
 
@@ -86,6 +87,7 @@ const MainStack = () => {
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
             <Stack.Screen name="ServiceScreen" component={ServiceScreen} />
+            <Stack.Screen name="HomestayRentalScreen" component={HomestayRentalScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />
             <Stack.Screen name="ReviewScreen" component={ReviewScreen} />
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />

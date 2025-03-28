@@ -27,10 +27,7 @@ const EditSearchModal = ({ visible, onClose }) => {
     const [localSearch, setLocalSearch] = useState({ ...currentSearch });
 
     useEffect(() => {
-        if (visible && currentSearch) {
-            console.log("EditSearchModal - Modal opened with data:", currentSearch);
-            setLocalSearch({ ...currentSearch });
-        }
+        if (visible && currentSearch) { setLocalSearch({ ...currentSearch }); }
     }, [visible, currentSearch]);
 
     // Format selected date
@@ -349,10 +346,7 @@ const EditSearchModal = ({ visible, onClose }) => {
 
             <GuestModal
                 visible={isGuestModalVisible}
-                onClose={() => {
-                    console.log("EditSearchModal - GuestModal closed");
-                    setGuestModalVisible(false);
-                }}
+                onClose={() => { setGuestModalVisible(false) }}
                 adults={localSearch?.adults || 1}
                 children={localSearch?.children || 0}
                 setAdults={handleAdultsUpdate}
