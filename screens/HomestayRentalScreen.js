@@ -189,15 +189,14 @@ export default function HomestayRentalScreen() {
 
                             <TouchableOpacity
                                 style={styles.viewDetailButton}
-                                onPress={() => navigation.navigate('RoomDetail', { roomId: item.homeStayRentalID })}
-                            >
+                                onPress={() => navigation.navigate('HomestayRentalDetail', { rentalId: item.homeStayRentalID })}>
                                 <Text style={styles.viewDetailText}>Xem chi tiết</Text>
                                 <Ionicons name="arrow-forward" size={16} color="#fff" />
                             </TouchableOpacity>
                         </View>
                     </View>
-                </TouchableOpacity>
-            </View>
+                </TouchableOpacity >
+            </View >
         );
     };
 
