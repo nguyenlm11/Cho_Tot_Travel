@@ -45,6 +45,22 @@ const homeStayApi = {
       throw new Error(handleError(error));
     }
   },
+
+  getHomeStayRentalDetail: async (rentalId) => {
+    try {
+      const response = await apiClient.get(`/api/homestayrental/GetHomeStayRentalDetail/${rentalId}`);
+      return {
+        success: true,
+        data: response.data.data || response.data
+      };
+    } catch (error) {
+      console.error('Error fetching rental detail:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: handleError(error)
+      };
+    }
+  },
 };
 
 export default homeStayApi; 

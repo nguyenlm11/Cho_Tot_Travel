@@ -75,7 +75,6 @@ export default function HomestayDetailScreen() {
     });
   };
 
-  // Render service item
   const renderServiceItem = ({ item, index }) => (
     <Animated.View
       entering={FadeInDown.delay(50 * index)}
@@ -98,7 +97,6 @@ export default function HomestayDetailScreen() {
     </Animated.View>
   );
 
-  // Render cover image item
   const renderCoverImageItem = ({ item, index }) => (
     <TouchableOpacity
       style={styles.coverImageItem}
@@ -185,14 +183,14 @@ export default function HomestayDetailScreen() {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <BlurView intensity={80} style={styles.blurButton}>
+          <BlurView intensity={70} tint="dark" style={styles.blurButton}>
             <Icon name="chevron-back" size={24} color="#fff" />
           </BlurView>
         </TouchableOpacity>
 
         <View style={styles.rightButtons}>
           <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-            <BlurView intensity={80} style={styles.blurButton}>
+            <BlurView intensity={70} tint="dark" style={styles.blurButton}>
               <Icon name="share-social-outline" size={22} color="#fff" />
             </BlurView>
           </TouchableOpacity>
@@ -494,7 +492,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
-  // Cover image carousel styles
   coverContainer: {
     height: height * 0.4,
     position: 'relative',
@@ -514,7 +511,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
   },
-  // Image indicator styles
   imageIndicator: {
     position: 'absolute',
     bottom: 20,
@@ -526,7 +522,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   indicatorTouchable: {
-    padding: 5, // More touch area
+    padding: 5,
   },
   indicatorDot: {
     width: 8,
@@ -560,7 +556,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '600',
   },
-  // Header buttons styles
   headerButtons: {
     position: 'absolute',
     top: 50,
@@ -585,7 +580,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
-  // Content styles
   contentContainer: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
@@ -637,7 +631,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 4,
   },
-  // Address section styles
   addressSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -677,7 +670,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  // Map styles
   mapContainer: {
     height: 150,
     borderRadius: 12,
@@ -716,7 +708,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // Section styles
   section: {
     marginBottom: 24,
   },
@@ -748,7 +739,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginRight: 4,
   },
-  // Services styles
   servicesContainer: {
     marginTop: 5,
   },
@@ -806,8 +796,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     fontStyle: 'italic',
-  },
-  // Reviews styles
+  },  
   noReviewContainer: {
     alignItems: 'center',
     padding: 20,
