@@ -34,6 +34,32 @@ const roomApi = {
             throw new Error(handleError(error));
         }
     },
+
+    // Thêm hàm để lấy phòng theo loại phòng và rentalId
+    getRoomsByTypeAndRental: async (roomTypeId, rentalId) => {
+        try {
+            // Log để kiểm tra
+            console.log(`Fetching rooms for roomTypeId: ${roomTypeId}, rentalId: ${rentalId}`);
+            
+            const response = await apiClient.get(`/api/Room/GetRoomsByRoomTypeIdAndRentalId`, {
+                params: {
+                    roomTypeId: roomTypeId,
+                    rentalId: rentalId
+                }
+            });
+            
+            if (response.status === 200) {
+                // Log để kiểm tra response
+                console.log("Rooms API response:", response.data);
+                return response.data;
+            }
+            
+            return [];
+        } catch (error) {
+            console.error("API Error in getRoomsByTypeAndRental:", error);
+            throw new Error(handleError(error));
+        }
+    },
 };
 
 export default roomApi; 

@@ -1,126 +1,243 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSearch } from '../contexts/SearchContext';
-import ServicesModal from '../components/Modal/ServicesModal';
+import { useUser } from '../contexts/UserContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../constants/Colors';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
-import WebView from 'react-native-webview';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { useCart } from '../contexts/CartContext';
 import axios from 'axios';
-// import { BASE_URL } from '../config';
+
+const API_BASE_URL = 'http://192.168.2.17:7221/api/booking-bookingservices/CreateBooking';
 
 const CheckoutScreen = () => {
-  const { currentSearch } = useSearch();
-  const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-  });
-  const [isServicesModalVisible, setIsServicesModalVisible] = useState(false);
-  const [selectedServices, setSelectedServices] = useState([]);
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('vnpay');
   const navigation = useNavigation();
+  const route = useRoute();
 
-  const handleServicesChange = (services) => {
-    setSelectedServices(services);
+  const homeStayId = route.params?.homeStayId;
+  const rentalId = route.params?.rentalId;
+
+  const params = {};
+  if (homeStayId) params.homeStayId = homeStayId;
+  if (rentalId) params.rentalId = rentalId;
+
+  const { currentSearch } = useSearch();
+  const { userData } = useUser();
+  const {
+    getRoomsByParams,
+    clearCart,
+  } = useCart();
+
+  // Form data
+  const [formData, setFormData] = useState({
+    fullName: userData?.name || '',
+    phone: userData?.phone || '',
+    email: userData?.email || '',
+  });
+  const [paymentMethod, setPaymentMethod] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [bookingId, setBookingId] = useState(null);
+  const selectedRooms = getRoomsByParams(params);
+  const numberOfNights = calculateNumberOfNights();
+
+  // Tính số đêm lưu trú
+  function calculateNumberOfNights() {
+    if (!selectedRooms || selectedRooms.length === 0) return 1;
+
+    const checkIn = new Date(selectedRooms[0].checkInDate);
+    const checkOut = new Date(selectedRooms[0].checkOutDate);
+    const diffTime = Math.abs(checkOut - checkIn);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays || 1;
+  }
+
+  // Xử lý khi thay đổi input
+  const handleInputChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value
+    });
   };
 
-  const handleCheckout = async () => {
+  // Validate form trước khi submit
+  const validateForm = () => {
     if (!formData.fullName || !formData.phone || !formData.email) {
-      alert('Vui lòng điền đầy đủ thông tin người đặt!');
-      return;
+      Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin để đặt phòng');
+      return false;
     }
 
-    if (!selectedPaymentMethod) {
-      alert('Vui lòng chọn phương thức thanh toán!');
-      return;
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      Alert.alert('Thông báo', 'Email không hợp lệ');
+      return false;
     }
 
-    const totalAmount =
-      500000 * (currentSearch?.numberOfNights || 0) +
-      selectedServices.reduce((total, service) => total + parseInt(service.price), 0);
+    // Validate phone (số điện thoại Việt Nam)
+    const phoneRegex = /^(0|\+84)(\d{9,10})$/;
+    if (!phoneRegex.test(formData.phone)) {
+      Alert.alert('Thông báo', 'Số điện thoại không hợp lệ');
+      return false;
+    }
 
-    const checkoutData = {
-      orderInfo: `Thanh toán đặt phòng tại The Imperial Vũng Tàu - ${formData.fullName}`,
-      amount: totalAmount,
-      // returnUrl: `${BASE_URL}/payment-return`,
-      paymentMethod: selectedPaymentMethod,
-      customerInfo: formData,
-      bookingDetails: {
-        rooms: currentSearch?.rooms,
-        nights: currentSearch?.numberOfNights,
-        adults: currentSearch?.adults,
-        children: currentSearch?.children,
-        checkInDate: currentSearch?.checkInDate,
-        checkOutDate: currentSearch?.checkOutDate,
-        services: selectedServices,
-      },
-    };
-
-    setLoading(true);
-    // try {
-    //   const response = await axios.post(`${BASE_URL}/create-payment`, checkoutData, {
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     timeout: 10000,
-    //   });
-    //   setPaymentUrl(response.data.paymentUrl);
-    // } catch (error) {
-    //   if (error.code === 'ECONNABORTED') {
-    //     alert('Hết thời gian kết nối đến server. Vui lòng thử lại!');
-    //   } else if (error.response) {
-    //     alert(`Lỗi từ server: ${error.response.data.message || 'Không xác định'}`);
-    //   } else {
-    //     alert('Không thể kết nối đến server. Kiểm tra mạng của bạn!');
-    //   }
-    //   console.error('Lỗi khi tạo thanh toán:', error);
-    // } finally {
-    //   setLoading(false);
-    // }
+    return true;
   };
 
-  const handleWebViewNavigation = (navState) => {
-    const { url } = navState;
-    if (url.includes('imperial-hotel-app.herokuapp.com/payment-return')) {
-      const params = new URLSearchParams(url.split('?')[1]);
-      const responseCode = params.get('vnp_ResponseCode');
-      setPaymentUrl(null);
-      if (responseCode === '00') {
-        alert('Thanh toán thành công!');
-        navigation.navigate('BookingSuccess', {
-          bookingDetails: {
-            ...formData,
-            paymentMethod: selectedPaymentMethod,
-            totalAmount: (
-              500000 * (currentSearch?.numberOfNights || 0) +
-              selectedServices.reduce((total, service) => total + parseInt(service.price), 0)
-            ).toLocaleString(),
-          },
-        });
-      } else {
-        alert(`Thanh toán thất bại! Mã lỗi: ${responseCode}`);
-        navigation.navigate('BookingFailed', { errorCode: responseCode });
+  // Tạo dữ liệu booking theo format API yêu cầu
+  const createBookingData = () => {
+    if (!selectedRooms || selectedRooms.length === 0) {
+      Alert.alert('Thông báo', 'Bạn chưa chọn phòng nào');
+      return null;
+    }
+
+    if (!homeStayId) {
+      Alert.alert('Thông báo', 'Không tìm thấy thông tin homestay');
+      return null;
+    }
+
+    // Tạo danh sách bookingDetails từ các phòng đã chọn
+    const bookingDetails = selectedRooms.map(room => ({
+      homeStayTypeID: rentalId || room.rentalId || 0,
+      roomTypeID: room.roomTypeID || 0,
+      roomID: room.roomID,
+      checkInDate: room.checkInDate,
+      checkOutDate: room.checkOutDate
+    }));
+
+    // Tạo booking request object theo format API
+    const bookingData = {
+      numberOfChildren: currentSearch?.children || 0,
+      numberOfAdults: currentSearch?.adults || 1,
+      accountID: userData?.userID,
+      homeStayID: homeStayId,
+      bookingDetails: bookingDetails,
+      bookingOfServices: {
+        bookingServicesDetails: []
       }
+    };
+    console.log('Booking data:', JSON.stringify(bookingData, null, 2));
+    return bookingData;
+  };
+
+  const handleBooking = async () => {
+    if (!validateForm()) return;
+    const bookingData = createBookingData();
+    if (!bookingData) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const apiUrl = `${API_BASE_URL}?paymentMethod=${paymentMethod}`;
+      console.log('Sending booking request to:', apiUrl);
+
+      const response = await axios.post(apiUrl, bookingData, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      console.log('Booking API response:', response.data);
+
+      if (response.data) {
+        setSuccess(true);
+        setBookingId(response.data.bookingID || 'BK' + Date.now());
+        clearCart();
+        Alert.alert(
+          'Đặt phòng thành công',
+          `Mã đặt phòng của bạn là: ${response.data.bookingID || 'BK' + Date.now()}`,
+          [
+            {
+              text: 'Xem đặt phòng',
+              onPress: () => navigation.navigate('BookingList')
+            },
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('Home')
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Booking API Error:', error);
+      if (error.response) {
+        setError(`Lỗi từ server: ${error.response.data?.message || 'Không xác định'}`);
+        Alert.alert('Đặt phòng thất bại', `Lỗi từ server: ${error.response.data?.message || 'Không xác định'}`);
+      } else if (error.request) {
+        setError('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng của bạn.');
+        Alert.alert('Đặt phòng thất bại', 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng của bạn.');
+      } else {
+        setError(`Lỗi: ${error.message}`);
+        Alert.alert('Đặt phòng thất bại', `Lỗi: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (paymentUrl) {
+  // Tạo component lựa chọn phương thức thanh toán
+  const renderPaymentMethodSelector = () => {
     return (
-      <View style={styles.webviewContainer}>
-        <WebView
-          source={{ uri: paymentUrl }}
-          onNavigationStateChange={handleWebViewNavigation}
-          style={styles.webview}
-        />
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+        <View style={styles.paymentOptions}>
+          <TouchableOpacity
+            style={[
+              styles.paymentOption,
+              paymentMethod === 0 && styles.paymentOptionSelected
+            ]}
+            onPress={() => setPaymentMethod(0)}
+          >
+            <View style={styles.radioButton}>
+              {paymentMethod === 0 && <View style={styles.radioButtonInner} />}
+            </View>
+            <View style={styles.paymentOptionContent}>
+              <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
+              <Text style={styles.paymentOptionDescription}>Thanh toán toàn bộ số tiền ngay bây giờ</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.paymentOption,
+              paymentMethod === 1 && styles.paymentOptionSelected
+            ]}
+            onPress={() => setPaymentMethod(1)}
+          >
+            <View style={styles.radioButton}>
+              {paymentMethod === 1 && <View style={styles.radioButtonInner} />}
+            </View>
+            <View style={styles.paymentOptionContent}>
+              <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
+              <Text style={styles.paymentOptionDescription}>Đặt cọc một phần và thanh toán phần còn lại sau</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
     );
-  }
+  };
+
+  // Render danh sách phòng đã chọn
+  const renderSelectedRooms = () => {
+    return selectedRooms.map(room => (
+      <View key={room.id} style={styles.roomItem}>
+        <Image
+          source={{ uri: room.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+          style={styles.roomImage}
+        />
+        <View style={styles.roomDetails}>
+          <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
+          <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.roomPrice}>{room.price.toLocaleString('vi-VN')}₫</Text>
+            <Text style={styles.priceUnit}>/đêm</Text>
+          </View>
+        </View>
+      </View>
+    ));
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -138,582 +255,420 @@ const CheckoutScreen = () => {
       </LinearGradient>
 
       <Animated.View entering={FadeInDown.delay(300)} style={styles.content}>
-        {/* Hotel Info Card */}
+        {/* Phòng đã chọn */}
         <View style={styles.card}>
-          <Image
-            source={{ uri: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
-            style={styles.hotelImage}
-          />
-          <View style={styles.hotelDetails}>
-            <Text style={styles.hotelName}>Smile Apartment District 2</Text>
-            <View style={styles.infoRow}>
-              <Icon name="bed-outline" size={16} color="#666" />
-              <Text style={styles.infoText}>
-                {currentSearch?.rooms} phòng • {currentSearch?.numberOfNights} đêm
+          <Text style={styles.sectionTitle}>Phòng đã chọn</Text>
+          {renderSelectedRooms()}
+        </View>
+
+        {/* Thời gian lưu trú */}
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Thời gian lưu trú</Text>
+          <View style={styles.dateContainer}>
+            <View style={styles.dateItem}>
+              <Text style={styles.dateLabel}>Nhận phòng</Text>
+              <Text style={styles.dateValue}>
+                {selectedRooms.length > 0
+                  ? new Date(selectedRooms[0].checkInDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' })
+                  : currentSearch?.checkInDate || 'Chưa xác định'}
               </Text>
             </View>
-            <View style={styles.infoRow}>
-              <Icon name="people-outline" size={16} color="#666" />
-              <Text style={styles.infoText}>
-                {currentSearch?.adults} người lớn
-                {currentSearch?.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
+            <View style={styles.dateDivider} />
+            <View style={styles.dateItem}>
+              <Text style={styles.dateLabel}>Trả phòng</Text>
+              <Text style={styles.dateValue}>
+                {selectedRooms.length > 0
+                  ? new Date(selectedRooms[0].checkOutDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' })
+                  : currentSearch?.checkOutDate || 'Chưa xác định'}
               </Text>
             </View>
           </View>
+          <Text style={styles.stayDuration}>Thời gian lưu trú: {numberOfNights} đêm</Text>
         </View>
 
-        {/* Check-in/Check-out Section */}
+        {/* Thông tin người đặt */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Icon name="calendar-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Thời gian đặt phòng</Text>
-          </View>
-          <View style={styles.dateRow}>
-            <View style={styles.dateBlock}>
-              <Text style={styles.dateLabel}>Ngày nhận phòng</Text>
-              <View style={styles.dateContent}>
-                <Text style={styles.dateText}>{currentSearch?.checkInDate}</Text>
-              </View>
-            </View>
-            <View style={styles.dateBlock}>
-              <Text style={styles.dateLabel}>Ngày trả phòng</Text>
-              <View style={styles.dateContent}>
-                <Text style={styles.dateText}>{currentSearch?.checkOutDate}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Services Section */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Icon name="restaurant-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Dịch vụ thêm</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setIsServicesModalVisible(true)}
-          >
-            <Icon name="add-circle-outline" size={24} color={colors.primary} />
-            <Text style={styles.addButtonText}>Thêm dịch vụ</Text>
-          </TouchableOpacity>
-
-          {selectedServices.length > 0 && (
-            <View style={styles.servicesList}>
-              {selectedServices.map((service) => (
-                <View key={service.id} style={styles.serviceItem}>
-                  <View style={styles.serviceInfo}>
-                    <Text style={styles.serviceName}>{service.name}</Text>
-                  </View>
-                  <Text style={styles.servicePrice}>{service.price.toLocaleString()} đ</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Customer Info */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Icon name="person-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Thông tin người đặt</Text>
-          </View>
-          <View style={styles.inputContainer}>
-            <Icon name="person-outline" size={20} color="#666" />
+          <Text style={styles.sectionTitle}>Thông tin người đặt</Text>
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>Họ và tên</Text>
             <TextInput
               style={styles.input}
-              placeholder="Họ và tên"
-              placeholderTextColor="#999"
               value={formData.fullName}
-              onChangeText={(text) => setFormData({ ...formData, fullName: text })}
+              onChangeText={(text) => handleInputChange('fullName', text)}
+              placeholder="Nhập họ và tên"
+              placeholderTextColor="#999"
             />
           </View>
-          <View style={styles.inputContainer}>
-            <Icon name="call-outline" size={20} color="#666" />
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>Số điện thoại</Text>
             <TextInput
               style={styles.input}
-              placeholder="Số điện thoại"
+              value={formData.phone}
+              onChangeText={(text) => handleInputChange('phone', text)}
+              placeholder="Nhập số điện thoại"
               placeholderTextColor="#999"
               keyboardType="phone-pad"
-              value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
             />
           </View>
-          <View style={styles.inputContainer}>
-            <Icon name="mail-outline" size={20} color="#666" />
+          <View style={styles.formGroup}>
+            <Text style={styles.inputLabel}>Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              value={formData.email}
+              onChangeText={(text) => handleInputChange('email', text)}
+              placeholder="Nhập email"
               placeholderTextColor="#999"
               keyboardType="email-address"
-              value={formData.email}
               autoCapitalize="none"
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
             />
           </View>
         </View>
 
-        {/* Payment Method Section */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Icon name="wallet-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Phương thức thanh toán</Text>
-          </View>
+        {/* Phương thức thanh toán */}
+        {renderPaymentMethodSelector()}
 
-          <TouchableOpacity
-            style={[
-              styles.paymentMethodOption,
-              selectedPaymentMethod === 'vnpay' && styles.paymentMethodSelected
-            ]}
-            onPress={() => setSelectedPaymentMethod('vnpay')}
-          >
-            <View style={styles.paymentMethodLeft}>
-              <Image
-                source={{ uri: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-VNPAY-QR.png' }}
-                style={styles.paymentMethodIcon}
-                resizeMode="contain"
-              />
-              <View>
-                <Text style={styles.paymentMethodName}>VNPay</Text>
-                <Text style={styles.paymentMethodDesc}>Thanh toán qua VNPay QR hoặc thẻ ATM/Visa/Master</Text>
-              </View>
-            </View>
-            <View style={[
-              styles.paymentRadio,
-              selectedPaymentMethod === 'vnpay' && styles.paymentRadioSelected
-            ]}>
-              {selectedPaymentMethod === 'vnpay' && (
-                <View style={styles.paymentRadioInner} />
-              )}
-            </View>
-          </TouchableOpacity>
-
-          {/* <TouchableOpacity
-            style={[
-              styles.paymentMethodOption,
-              selectedPaymentMethod === 'cod' && styles.paymentMethodSelected
-            ]}
-            onPress={() => setSelectedPaymentMethod('cod')}
-          >
-            <View style={styles.paymentMethodLeft}>
-              <View style={styles.codIconContainer}>
-                <Icon name="cash-outline" size={24} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.paymentMethodName}>Thanh toán khi nhận phòng</Text>
-                <Text style={styles.paymentMethodDesc}>Thanh toán trực tiếp tại lễ tân khách sạn</Text>
-              </View>
-            </View>
-            <View style={[
-              styles.paymentRadio,
-              selectedPaymentMethod === 'cod' && styles.paymentRadioSelected
-            ]}>
-              {selectedPaymentMethod === 'cod' && (
-                <View style={styles.paymentRadioInner} />
-              )}
-            </View>
-          </TouchableOpacity> */}
-        </View>
-
-        {/* Payment Summary */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Icon name="card-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Chi tiết thanh toán</Text>
+        {/* Tổng cộng */}
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Số phòng:</Text>
+            <Text style={styles.summaryValue}>{selectedRooms.length} phòng</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Giá phòng</Text>
-            <Text style={styles.summaryValue}>
-              {(576000 * (currentSearch?.numberOfNights || 0)).toLocaleString()} đ
-            </Text>
+            <Text style={styles.summaryLabel}>Số đêm:</Text>
+            <Text style={styles.summaryValue}>{numberOfNights} đêm</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Dịch vụ thêm</Text>
-            <Text style={styles.summaryValue}>
-              {selectedServices
-                .reduce((total, service) => total + parseInt(service.price), 0)
-                .toLocaleString()} đ
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tổng cộng</Text>
-            <Text style={styles.totalAmount}>
-              {(
-                576000 * (currentSearch?.numberOfNights || 0) +
-                selectedServices.reduce((total, service) => total + parseInt(service.price), 0)
-              ).toLocaleString()} đ
-            </Text>
-          </View>
+          <View style={styles.summaryDivider} />
         </View>
 
-        {/* Confirmation */}
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.confirmationRow}
-            onPress={() => setIsConfirmed(!isConfirmed)}
-          >
-            <View
-              style={[styles.checkbox, isConfirmed && styles.checkboxSelected]}
-            >
-              {isConfirmed && <Icon name="checkmark" size={16} color="#fff" />}
-            </View>
-            <Text style={styles.confirmationText}>
-              Tôi xác nhận thông tin đặt phòng trên là chính xác
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Checkout Button */}
+        {/* Nút đặt phòng */}
         <TouchableOpacity
-          style={[
-            styles.checkoutButton,
-            (!isConfirmed || loading) && styles.checkoutButtonDisabled,
-          ]}
-          onPress={handleCheckout}
-          disabled={!isConfirmed || loading}
+          style={[styles.bookButton, loading && styles.disabledButton]}
+          onPress={handleBooking}
+          disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text
-              style={[
-                styles.checkoutButtonText,
-                (!isConfirmed || loading) && styles.checkoutButtonTextDisabled,
-              ]}
-            >
-              {selectedPaymentMethod === 'vnpay' ? 'Thanh toán ngay' : 'Xác nhận đặt phòng'}
-            </Text>
-          )}
+          <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradientButton}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.bookButtonText}>
+                  {paymentMethod === 0 ? 'Thanh toán đầy đủ' : 'Đặt cọc ngay'}
+                </Text>
+                <Icon name="chevron-forward" size={20} color="#fff" />
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
-      </Animated.View>
 
-      <ServicesModal
-        visible={isServicesModalVisible}
-        onClose={() => setIsServicesModalVisible(false)}
-        selectedServices={selectedServices}
-        onServicesChange={handleServicesChange}
-      />
+        {/* Hiển thị lỗi nếu có */}
+        {error && (
+          <Text style={styles.errorText}>{error}</Text>
+        )}
+
+        {/* Thông tin thanh toán và chính sách */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Thông tin thanh toán</Text>
+          <Text style={styles.infoText}>
+            {paymentMethod === 0 ? (
+              `• Thanh toán đầy đủ ngay bây giờ
+• Không mất phí khi hủy trước 24 giờ
+• Giá đã bao gồm thuế và phí dịch vụ`
+            ) : (
+              `• Đặt cọc 30% ngay bây giờ
+• Thanh toán số tiền còn lại khi nhận phòng
+• Tiền cọc không được hoàn lại khi hủy`
+            )}
+          </Text>
+        </View>
+      </Animated.View>
     </ScrollView>
   );
 };
 
+// Định nghĩa styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
   header: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#fff',
-    fontWeight: 'bold',
+    textAlign: 'center',
   },
   content: {
-    marginTop: -20,
-    paddingHorizontal: 16,
+    padding: 16,
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.23,
-    shadowRadius: 2.62,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8,
-  },
-  hotelImage: {
-    width: '100%',
-    height: 150,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  hotelDetails: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  hotelName: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  infoRow: {
+  roomItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 16,
   },
-  infoText: {
-    marginLeft: 8,
+  roomImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  roomDetails: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  roomTypeName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  roomNumber: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 8,
   },
-  dateRow: {
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  roomPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  priceUnit: {
+    fontSize: 14,
+    color: '#888',
+    marginLeft: 4,
+  },
+  dateContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  dateBlock: {
+  dateItem: {
     flex: 1,
-    marginHorizontal: 8,
   },
   dateLabel: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
-  },
-  dateContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  dateText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#333',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderStyle: 'dashed',
-  },
-  addButtonText: {
-    marginLeft: 8,
-    fontSize: 15,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  servicesList: {
-    marginTop: 16,
-  },
-  serviceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  serviceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceName: {
-    marginLeft: 12,
-    fontSize: 15,
-    color: '#333',
-  },
-  servicePrice: {
-    fontSize: 15,
-    color: '#666',
-    fontWeight: '500',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginBottom: 12,
-  },
-  input: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 15,
-    color: '#333',
-  },
-  paymentMethodOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginBottom: 12,
-  },
-  paymentMethodSelected: {
-    borderColor: colors.primary,
-    backgroundColor: '#f0f7ff',
-  },
-  paymentMethodLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  paymentMethodIcon: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
-  },
-  codIconContainer: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#f0f7ff',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  paymentMethodName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
     marginBottom: 4,
   },
-  paymentMethodDesc: {
-    fontSize: 13,
+  dateValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  dateDivider: {
+    width: 1,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 16,
+  },
+  stayDuration: {
+    fontSize: 14,
     color: '#666',
+    fontStyle: 'italic',
   },
-  paymentRadio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+  formGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  input: {
+    height: 48,
+    borderWidth: 1,
     borderColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    color: '#333',
   },
-  paymentRadioSelected: {
-    borderColor: colors.primary,
-  },
-  paymentRadioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
+  summaryCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   summaryLabel: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#666',
   },
   summaryValue: {
-    fontSize: 15,
-    color: '#333',
+    fontSize: 14,
     fontWeight: '500',
+    color: '#333',
   },
-  divider: {
+  summaryDivider: {
     height: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#e0e0e0',
     marginVertical: 12,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   totalLabel: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
   },
-  totalAmount: {
+  totalPrice: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.primary,
   },
-  confirmationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  bookButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#ddd',
+  disabledButton: {
+    opacity: 0.7,
+  },
+  gradientButton: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 8,
   },
-  checkboxSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  bookButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
-  confirmationText: {
-    flex: 1,
+  errorText: {
+    color: '#e53935',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  infoCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  infoText: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
   },
-  checkoutButton: {
-    backgroundColor: colors.primary,
+  paymentOptions: {
+    marginTop: 8,
+  },
+  paymentOption: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  paymentOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    elevation: 3,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    marginRight: 12,
   },
-  checkoutButtonText: {
-    color: '#fff',
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  paymentOptionContent: {
+    flex: 1,
+  },
+  paymentOptionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginRight: 8,
+    color: '#333',
+    marginBottom: 4,
   },
-  checkoutButtonDisabled: {
-    backgroundColor: '#f0f0f0',
-    elevation: 0,
-    shadowOpacity: 0,
+  paymentOptionDescription: {
+    fontSize: 14,
+    color: '#666',
   },
-  checkoutButtonTextDisabled: {
-    color: '#999',
+  depositLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    fontStyle: 'italic',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  webviewContainer: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
+  depositPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.secondary,
   },
 });
 

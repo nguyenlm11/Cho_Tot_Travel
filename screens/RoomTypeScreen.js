@@ -6,20 +6,31 @@ import Animated, { FadeInDown, useSharedValue, withSpring } from 'react-native-r
 import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
+import { useCart } from '../contexts/CartContext';
+import CartBadge from '../components/CartBadge';
 
 export default function RoomTypeScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { rentalId } = route.params;
+    const homeStayId = route.params?.homeStayId;
+    const rentalId = route.params?.rentalId;
     const [roomTypes, setRoomTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [refreshing, setRefreshing] = useState(false);
-    const [searchParams, setSearchParams] = useState(null);
+    const { getRoomsByType, getCartCount, setHomeStay, setRental } = useCart();
 
     useEffect(() => {
         fetchRoomTypes();
-    }, [rentalId]);
+    }, [homeStayId]);
+
+    useEffect(() => {
+        if (homeStayId) {
+            setHomeStay(homeStayId);
+        }
+        if (rentalId) {
+            setRental(rentalId);
+        }
+    }, [homeStayId, rentalId]);
 
     const fetchRoomTypes = async () => {
         setLoading(true);
@@ -37,29 +48,17 @@ export default function RoomTypeScreen() {
             setError('Không thể tải thông tin loại phòng. Vui lòng thử lại sau.');
         } finally {
             setLoading(false);
-            setRefreshing(false);
         }
     };
 
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        fetchRoomTypes();
-    }, []);
-
+    const params = {};
+    if (homeStayId) params.homeStayId = homeStayId;
+    if (rentalId) params.rentalId = rentalId;
     const handleSelectRoom = (roomType) => {
-        const defaultPricing = roomType.pricings?.find(p => p.isDefault) || roomType.pricings?.[0];
-        const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
-        
-        navigation.navigate('ListRoom', {
-            rentalId: rentalId,
-            roomTypeId: roomType.roomTypesID,
-            roomTypeName: roomType.name,
-            checkInDate: searchParams?.checkInDate || '2025-04-01',
-            checkOutDate: searchParams?.checkOutDate || '2025-04-15',
-            price: price,
-            adults: roomType.maxAdults,
-            children: roomType.maxChildren
-        });
+        const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name };
+        if (homeStayId) navParams.homeStayId = homeStayId;
+        if (rentalId) navParams.rentalId = rentalId;
+        navigation.navigate('ListRoom', navParams);
     };
 
     const RoomTypeCard = ({ item, index }) => {
@@ -74,6 +73,8 @@ export default function RoomTypeScreen() {
 
         const defaultPricing = item.pricings?.find(p => p.isDefault) || item.pricings?.[0];
         const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
+
+        const selectedRoomsCount = getRoomsByType(item.roomTypeID, params).length;
 
         return (
             <Animated.View
@@ -182,13 +183,26 @@ export default function RoomTypeScreen() {
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
+
+                        {selectedRoomsCount > 0 && (
+                            <View style={styles.selectedBadge}>
+                                <LinearGradient
+                                    colors={[colors.primary, colors.secondary]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.selectedBadgeGradient}
+                                >
+                                    <Text style={styles.selectedBadgeText}>{selectedRoomsCount} phòng đã chọn</Text>
+                                </LinearGradient>
+                            </View>
+                        )}
                     </Animated.View>
                 </TouchableOpacity>
             </Animated.View>
         );
     };
 
-    if (loading && !refreshing) {
+    if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
@@ -226,7 +240,10 @@ export default function RoomTypeScreen() {
                 data={roomTypes}
                 keyExtractor={(item) => `room-type-${item.roomTypesID}`}
                 renderItem={({ item, index }) => <RoomTypeCard item={item} index={index} />}
-                contentContainerStyle={styles.listContainer}
+                contentContainerStyle={[
+                    styles.listContainer,
+                    { paddingBottom: getCartCount(params) > 0 ? 80 : 16 }
+                ]}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     !loading && error ? (
@@ -239,15 +256,8 @@ export default function RoomTypeScreen() {
                         </View>
                     ) : null
                 }
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={[colors.primary]}
-                        tintColor={colors.primary}
-                    />
-                }
             />
+            <CartBadge params={params} />
         </View>
     );
 }
@@ -455,5 +465,22 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
         fontSize: 16,
+    },
+    selectedBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        borderRadius: 12,
+        overflow: 'hidden',
+        zIndex: 10,
+    },
+    selectedBadgeGradient: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    selectedBadgeText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 12,
     },
 }); 

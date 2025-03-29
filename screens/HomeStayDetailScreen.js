@@ -48,7 +48,9 @@ export default function HomestayDetailScreen() {
   };
 
   const handleListRoom = () => {
-    navigation.navigate('HomestayRentalScreen', { homestayId });
+    navigation.navigate('HomestayRental', { homeStayId: route.params.id });
+    console.log("HomeStayDetailScreen - homeStayId", route.params.id);
+
   };
 
   const handleShare = async () => {
@@ -796,7 +798,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     fontStyle: 'italic',
-  },  
+  },
   noReviewContainer: {
     alignItems: 'center',
     padding: 20,
