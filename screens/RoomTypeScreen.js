@@ -15,6 +15,7 @@ export default function RoomTypeScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [searchParams, setSearchParams] = useState(null);
 
     useEffect(() => {
         fetchRoomTypes();
@@ -45,8 +46,20 @@ export default function RoomTypeScreen() {
         fetchRoomTypes();
     }, []);
 
-    const handleSelectRoom = () => {
-        navigation.navigate('ListRoom', { rentalId: rentalId });
+    const handleSelectRoom = (roomType) => {
+        const defaultPricing = roomType.pricings?.find(p => p.isDefault) || roomType.pricings?.[0];
+        const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
+        
+        navigation.navigate('ListRoom', {
+            rentalId: rentalId,
+            roomTypeId: roomType.roomTypesID,
+            roomTypeName: roomType.name,
+            checkInDate: searchParams?.checkInDate || '2025-04-01',
+            checkOutDate: searchParams?.checkOutDate || '2025-04-15',
+            price: price,
+            adults: roomType.maxAdults,
+            children: roomType.maxChildren
+        });
     };
 
     const RoomTypeCard = ({ item, index }) => {
@@ -156,7 +169,7 @@ export default function RoomTypeScreen() {
 
                             <TouchableOpacity
                                 style={styles.selectButton}
-                                onPress={() => handleSelectRoom()}
+                                onPress={() => handleSelectRoom(item)}
                             >
                                 <LinearGradient
                                     colors={[colors.primary, colors.secondary]}
