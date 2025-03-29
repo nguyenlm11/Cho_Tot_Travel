@@ -13,12 +13,11 @@ import RentalFilterModal from '../components/Modal/RentalFilterModal';
 export default function HomestayRentalScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { homestayId } = route.params;
+    const { homeStayId: homestayId } = route.params;
     const { currentSearch } = useSearch();
     const [rentals, setRentals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [refreshing, setRefreshing] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
     const [searchParams, setSearchParams] = useState({
@@ -58,14 +57,8 @@ export default function HomestayRentalScreen() {
             setError('Không thể tải thông tin căn hộ. Vui lòng thử lại sau.');
         } finally {
             setLoading(false);
-            setRefreshing(false);
         }
     };
-
-    const onRefresh = useCallback(() => {
-        setRefreshing(true);
-        fetchHomestayRentals();
-    }, []);
 
     const handleApplyFilter = async (filterParams) => {
         setIsUpdating(true);
@@ -103,18 +96,11 @@ export default function HomestayRentalScreen() {
 
     const RentalItemCard = ({ item, index }) => {
         const scale = useSharedValue(1);
-
-        const handlePressIn = () => {
-            scale.value = withSpring(0.98);
-        };
-
-        const handlePressOut = () => {
-            scale.value = withSpring(1);
-        };
+        const handlePressIn = () => { scale.value = withSpring(0.98) };
+        const handlePressOut = () => { scale.value = withSpring(1) };
         const defaultPricing = item.pricing?.find(p => p.isDefault) || item.pricing?.[0];
         const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
         const rentalType = item.rentWhole ? "Nguyên căn" : "Từng phòng";
-
         return (
             <View style={styles.rentalCard}>
                 <TouchableOpacity
@@ -189,7 +175,7 @@ export default function HomestayRentalScreen() {
 
                             <TouchableOpacity
                                 style={styles.viewDetailButton}
-                                onPress={() => navigation.navigate('HomestayRentalDetail', { rentalId: item.homeStayRentalID })}>
+                                onPress={() => navigation.navigate('HomestayRentalDetail', { rentalId: item.homeStayRentalID, homeStayId: homestayId })}>
                                 <Text style={styles.viewDetailText}>Xem chi tiết</Text>
                                 <Ionicons name="arrow-forward" size={16} color="#fff" />
                             </TouchableOpacity>
@@ -256,7 +242,7 @@ export default function HomestayRentalScreen() {
                 </TouchableOpacity>
             </LinearGradient>
 
-            {loading && !refreshing ? (
+            {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={styles.loadingText}>Đang tải danh sách phòng...</Text>
@@ -292,14 +278,6 @@ export default function HomestayRentalScreen() {
                             <Text style={styles.emptyText}>Không có phòng phù hợp</Text>
                             <Text style={styles.emptySubtext}>Vui lòng thử lại với tiêu chí khác</Text>
                         </Animated.View>
-                    }
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={[colors.primary]}
-                            tintColor={colors.primary}
-                        />
                     }
                 />
             )}

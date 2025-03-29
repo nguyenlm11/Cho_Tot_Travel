@@ -15,7 +15,7 @@ const { width } = Dimensions.get('window');
 export default function HomestayRentalDetailScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { rentalId } = route.params;
+    const { rentalId, homeStayId } = route.params;
     const [rental, setRental] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -58,6 +58,7 @@ export default function HomestayRentalDetailScreen() {
     const handleViewRoomTypes = () => {
         navigation.navigate('RoomType', {
             rentalId: rental.homeStayRentalID,
+            homeStayId: homeStayId,
         });
     };
 

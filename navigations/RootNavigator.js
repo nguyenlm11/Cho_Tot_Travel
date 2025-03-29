@@ -89,7 +89,7 @@ const MainStack = () => {
             <Stack.Screen name="Results" component={ResultScreen} />
             <Stack.Screen name="HomeStayDetail" component={HomeStayDetailScreen} />
             <Stack.Screen name="ServiceScreen" component={ServiceScreen} />
-            <Stack.Screen name="HomestayRentalScreen" component={HomestayRentalScreen} />
+            <Stack.Screen name="HomestayRental" component={HomestayRentalScreen} />
             <Stack.Screen name="HomestayRentalDetail" component={HomestayRentalDetailScreen} />
             <Stack.Screen name="RoomType" component={RoomTypeScreen} />
             <Stack.Screen name="MapScreen" component={MapScreen} />

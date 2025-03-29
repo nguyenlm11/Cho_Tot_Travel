@@ -1,28 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, Platform, Alert, Image, } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeInDown, useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, withSpring } from 'react-native-reanimated';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
-import moment from 'moment';
 import CalendarModal from '../components/Modal/CalendarModal';
 import { useSearch } from '../contexts/SearchContext';
+import { useCart } from '../contexts/CartContext';
+import CartBadge from '../components/CartBadge';
 
 export default function ListRoomScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { rentalId, roomTypeId, roomTypeName } = route.params;
+    const roomTypeId = route.params?.roomTypeId;
+    const roomTypeName = route.params?.roomTypeName;
+    const homeStayId = route.params?.homeStayId;
+    const rentalId = route.params?.rentalId;
     const { currentSearch, updateCurrentSearch } = useSearch();
+    const { addRoomToCart, removeRoomFromCart, isRoomInCart, getCartCount } = useCart();
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [refreshing, setRefreshing] = useState(false);
-    const [selectedRooms, setSelectedRooms] = useState([]);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
+
+    const params = {};
+    if (homeStayId) params.homeStayId = homeStayId;
+    if (rentalId) params.rentalId = rentalId;
 
     const formattedCheckInDate = currentSearch?.checkInDate ?
         currentSearch.checkInDate.split(', ')[1] : null;
@@ -34,12 +41,14 @@ export default function ListRoomScreen() {
     }, []);
 
     const fetchRooms = async () => {
-        if (!roomTypeId || !currentSearch?.formattedCheckIn || !currentSearch?.formattedCheckOut) {
-            setError('Thiếu thông tin để tìm phòng. Vui lòng thử lại.');
+        if (!roomTypeId) {
+            setError("Không tìm thấy thông tin loại phòng");
             setLoading(false);
             return;
         }
         setLoading(true);
+        setError(null);
+
         try {
             const data = await roomApi.filterRoomsByRoomTypeAndDates(
                 roomTypeId,
@@ -48,42 +57,31 @@ export default function ListRoomScreen() {
             );
             if (Array.isArray(data) && data.length > 0) {
                 setRooms(data);
-                setError(null);
             } else {
                 setRooms([]);
-                setError('Không tìm thấy phòng nào phù hợp trong thời gian này');
+                setError('Không tìm thấy phòng nào phù hợp');
             }
         } catch (err) {
             console.error('Error fetching rooms:', err);
             setError('Không thể tải thông tin phòng. Vui lòng thử lại sau.');
         } finally {
             setLoading(false);
-            setRefreshing(false);
             setIsUpdating(false);
         }
     };
 
     const toggleRoomSelection = (room) => {
-        setSelectedRooms(prevSelected => {
-            const isSelected = prevSelected.some(item => item.roomID === room.roomID);
-            if (isSelected) {
-                return prevSelected.filter(item => item.roomID !== room.roomID);
-            } else {
-                return [...prevSelected, room];
-            }
-        });
-    };
-
-    const handleProcessBooking = () => {
-        if (selectedRooms.length === 0) return;
-        const roomIDs = selectedRooms.map(room => room.roomID);
-        navigation.navigate('Checkout', {
-            rentalId,
-            roomTypeId,
-            roomIDs,
-            checkInDate: currentSearch.formattedCheckIn,
-            checkOutDate: currentSearch.formattedCheckOut,
-        });
+        if (isRoomInCart(room.roomID)) {
+            removeRoomFromCart(room.roomID);
+        } else {
+            addRoomToCart(
+                room,
+                { roomTypeID: roomTypeId, name: roomTypeName },
+                params,
+                currentSearch?.formattedCheckIn,
+                currentSearch?.formattedCheckOut
+            );
+        }
     };
 
     const handleDateSelect = (dateInfo) => {
@@ -104,22 +102,15 @@ export default function ListRoomScreen() {
             return;
         }
         setIsUpdating(true);
-        setSelectedRooms([]);
         fetchRooms();
     };
 
     const RoomItem = ({ item, index }) => {
         const scale = useSharedValue(1);
-        const isSelected = selectedRooms.some(room => room.roomID === item.roomID);
+        const isSelected = isRoomInCart(item.roomID);
         const handlePressIn = () => { scale.value = withSpring(0.97, { damping: 15 }) };
         const handlePressOut = () => { scale.value = withSpring(1, { damping: 15 }) };
         const handleSelectRoom = () => { toggleRoomSelection(item) };
-
-        const animatedStyle = useAnimatedStyle(() => {
-            return {
-                transform: [{ scale: scale.value }],
-            };
-        });
 
         return (
             <Animated.View
@@ -133,7 +124,7 @@ export default function ListRoomScreen() {
                     onPress={handleSelectRoom}
                 >
                     <Animated.View
-                        style={[styles.roomCard, isSelected && styles.selectedRoomCard, animatedStyle]}>
+                        style={[styles.roomCard, isSelected && styles.selectedRoomCard]}>
                         <View style={styles.roomImageContainer}>
                             <Image
                                 source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
@@ -273,34 +264,7 @@ export default function ListRoomScreen() {
         </View>
     );
 
-    const renderBookingFooter = () => {
-        const totalRooms = selectedRooms.length;
-        const totalPrice = selectedRooms.reduce((sum, room) => sum + room.price, 0);
-
-        return (
-            <Animated.View style={styles.bookingFooter}>
-                <TouchableOpacity
-                    style={[styles.proceedButton, totalRooms === 0 && styles.disabledButton]}
-                    onPress={handleProcessBooking}
-                    disabled={totalRooms === 0}
-                >
-                    <LinearGradient
-                        colors={[colors.primary, colors.secondary]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.proceedButtonGradient}
-                    >
-                        <Text style={styles.proceedButtonText}>
-                            {totalRooms > 0 ? `Đặt ${totalRooms} phòng` : 'Chọn phòng'}
-                        </Text>
-                        <Ionicons name="arrow-forward" size={20} color="#fff" />
-                    </LinearGradient>
-                </TouchableOpacity>
-            </Animated.View>
-        );
-    };
-
-    if (loading && !refreshing && !isUpdating) {
+    if (loading && !isUpdating) {
         return (
             <View style={styles.loadingContainer}>
                 <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
@@ -344,11 +308,14 @@ export default function ListRoomScreen() {
                 data={rooms}
                 keyExtractor={(item) => `room-${item.roomID}`}
                 renderItem={({ item, index }) => <RoomItem item={item} index={index} />}
-                contentContainerStyle={styles.listContainer}
+                contentContainerStyle={[
+                    styles.listContainer,
+                    { paddingBottom: getCartCount(params) > 0 ? 80 : 16 }
+                ]}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={!loading && error ? <EmptyState /> : null}
             />
-            {renderBookingFooter()}
+            <CartBadge params={params} />
             <CalendarModal
                 visible={isCalendarVisible}
                 onClose={() => setCalendarVisible(false)}
@@ -550,38 +517,6 @@ const styles = StyleSheet.create({
     selectedBadgeText: {
         color: '#fff',
         fontWeight: '600',
-    },
-    bookingFooter: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 100,
-    },
-    proceedButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    disabledButton: {
-        opacity: 0.7,
-    },
-    proceedButtonGradient: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-    },
-    proceedButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
-        marginRight: 6,
     },
     loadingContainer: {
         flex: 1,

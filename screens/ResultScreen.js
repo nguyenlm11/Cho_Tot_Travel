@@ -141,17 +141,18 @@ export default function ResultScreen() {
     const [isLoading, setIsLoading] = useState(false);
     const navigation = useNavigation();
 
-    const handleMoveScreen = useCallback((homestayId) => {
+    const handleSelectHomeStay = useCallback((homestayId) => {
         navigation.navigate('HomeStayDetail', { id: homestayId });
+        console.log("ResultScreen - homeStayId", homestayId);
     }, [navigation]);
 
     const renderItem = useCallback(({ item, index }) => (
         <ResultCard
             item={item}
             index={index}
-            onPress={handleMoveScreen}
+            onPress={handleSelectHomeStay}
         />
-    ), [handleMoveScreen]);
+    ), [handleSelectHomeStay]);
 
     const validResults = Array.isArray(searchResults) ? searchResults : [];
 
