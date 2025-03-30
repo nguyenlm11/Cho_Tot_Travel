@@ -8,46 +8,49 @@ import { colors } from '../constants/Colors';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useCart } from '../contexts/CartContext';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://192.168.2.17:7221/api/booking-bookingservices/CreateBooking';
+import bookingApi from '../services/api/bookingApi';
+import ServicesModal from '../components/Modal/ServicesModal';
 
 const CheckoutScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-
   const homeStayId = route.params?.homeStayId;
   const rentalId = route.params?.rentalId;
+  const { currentSearch } = useSearch();
+  const { userData } = useUser();
+  const { getRoomsByParams, clearCart } = useCart();
 
   const params = {};
   if (homeStayId) params.homeStayId = homeStayId;
   if (rentalId) params.rentalId = rentalId;
 
-  const { currentSearch } = useSearch();
-  const { userData } = useUser();
-  const {
-    getRoomsByParams,
-    clearCart,
-  } = useCart();
-
-  // Form data
   const [formData, setFormData] = useState({
     fullName: userData?.name || '',
     phone: userData?.phone || '',
     email: userData?.email || '',
   });
+
   const [paymentMethod, setPaymentMethod] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
-  const [bookingId, setBookingId] = useState(null);
   const selectedRooms = getRoomsByParams(params);
   const numberOfNights = calculateNumberOfNights();
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [servicesModalVisible, setServicesModalVisible] = useState(false);
 
-  // Tính số đêm lưu trú
+  const calculateRoomTotal = () => {
+    return selectedRooms.reduce((sum, room) => sum + (room.price || 0), 0) * numberOfNights;
+  };
+
+  const calculateServiceTotal = () => {
+    return selectedServices.reduce((sum, service) => sum + (service.servicesPrice || 0), 0);
+  };
+
+  const calculateTotal = () => {
+    return calculateRoomTotal() + calculateServiceTotal();
+  };
+
   function calculateNumberOfNights() {
     if (!selectedRooms || selectedRooms.length === 0) return 1;
-
     const checkIn = new Date(selectedRooms[0].checkInDate);
     const checkOut = new Date(selectedRooms[0].checkOutDate);
     const diffTime = Math.abs(checkOut - checkIn);
@@ -55,7 +58,6 @@ const CheckoutScreen = () => {
     return diffDays || 1;
   }
 
-  // Xử lý khi thay đổi input
   const handleInputChange = (field, value) => {
     setFormData({
       ...formData,
@@ -63,31 +65,29 @@ const CheckoutScreen = () => {
     });
   };
 
-  // Validate form trước khi submit
+  const handleServicesChange = (newSelectedServices) => {
+    setSelectedServices(newSelectedServices);
+  };
+
   const validateForm = () => {
     if (!formData.fullName || !formData.phone || !formData.email) {
       Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin để đặt phòng');
       return false;
     }
 
-    // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       Alert.alert('Thông báo', 'Email không hợp lệ');
       return false;
     }
-
-    // Validate phone (số điện thoại Việt Nam)
     const phoneRegex = /^(0|\+84)(\d{9,10})$/;
     if (!phoneRegex.test(formData.phone)) {
       Alert.alert('Thông báo', 'Số điện thoại không hợp lệ');
       return false;
     }
-
     return true;
   };
 
-  // Tạo dữ liệu booking theo format API yêu cầu
   const createBookingData = () => {
     if (!selectedRooms || selectedRooms.length === 0) {
       Alert.alert('Thông báo', 'Bạn chưa chọn phòng nào');
@@ -99,7 +99,6 @@ const CheckoutScreen = () => {
       return null;
     }
 
-    // Tạo danh sách bookingDetails từ các phòng đã chọn
     const bookingDetails = selectedRooms.map(room => ({
       homeStayTypeID: rentalId || room.rentalId || 0,
       roomTypeID: room.roomTypeID || 0,
@@ -108,7 +107,11 @@ const CheckoutScreen = () => {
       checkOutDate: room.checkOutDate
     }));
 
-    // Tạo booking request object theo format API
+    const bookingServicesDetails = selectedServices.map(service => ({
+      quantity: 1,
+      servicesID: service.servicesID
+    }));
+
     const bookingData = {
       numberOfChildren: currentSearch?.children || 0,
       numberOfAdults: currentSearch?.adults || 1,
@@ -116,7 +119,7 @@ const CheckoutScreen = () => {
       homeStayID: homeStayId,
       bookingDetails: bookingDetails,
       bookingOfServices: {
-        bookingServicesDetails: []
+        bookingServicesDetails: bookingServicesDetails
       }
     };
     console.log('Booking data:', JSON.stringify(bookingData, null, 2));
@@ -128,26 +131,14 @@ const CheckoutScreen = () => {
     const bookingData = createBookingData();
     if (!bookingData) return;
     setLoading(true);
-    setError(null);
-
     try {
-      const apiUrl = `${API_BASE_URL}?paymentMethod=${paymentMethod}`;
-      console.log('Sending booking request to:', apiUrl);
+      const result = await bookingApi.createBooking(bookingData, paymentMethod);
 
-      const response = await axios.post(apiUrl, bookingData, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      console.log('Booking API response:', response.data);
-
-      if (response.data) {
-        setSuccess(true);
-        setBookingId(response.data.bookingID || 'BK' + Date.now());
+      if (result.success) {
         clearCart();
         Alert.alert(
           'Đặt phòng thành công',
-          `Mã đặt phòng của bạn là: ${response.data.bookingID || 'BK' + Date.now()}`,
+          `Mã đặt phòng của bạn là: ${result.data.bookingID || 'BK' + Date.now()}`,
           [
             {
               text: 'Xem đặt phòng',
@@ -155,29 +146,21 @@ const CheckoutScreen = () => {
             },
             {
               text: 'OK',
-              onPress: () => navigation.navigate('Home')
+              onPress: () => navigation.navigate('HomeTabs')
             }
           ]
         );
+      } else {
+        Alert.alert('Đặt phòng thất bại', result.error || 'Đã xảy ra lỗi khi đặt phòng');
       }
     } catch (error) {
-      console.error('Booking API Error:', error);
-      if (error.response) {
-        setError(`Lỗi từ server: ${error.response.data?.message || 'Không xác định'}`);
-        Alert.alert('Đặt phòng thất bại', `Lỗi từ server: ${error.response.data?.message || 'Không xác định'}`);
-      } else if (error.request) {
-        setError('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng của bạn.');
-        Alert.alert('Đặt phòng thất bại', 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng của bạn.');
-      } else {
-        setError(`Lỗi: ${error.message}`);
-        Alert.alert('Đặt phòng thất bại', `Lỗi: ${error.message}`);
-      }
+      console.error('Unexpected error:', error);
+      Alert.alert('Đặt phòng thất bại', 'Đã xảy ra lỗi không mong muốn');
     } finally {
       setLoading(false);
     }
   };
 
-  // Tạo component lựa chọn phương thức thanh toán
   const renderPaymentMethodSelector = () => {
     return (
       <View style={styles.card}>
@@ -219,7 +202,48 @@ const CheckoutScreen = () => {
     );
   };
 
-  // Render danh sách phòng đã chọn
+  const renderServicesSection = () => {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
+        <View>
+          <TouchableOpacity
+            style={styles.addServiceButton}
+            onPress={() => setServicesModalVisible(true)}
+          >
+            <LinearGradient
+              colors={[colors.primary + '20', colors.primary + '10']}
+              style={styles.addServiceButtonInner}
+            >
+              <Icon name="add-circle-outline" size={24} color={colors.primary} />
+              <Text style={styles.addServiceButtonText}>
+                {selectedServices.length > 0
+                  ? `Đã chọn ${selectedServices.length} dịch vụ - Nhấn để sửa`
+                  : 'Thêm dịch vụ'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {selectedServices.length > 0 && (
+            <View style={styles.selectedServicesList}>
+              {selectedServices.map(service => (
+                <View
+                  key={`service-${service.servicesID}`}
+                  style={styles.selectedServiceItem}
+                >
+                  <Text style={styles.selectedServiceName}>{service.servicesName}</Text>
+                  <Text style={styles.selectedServicePrice}>
+                    {(service.servicesPrice || 0).toLocaleString('vi-VN')}₫
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   const renderSelectedRooms = () => {
     return selectedRooms.map(room => (
       <View key={room.id} style={styles.roomItem}>
@@ -231,7 +255,7 @@ const CheckoutScreen = () => {
           <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
           <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.roomPrice}>{room.price.toLocaleString('vi-VN')}₫</Text>
+            <Text style={styles.roomPrice}>{room.price || '0'}₫</Text>
             <Text style={styles.priceUnit}>/đêm</Text>
           </View>
         </View>
@@ -323,8 +347,7 @@ const CheckoutScreen = () => {
             />
           </View>
         </View>
-
-        {/* Phương thức thanh toán */}
+        {renderServicesSection()}
         {renderPaymentMethodSelector()}
 
         {/* Tổng cộng */}
@@ -337,7 +360,32 @@ const CheckoutScreen = () => {
             <Text style={styles.summaryLabel}>Số đêm:</Text>
             <Text style={styles.summaryValue}>{numberOfNights} đêm</Text>
           </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Tổng tiền phòng:</Text>
+            <Text style={styles.summaryValue}>{calculateRoomTotal() || '0'}₫</Text>
+          </View>
+
+          {selectedServices.length > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tổng tiền dịch vụ:</Text>
+              <Text style={styles.summaryValue}>{calculateServiceTotal() || '0'}₫</Text>
+            </View>
+          )}
+
           <View style={styles.summaryDivider} />
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
+            <Text style={styles.totalPrice}>{calculateTotal() || '0'}₫</Text>
+          </View>
+
+          {paymentMethod === 1 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.depositLabel}>Đặt cọc (30%):</Text>
+              <Text style={styles.depositPrice}>{Math.round(calculateTotal() * 0.3) || '0'}₫</Text>
+            </View>
+          )}
         </View>
 
         {/* Nút đặt phòng */}
@@ -365,32 +413,30 @@ const CheckoutScreen = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Hiển thị lỗi nếu có */}
-        {error && (
-          <Text style={styles.errorText}>{error}</Text>
-        )}
-
-        {/* Thông tin thanh toán và chính sách */}
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Thông tin thanh toán</Text>
           <Text style={styles.infoText}>
             {paymentMethod === 0 ? (
-              `• Thanh toán đầy đủ ngay bây giờ
-• Không mất phí khi hủy trước 24 giờ
-• Giá đã bao gồm thuế và phí dịch vụ`
+              `• Thanh toán đầy đủ ngay bây giờ\n• Không mất phí khi hủy trước 24 giờ\n• Giá đã bao gồm thuế và phí dịch vụ`
             ) : (
-              `• Đặt cọc 30% ngay bây giờ
-• Thanh toán số tiền còn lại khi nhận phòng
-• Tiền cọc không được hoàn lại khi hủy`
+              `• Đặt cọc 30% ngay bây giờ\n• Thanh toán số tiền còn lại khi nhận phòng\n• Tiền cọc không được hoàn lại khi hủy`
             )}
           </Text>
         </View>
       </Animated.View>
+
+      {/* Thêm Modal dịch vụ */}
+      <ServicesModal
+        visible={servicesModalVisible}
+        onClose={() => setServicesModalVisible(false)}
+        selectedServices={selectedServices}
+        onServicesChange={handleServicesChange}
+        homestayId={homeStayId}
+      />
     </ScrollView>
   );
 };
 
-// Định nghĩa styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -522,96 +568,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  summaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+  addServiceButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
   },
-  summaryRow: {
+  addServiceButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  addServiceButtonText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  selectedServicesList: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
+  },
+  selectedServiceItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '500',
+  selectedServiceName: {
+    fontSize: 15,
     color: '#333',
   },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: '#e0e0e0',
-    marginVertical: 12,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  totalPrice: {
-    fontSize: 20,
+  selectedServicePrice: {
+    fontSize: 15,
     fontWeight: 'bold',
     color: colors.primary,
-  },
-  bookButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  disabledButton: {
-    opacity: 0.7,
-  },
-  gradientButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  bookButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  errorText: {
-    color: '#e53935',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  infoCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
   },
   paymentOptions: {
     marginTop: 8,
@@ -659,6 +654,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
+  summaryCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 12,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalPrice: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
   depositLabel: {
     fontSize: 14,
     fontWeight: '500',
@@ -669,6 +705,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.secondary,
+  },
+  bookButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  gradientButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  infoCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
 });
 
