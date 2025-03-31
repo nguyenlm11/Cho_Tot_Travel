@@ -38,53 +38,50 @@ const bookingApi = {
         }
     },
 
-    getUserBookings: async (accountId) => {
+    getBookingsByAccountID: async (accountID) => {
         try {
-            const response = await apiClient.get(`/api/booking-bookingservices/GetUserBookings/${accountId}`);
+            const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByAccountID/${accountID}`);
             return {
                 success: true,
                 data: response.data
             };
         } catch (error) {
-            console.error('Lỗi khi lấy danh sách booking:', error);
+            console.error('Lỗi khi lấy booking theo tài khoản:', error);
             return {
                 success: false,
-                error: 'Không thể tải danh sách booking'
+                error: 'Không thể tải thông tin đặt phòng của tài khoản'
             };
         }
     },
 
-    getBookingDetail: async (bookingId) => {
+    checkUserHasBookedHomestay: async (accountID, homestayId) => {
         try {
-            const response = await apiClient.get(`/api/booking-bookingservices/GetBookingDetail/${bookingId}`);
+            const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByAccountID/${accountID}`);
+            if (!response.data || !Array.isArray(response.data)) {
+                return {
+                    success: true,
+                    hasBooked: false
+                };
+            }
+            console.log(response.data)
+            const hasBookedHomestay = response.data.some(booking => {
+                return booking.homeStayID === parseInt(homestayId) || 
+                       booking.homeStayID === homestayId;
+            });
             return {
                 success: true,
-                data: response.data
+                hasBooked: hasBookedHomestay,
+                bookings: response.data
             };
         } catch (error) {
-            console.error('Lỗi khi lấy chi tiết booking:', error);
+            console.error('Lỗi khi kiểm tra booking:', error);
             return {
                 success: false,
-                error: 'Không thể tải chi tiết booking'
-            };
-        }
-    },
-
-    cancelBooking: async (bookingId) => {
-        try {
-            const response = await apiClient.post(`/api/booking-bookingservices/CancelBooking/${bookingId}`);
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            console.error('Lỗi khi hủy booking:', error);
-            return {
-                success: false,
-                error: 'Không thể hủy booking'
+                hasBooked: false,
+                error: 'Không thể kiểm tra thông tin đặt phòng'
             };
         }
     }
 };
 
-export default bookingApi; 
+export default bookingApi;
