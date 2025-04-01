@@ -18,7 +18,7 @@ const ServiceScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { userData } = useUser();
-    const { homestayId } = route.params || {};
+    const { homestayId } = route.params;
     const [services, setServices] = useState([]);
     const [filteredServices, setFilteredServices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -41,6 +41,7 @@ const ServiceScreen = () => {
             if (userData && userData.userID) {
                 try {
                     const bookingResult = await bookingApi.checkUserHasBookedHomestay(userData.userID, homestayId);
+                    console.log(bookingResult);
                     if (bookingResult.success) {
                         setHasBookedBefore(bookingResult.hasBooked);
                     }

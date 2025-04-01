@@ -3,8 +3,8 @@ import apiClient from '../config';
 const bookingApi = {
     createBooking: async (bookingData, paymentMethod) => {
         try {
-            const response = await apiClient.post(`/api/booking-bookingservices/CreateBooking?paymentMethod=${paymentMethod}`, bookingData, {
-                headers: {  
+            const response = await apiClient.post(`/api/booking-checkout/CreateBooking?paymentMethod=${paymentMethod}`, bookingData, {
+                headers: {
                     'Content-Type': 'application/json',
                 }
             });
@@ -41,15 +41,25 @@ const bookingApi = {
     getBookingsByAccountID: async (accountID) => {
         try {
             const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByAccountID/${accountID}`);
+            let bookingsData = [];
+            if (Array.isArray(response.data)) {
+                bookingsData = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+                if (response.data.data && Array.isArray(response.data.data)) {
+                    bookingsData = response.data.data;
+                } else if (response.data.bookings && Array.isArray(response.data.bookings)) {
+                    bookingsData = response.data.bookings;
+                }
+            }
             return {
                 success: true,
-                data: response.data
+                data: bookingsData
             };
         } catch (error) {
-            console.error('Lỗi khi lấy booking theo tài khoản:', error);
             return {
                 success: false,
-                error: 'Không thể tải thông tin đặt phòng của tài khoản'
+                error: 'Không thể tải thông tin đặt phòng của tài khoản',
+                data: []
             };
         }
     },
@@ -58,6 +68,7 @@ const bookingApi = {
         try {
             const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByAccountID/${accountID}`);
             if (!response.data || !Array.isArray(response.data)) {
+                console.log('không có dữ liệu');
                 return {
                     success: true,
                     hasBooked: false
@@ -65,8 +76,8 @@ const bookingApi = {
             }
             console.log(response.data)
             const hasBookedHomestay = response.data.some(booking => {
-                return booking.homeStayID === parseInt(homestayId) || 
-                       booking.homeStayID === homestayId;
+                return booking.homeStayID === parseInt(homestayId) ||
+                    booking.homeStayID === homestayId;
             });
             return {
                 success: true,
