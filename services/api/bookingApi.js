@@ -66,23 +66,34 @@ const bookingApi = {
 
     checkUserHasBookedHomestay: async (accountID, homestayId) => {
         try {
-            const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByAccountID/${accountID}`);
-            if (!response.data || !Array.isArray(response.data)) {
-                console.log('không có dữ liệu');
+            if (!accountID) {
                 return {
-                    success: true,
-                    hasBooked: false
+                    success: false,
+                    hasBooked: false,
+                    error: 'Thiếu thông tin người dùng'
                 };
             }
-            console.log(response.data)
-            const hasBookedHomestay = response.data.some(booking => {
+            const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByAccountID/${accountID}`);
+            let bookingsData = [];
+            if (Array.isArray(response.data)) {
+                bookingsData = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+                if (response.data.data && Array.isArray(response.data.data)) {
+                    bookingsData = response.data.data;
+                } else if (response.data.bookings && Array.isArray(response.data.bookings)) {
+                    bookingsData = response.data.bookings;
+                }
+            }
+            const hasBookedHomestay = bookingsData.some(booking => {
                 return booking.homeStayID === parseInt(homestayId) ||
-                    booking.homeStayID === homestayId;
+                    booking.homeStayID === homestayId ||
+                    (booking.homeStayID && homestayId &&
+                        booking.homeStayID.toString() === homestayId.toString());
             });
             return {
                 success: true,
                 hasBooked: hasBookedHomestay,
-                bookings: response.data
+                bookings: bookingsData
             };
         } catch (error) {
             console.error('Lỗi khi kiểm tra booking:', error);

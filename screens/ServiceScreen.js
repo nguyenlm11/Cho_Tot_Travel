@@ -38,20 +38,6 @@ const ServiceScreen = () => {
                 setCheckingBookingStatus(false);
                 return;
             }
-            if (userData && userData.userID) {
-                try {
-                    const bookingResult = await bookingApi.checkUserHasBookedHomestay(userData.userID, homestayId);
-                    console.log(bookingResult);
-                    if (bookingResult.success) {
-                        setHasBookedBefore(bookingResult.hasBooked);
-                    }
-                } catch (err) {
-                    console.error("Lỗi khi kiểm tra lịch sử đặt phòng:", err);
-                }
-                setCheckingBookingStatus(false);
-            } else {
-                setCheckingBookingStatus(false);
-            }
             try {
                 const servicesResult = await serviceApi.getAllServices(homestayId);
                 if (servicesResult.success) {
@@ -62,12 +48,30 @@ const ServiceScreen = () => {
                     setError(servicesResult.error || "Không thể tải dịch vụ");
                 }
             } catch (err) {
-                console.error("Lỗi khi tải dịch vụ:", err);
                 setError("Đã xảy ra lỗi khi tải dịch vụ");
             } finally {
                 setLoading(false);
             }
+
+            if (userData && userData.userID) {
+                try {
+                    const bookingResult = await bookingApi.checkUserHasBookedHomestay(userData.userID, homestayId);
+                    if (bookingResult && bookingResult.success) {
+                        setHasBookedBefore(bookingResult.hasBooked || false);
+                    } else {
+                        setHasBookedBefore(false);
+                    }
+                } catch (err) {
+                    setHasBookedBefore(false);
+                } finally {
+                    setCheckingBookingStatus(false);
+                }
+            } else {
+                setHasBookedBefore(false);
+                setCheckingBookingStatus(false);
+            }
         };
+
         fetchData();
     }, [homestayId, userData]);
 
