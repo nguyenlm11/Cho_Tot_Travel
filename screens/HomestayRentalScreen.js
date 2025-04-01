@@ -39,10 +39,10 @@ export default function HomestayRentalScreen() {
             const filterParams = {
                 HomeStayID: homestayId,
                 RentWhole: null,
-                CheckInDate: searchParams.formattedCheckIn || currentSearch?.formattedCheckIn,
-                CheckOutDate: searchParams.formattedCheckOut || currentSearch?.formattedCheckOut,
-                NumberOfAdults: searchParams.adults || currentSearch?.adults || 1,
-                NumberOfChildren: searchParams.children || currentSearch?.children || 0,
+                CheckInDate: currentSearch?.formattedCheckIn,
+                CheckOutDate: currentSearch?.formattedCheckOut,
+                NumberOfAdults: currentSearch?.adults || 1,
+                NumberOfChildren: currentSearch?.children || 0,
             };
             const results = await homeStayApi.getHomeStayRentals(filterParams);
             if (Array.isArray(results)) {
@@ -142,7 +142,7 @@ export default function HomestayRentalScreen() {
                             {item.name}
                         </Text>
                         <Text style={styles.homestayName} numberOfLines={1}>
-                            {item.homeStayName}
+                            {item.description}
                         </Text>
 
                         <View style={styles.infoContainer}>
@@ -199,8 +199,8 @@ export default function HomestayRentalScreen() {
                 <TouchableOpacity style={styles.filterChip}>
                     <Ionicons name="people-outline" size={20} color="#ffffff" />
                     <Text style={styles.filterText} numberOfLines={1}>
-                        {searchParams.adults || 1} người lớn
-                        {searchParams.children > 0 ? `, ${searchParams.children} trẻ em` : ''}
+                        {currentSearch.adults || 1} người lớn
+                        {currentSearch.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
                     </Text>
                 </TouchableOpacity>
             </ScrollView>

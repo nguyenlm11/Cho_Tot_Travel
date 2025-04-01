@@ -8,6 +8,7 @@ import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated'
 import { useUser } from '../contexts/UserContext';
 import bookingApi from '../services/api/bookingApi';
 import moment from 'moment';
+import QRCodeModal from '../components/Modal/QRCodeModal';
 moment.locale('vi');
 
 const STATUS_MAPPING = {
@@ -27,6 +28,10 @@ export default function BookingListScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [groupedBookingsList, setGroupedBookingsList] = useState([]);
+    const [selectedBookingId, setSelectedBookingId] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
+
+    console.log(bookings);
 
     useEffect(() => {
         fetchBookings();
@@ -119,7 +124,10 @@ export default function BookingListScreen() {
             ]}
         >
             <TouchableOpacity
-                onPress={() => navigation.navigate('BookingDetail', { bookingId: item.bookingID })}
+                onPress={() => {
+                    setSelectedBookingId(item.bookingID);
+                    setModalVisible(true);
+                }}
                 style={styles.bookingContent}
                 activeOpacity={0.7}
             >
@@ -369,6 +377,11 @@ export default function BookingListScreen() {
                     )}
                 />
             )}
+            <QRCodeModal
+                visible={modalVisible}
+                bookingId={selectedBookingId}
+                onClose={() => setModalVisible(false)}
+            />
         </View>
     );
 }
