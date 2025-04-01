@@ -17,40 +17,6 @@ const serviceApi = {
             };
         }
     },
-
-    // Đặt dịch vụ
-    bookService: async (bookingData) => {
-        try {
-            const response = await axios.post(`${BASE_URL}/api/Service/BookService`, bookingData);
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            console.error('Lỗi khi đặt dịch vụ:', error);
-            return {
-                success: false,
-                error: 'Không thể đặt dịch vụ'
-            };
-        }
-    },
-
-    // Kiểm tra trạng thái dịch vụ
-    checkServiceStatus: async (serviceId) => {
-        try {
-            const response = await axios.get(`${BASE_URL}/api/Service/CheckStatus/${serviceId}`);
-            return {
-                success: true,
-                data: response.data
-            };
-        } catch (error) {
-            console.error('Lỗi khi kiểm tra trạng thái dịch vụ:', error);
-            return {
-                success: false,
-                error: 'Không thể kiểm tra trạng thái dịch vụ'
-            };
-        }
-    }
 };
 
 export default serviceApi; 
