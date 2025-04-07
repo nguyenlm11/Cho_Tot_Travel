@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Image, Alert, Modal, Dimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Image, Alert, Modal, Dimensions, ScrollView, Animated, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/Colors';
 import chatApi from '../services/api/chatApi';
@@ -19,21 +19,24 @@ export default function ChatDetailScreen({ route, navigation }) {
   const [selectedImages, setSelectedImages] = useState([]);
   const [viewImage, setViewImage] = useState(null);
   const flatListRef = useRef(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const messageAnimations = useRef({}).current;
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 50],
+    outputRange: [1, 0.9],
+    extrapolate: 'clamp'
+  });
+
+  const headerElevation = scrollY.interpolate({
+    inputRange: [0, 50],
+    outputRange: [0, 5],
+    extrapolate: 'clamp'
+  });
 
   useEffect(() => {
-    navigation.setOptions({
-      title: otherUser?.name || 'Trò chuyện',
-      headerTitleStyle: styles.headerTitle,
-      headerLeft: () => (
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Icon name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, otherUser]);
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   useEffect(() => {
     const getUserId = async () => {
@@ -61,10 +64,7 @@ export default function ChatDetailScreen({ route, navigation }) {
           await signalRService.startConnection(token);
           setConnected(signalRService.isConnected());
           messageUnsubscribe = signalRService.onMessageReceived(handleNewMessage);
-          statusUnsubscribe = signalRService.onUserStatusChanged((isConnected) => {
-            setConnected(isConnected);
-          });
-          markMessagesAsRead();
+          // markMessagesAsRead();
         }
       } catch (error) {
         console.error('Lỗi khi thiết lập SignalR:', error);
@@ -81,21 +81,31 @@ export default function ChatDetailScreen({ route, navigation }) {
     };
   }, [conversationId]);
 
-  const handleNewMessage = (message) => {
-    console.log('Nhận tin nhắn mới:', message);
+  const animateNewMessage = (index) => {
+    if (!messageAnimations[index]) {
+      messageAnimations[index] = new Animated.Value(0);
+    }
 
+    messageAnimations[index].setValue(0);
+    Animated.timing(messageAnimations[index], {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true
+    }).start();
+  };
+
+  const handleNewMessage = (message) => {
     if (message.conversationID === conversationId ||
       message.conversationID === `${conversationId}`) {
-
       const existingMessage = messages.find(m => m.messageID === message.messageID);
       if (!existingMessage) {
+        const newIndex = messages.length;
         setMessages(prevMessages => [...prevMessages, message]);
-
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
+          animateNewMessage(newIndex);
         }, 100);
-
-        markMessagesAsRead();
+        // markMessagesAsRead();
       }
     }
   };
@@ -105,10 +115,7 @@ export default function ChatDetailScreen({ route, navigation }) {
       setLoading(true);
       setError(null);
       const data = await chatApi.getMessages(conversationId);
-      console.log('Tin nhắn đã tải:', data);
-      const sortedMessages = data.sort((a, b) =>
-        new Date(a.sentAt) - new Date(b.sentAt)
-      );
+      const sortedMessages = data.sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
       setMessages(sortedMessages);
     } catch (err) {
       console.error('Lỗi khi tải tin nhắn:', err);
@@ -120,10 +127,8 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   const markMessagesAsRead = async () => {
     if (!userId || !conversationId) return;
-
     try {
       await chatApi.markAsRead(conversationId);
-
       if (signalRService.isConnected()) {
         await signalRService.markMessagesAsRead(conversationId, userId);
       }
@@ -139,21 +144,18 @@ export default function ChatDetailScreen({ route, navigation }) {
         Alert.alert('Cần quyền truy cập', 'Bạn cần cấp quyền truy cập thư viện ảnh để thực hiện chức năng này.');
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         quality: 1,
         aspect: [4, 3],
       });
-
       if (!result.canceled) {
         const formattedImages = result.assets.map((asset) => ({
           uri: asset.uri,
           type: 'image/jpeg',
           name: asset.fileName || `image_${Date.now()}.jpg`,
         }));
-
         setSelectedImages(formattedImages);
       }
     } catch (error) {
@@ -170,45 +172,23 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   const sendMessage = async () => {
     if ((!inputText.trim() && selectedImages.length === 0) || !userId) return;
-
     try {
       setSending(true);
       const messageText = inputText.trim();
       setInputText('');
-      
-      // Lưu trữ hình ảnh đã chọn và xóa state
       const imagesToSend = [...selectedImages];
       setSelectedImages([]);
 
       // Tạo message tạm thời với ID tạm
       const tempMessageId = `temp-${Date.now()}`;
-      const now = new Date();
-      const tempMessage = {
-        messageID: tempMessageId,
-        senderID: userId,
-        receiverID: otherUser.accountID,
-        content: messageText,
-        sentAt: now.toISOString(),
-        isRead: false,
-        isSending: true,
-        images: imagesToSend.map(img => img.uri) // Thêm hình ảnh tạm thời
-      };
-
-      // Thêm tin nhắn tạm vào state
-      setMessages(prevMessages => [...prevMessages, tempMessage]);
-      
-      // Scroll đến tin nhắn mới
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-      
-      // Lấy thông tin user để gửi
+
       const userString = await AsyncStorage.getItem('user');
       const user = JSON.parse(userString);
       const senderName = user.accountName || user.userName || 'Customer';
       const homeStayId = route.params.homeStayId || 1;
-      
-      // Gửi tin nhắn lên server
       const result = await chatApi.sendMessageMultipart(
         otherUser.accountID,
         senderName,
@@ -217,20 +197,7 @@ export default function ChatDetailScreen({ route, navigation }) {
         messageText,
         imagesToSend
       );
-      
       console.log('Kết quả gửi tin nhắn:', result);
-      
-      // Cập nhật tin nhắn sau khi gửi thành công
-      if (result) {
-        setMessages(prevMessages =>
-          prevMessages.map(msg =>
-            msg.messageID === tempMessageId
-              ? { ...result, isSending: false }
-              : msg
-          )
-        );
-      }
-   
     } catch (error) {
       console.error('Lỗi khi gửi tin nhắn:', error);
       setMessages(prevMessages =>
@@ -262,25 +229,60 @@ export default function ChatDetailScreen({ route, navigation }) {
     });
   };
 
+  const renderHeader = () => (
+    <Animated.View style={[
+      styles.customHeader,
+      { opacity: headerOpacity, elevation: headerElevation, shadowOpacity: headerElevation }
+    ]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+      >
+        <Icon name="arrow-back" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.headerInfo}
+        onPress={() => navigation.navigate('OtherProfileScreen', { userId: otherUser.accountID })}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+          {otherUser?.name || 'Trò chuyện'}
+        </Text>
+        {connected ? (
+          <View style={styles.onlineStatus}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>Đang hoạt động</Text>
+          </View>
+        ) : (
+          <Text style={styles.offlineText}>Không hoạt động</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.headerAction}
+      >
+        <Icon name="ellipsis-vertical" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
   const renderMessageItem = ({ item, index }) => {
     const isOwnMessage = item.senderID === userId;
     const showDate = index === 0 || !isSameDay(new Date(messages[index - 1]?.sentAt), new Date(item.sentAt));
-
-    // Xử lý nội dung tin nhắn và hình ảnh
+    if (!messageAnimations[index]) {
+      messageAnimations[index] = new Animated.Value(1);
+    }
     let messageContent = item.content;
     let imageURLs = [];
-
-    // Kiểm tra và xử lý các URL hình ảnh
     if (messageContent && isImageURL(messageContent)) {
       imageURLs.push(messageContent);
-      messageContent = ''; // Không hiển thị URL dưới dạng text
+      messageContent = '';
     }
-
-    // Kiểm tra nếu có mảng images
     if (item.images && Array.isArray(item.images) && item.images.length > 0) {
       imageURLs = [...imageURLs, ...item.images];
     }
-
     return (
       <>
         {showDate && (
@@ -288,29 +290,51 @@ export default function ChatDetailScreen({ route, navigation }) {
             <Text style={styles.dateText}>{formatDate(item.sentAt)}</Text>
           </View>
         )}
-        <View style={[
+        <Animated.View style={[
           styles.messageRow,
-          isOwnMessage ? styles.ownMessageRow : styles.otherMessageRow
+          isOwnMessage ? styles.ownMessageRow : styles.otherMessageRow,
+          {
+            opacity: messageAnimations[index],
+            transform: [
+              {
+                scale: messageAnimations[index].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1]
+                })
+              }
+            ]
+          }
         ]}>
+          {!isOwnMessage && (
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>
+                {otherUser?.name?.charAt(0)?.toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
+
           <View style={[
             styles.messageBubble,
             isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble,
             item.error && styles.errorMessage
           ]}>
             {messageContent ? (
-              <Text style={styles.messageText}>{messageContent}</Text>
+              <Text style={[
+                styles.messageText,
+                isOwnMessage && styles.ownMessageText
+              ]}>{messageContent}</Text>
             ) : null}
-            
+
             {imageURLs.length > 0 && (
               <View style={styles.imageContainer}>
                 {imageURLs.map((url, imgIndex) => (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     key={`img-${imgIndex}-${item.messageID}`}
                     onPress={() => handleViewImage(url)}
                     activeOpacity={0.9}
                   >
-                    <Image 
-                      source={{ uri: url }} 
+                    <Image
+                      source={{ uri: url }}
                       style={styles.messageImage}
                       resizeMode="cover"
                     />
@@ -318,44 +342,37 @@ export default function ChatDetailScreen({ route, navigation }) {
                 ))}
               </View>
             )}
-            
+
             <View style={styles.messageFooter}>
-              <Text style={styles.messageTime}>{formatTime(item.sentAt)}</Text>
+              <Text style={[
+                styles.messageTime,
+                isOwnMessage && styles.ownMessageTime
+              ]}>{formatTime(item.sentAt)}</Text>
               {isOwnMessage && item.isRead && (
                 <Icon name="checkmark-done" size={16} color="#4FC3F7" style={styles.readIcon} />
               )}
               {isOwnMessage && item.isSending && (
-                <Icon name="time-outline" size={16} color="#999" style={styles.readIcon} />
+                <Icon name="time-outline" size={16} color="rgba(255,255,255,0.7)" style={styles.readIcon} />
               )}
             </View>
           </View>
-        </View>
+        </Animated.View>
       </>
     );
   };
 
-  // Hàm kiểm tra xem một string có phải là URL hình ảnh từ Cloudinary không
   const isImageURL = (url) => {
     if (!url || typeof url !== 'string') return false;
-    
-    return url.includes('res.cloudinary.com') && 
-           (url.includes('/ChatImages/') || 
-            url.endsWith('.jpg') || 
-            url.endsWith('.jpeg') || 
-            url.endsWith('.png') || 
-            url.endsWith('.gif'));
+    return url.includes('res.cloudinary.com') &&
+      (url.includes('/ChatImages/') ||
+        url.endsWith('.jpg') ||
+        url.endsWith('.jpeg') ||
+        url.endsWith('.png') ||
+        url.endsWith('.gif'));
   };
 
-  // Hàm xử lý khi người dùng nhấn vào hình ảnh
-  const handleViewImage = (imageUrl) => {
-    setViewImage(imageUrl);
-  };
-
-  // Hàm đóng modal xem hình ảnh
-  const closeImageViewer = () => {
-    setViewImage(null);
-  };
-
+  const handleViewImage = (imageUrl) => { setViewImage(imageUrl) };
+  const closeImageViewer = () => { setViewImage(null) };
   const isSameDay = (d1, d2) => {
     return d1.getFullYear() === d2.getFullYear() &&
       d1.getMonth() === d2.getMonth() &&
@@ -364,139 +381,150 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Đang tải tin nhắn...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadMessages}>
-            <Text style={styles.retryText}>Thử lại</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <KeyboardAvoidingView
-          style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
-          {connected && (
-            <View style={styles.connectionStatus}>
-              <View style={styles.connectionDot} />
-              <Text style={styles.connectionText}>Đang kết nối</Text>
-            </View>
-          )}
-
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            renderItem={renderMessageItem}
-            keyExtractor={item => item.messageID}
-            contentContainerStyle={styles.messageList}
-            inverted={false}
-            onContentSizeChange={() =>
-              flatListRef.current?.scrollToEnd({ animated: false })
-            }
-          />
-
-          {selectedImages.length > 0 && (
-            <View style={styles.selectedImagesContainer}>
-              <View style={styles.selectedImagesHeader}>
-                <Text style={styles.selectedImagesTitle}>
-                  Hình ảnh đã chọn ({selectedImages.length})
-                </Text>
-                <TouchableOpacity 
-                  style={styles.clearImagesButton}
-                  onPress={() => setSelectedImages([])}
-                >
-                  <Text style={styles.clearImagesText}>Xóa tất cả</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <ScrollView 
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.selectedImagesContent}
-              >
-                {selectedImages.map((image, index) => (
-                  <View key={`selected-${index}`} style={styles.selectedImageWrapper}>
-                    <Image 
-                      source={{ uri: image.uri }} 
-                      style={styles.selectedImage}
-                      resizeMode="cover"
-                    />
-                    <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(index)}
-                    >
-                      <Icon name="close-circle" size={24} color="#FF6B6B" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <TouchableOpacity
-              style={styles.attachButton}
-              onPress={pickImages}
-            >
-              <Icon name="image-outline" size={24} color={colors.primary} />
-            </TouchableOpacity>
-            
-            <TextInput
-              style={styles.input}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Nhập tin nhắn..."
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!inputText.trim() && selectedImages.length === 0 || sending) && styles.disabledSendButton
-              ]}
-              onPress={sendMessage}
-              disabled={(!inputText.trim() && selectedImages.length === 0) || sending}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Icon name="send" size={24} color={(inputText.trim() || selectedImages.length > 0) ? '#fff' : '#ccc'} />
-              )}
+      {renderHeader()}
+      <View style={styles.container}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Đang tải tin nhắn...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centered}>
+            <Icon name="alert-circle-outline" size={70} color="#dc3545" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadMessages}>
+              <Text style={styles.retryText}>Thử lại</Text>
             </TouchableOpacity>
           </View>
-          
-          {/* Modal xem hình ảnh full-screen */}
-          <Modal
-            visible={viewImage !== null}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={closeImageViewer}
+        ) : (
+          <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
           >
-            <View style={styles.imageViewerContainer}>
-              <TouchableOpacity
-                style={styles.closeImageButton}
-                onPress={closeImageViewer}
-              >
-                <Icon name="close-circle" size={32} color="#fff" />
-              </TouchableOpacity>
-              
-              {viewImage && (
-                <Image
-                  source={{ uri: viewImage }}
-                  style={styles.fullImage}
-                  resizeMode="contain"
-                />
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              renderItem={renderMessageItem}
+              keyExtractor={item => item.messageID}
+              contentContainerStyle={styles.messageList}
+              inverted={false}
+              showsVerticalScrollIndicator={false}
+              initialNumToRender={20}
+              maxToRenderPerBatch={10}
+              windowSize={10}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              refreshing={false}
+              onRefresh={loadMessages}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: false }
               )}
-            </View>
-          </Modal>
-        </KeyboardAvoidingView>
-      )}
+              scrollEventThrottle={16}
+            />
+
+            {selectedImages.length > 0 && (
+              <Animated.View style={styles.selectedImagesContainer}>
+                <View style={styles.selectedImagesHeader}>
+                  <Text style={styles.selectedImagesTitle}>
+                    Hình ảnh đã chọn ({selectedImages.length})
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.clearImagesButton}
+                    onPress={() => setSelectedImages([])}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.clearImagesText}>Xóa tất cả</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.selectedImagesContent}
+                >
+                  {selectedImages.map((image, index) => (
+                    <View key={`selected-${index}`} style={styles.selectedImageWrapper}>
+                      <Image
+                        source={{ uri: image.uri }}
+                        style={styles.selectedImage}
+                        resizeMode="cover"
+                      />
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => removeImage(index)}
+                        activeOpacity={0.7}
+                      >
+                        <Icon name="close-circle" size={24} color="#dc3545" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            )}
+
+            <Animated.View style={styles.inputContainer}>
+              <TouchableOpacity
+                style={styles.attachButton}
+                onPress={pickImages}
+                activeOpacity={0.7}
+              >
+                <Icon name="image-outline" size={24} color={colors.primary} />
+              </TouchableOpacity>
+
+              <TextInput
+                style={styles.input}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Nhập tin nhắn..."
+                placeholderTextColor="#6c757d"
+                multiline
+                maxLength={500}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  (!inputText.trim() && selectedImages.length === 0 || sending) && styles.disabledSendButton
+                ]}
+                onPress={sendMessage}
+                disabled={(!inputText.trim() && selectedImages.length === 0) || sending}
+                activeOpacity={0.7}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Icon name="send" size={22} color={(inputText.trim() || selectedImages.length > 0) ? '#fff' : '#ccc'} />
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </KeyboardAvoidingView>
+        )}
+      </View>
+
+      <Modal
+        visible={viewImage !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageViewer}
+      >
+        <View style={styles.imageViewerContainer}>
+          <TouchableOpacity
+            style={styles.closeImageButton}
+            onPress={closeImageViewer}
+            activeOpacity={0.7}
+          >
+            <Icon name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+
+          {viewImage && (
+            <Image
+              source={{ uri: viewImage }}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -504,7 +532,7 @@ export default function ChatDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5'
+    backgroundColor: '#f8f9fa'
   },
   centered: {
     flex: 1,
@@ -515,67 +543,104 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: colors.textSecondary
+    color: '#6c757d',
+    fontWeight: '500'
   },
   errorText: {
     fontSize: 16,
-    color: 'red',
+    color: '#dc3545',
     textAlign: 'center',
     marginBottom: 20
   },
   retryButton: {
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     backgroundColor: colors.primary,
-    borderRadius: 5
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3
   },
   retryText: {
     color: '#fff',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    fontSize: 15
+  },
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: colors.primary,
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    zIndex: 10,
+    elevation: 5
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    marginRight: 6
+  },
+  headerInfo: {
+    flexDirection: 'column',
+    flex: 1,
+    marginLeft: 6
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text
+    color: '#FFFFFF'
   },
-  backButton: {
-    marginLeft: 10
+  headerAction: {
+    padding: 8,
+    borderRadius: 20,
+    marginLeft: 6
   },
   messageList: {
-    paddingHorizontal: 15,
-    paddingVertical: 10
+    paddingHorizontal: 16,
+    paddingVertical: 12
   },
   messageRow: {
-    marginVertical: 5,
+    marginVertical: 6,
     flexDirection: 'row'
   },
-  ownMessageRow: {
-    justifyContent: 'flex-end'
-  },
+  ownMessageRow: { justifyContent: 'flex-end' },
   otherMessageRow: {
     justifyContent: 'flex-start'
   },
   messageBubble: {
     maxWidth: '80%',
-    padding: 12,
+    padding: 14,
     borderRadius: 20,
-    elevation: 1
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2
   },
   ownMessageBubble: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: 4
+    borderBottomRightRadius: 5
   },
   otherMessageBubble: {
     backgroundColor: '#fff',
-    borderBottomLeftRadius: 4
+    borderBottomLeftRadius: 5
   },
   errorMessage: {
-    backgroundColor: '#ffebee'
+    backgroundColor: '#ffe3e6'
   },
   messageText: {
     fontSize: 16,
-    color: '#000',
+    color: '#212529',
     lineHeight: 22
   },
+  ownMessageText: { color: '#fff' },
   messageFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -584,135 +649,189 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 11,
-    color: '#777',
+    color: 'rgba(0,0,0,0.5)',
     marginRight: 4
   },
-  readIcon: {
-    marginLeft: 2
-  },
+  ownMessageTime: { color: 'rgba(255,255,255,0.8)' },
+  readIcon: { marginLeft: 2 },
   dateContainer: {
     alignItems: 'center',
-    marginVertical: 10
+    marginVertical: 12
   },
   dateText: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    fontSize: 12,
-    color: '#555'
+    backgroundColor: 'rgba(108, 117, 125, 0.15)',
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    fontSize: 13,
+    color: '#495057',
+    fontWeight: '500'
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 12,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0'
+    borderTopColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 3
   },
   input: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 45,
     maxHeight: 120,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    marginRight: 10,
-    backgroundColor: '#f9f9f9'
+    borderColor: '#dee2e6',
+    borderRadius: 25,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginHorizontal: 10,
+    backgroundColor: '#f8f9fa',
+    fontSize: 16
   },
   sendButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2
   },
   disabledSendButton: {
-    backgroundColor: '#e0e0e0'
+    backgroundColor: '#e9ecef'
   },
-  connectionStatus: {
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight || '#e9f7ef',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef'
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#495057'
+  },
+  onlineStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10
+    marginTop: 4
   },
-  connectionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-    marginRight: 5
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    marginRight: 6
   },
-  connectionText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text
+  onlineText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)'
+  },
+  offlineText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+    marginTop: 4
   },
   imageContainer: {
     flexDirection: 'column',
-    marginTop: 5,
-    marginBottom: 5
+    marginTop: 8,
+    marginBottom: 8
   },
   messageImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 10,
-    marginBottom: 5
+    width: 220,
+    height: 220,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#f8f9fa'
   },
   selectedImagesContainer: {
-    padding: 10,
+    padding: 12,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0'
+    borderTopColor: '#e9ecef'
   },
   selectedImagesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 12
   },
   selectedImagesTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: colors.text
+    color: '#495057'
   },
   clearImagesButton: {
-    padding: 5,
-    backgroundColor: colors.primary,
-    borderRadius: 5
+    padding: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#dee2e6'
   },
   clearImagesText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12
+    color: '#dc3545',
+    fontWeight: '600',
+    fontSize: 13
   },
-  selectedImagesContent: {
-    paddingVertical: 5
-  },
+  selectedImagesContent: { paddingVertical: 8 },
   selectedImageWrapper: {
-    marginRight: 10,
-    position: 'relative'
+    marginRight: 12,
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2
   },
   selectedImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 5
+    width: 90,
+    height: 90,
+    borderRadius: 8
   },
   removeImageButton: {
     position: 'absolute',
-    top: -10,
-    right: -10,
+    top: -5,
+    right: -5,
     backgroundColor: 'white',
-    borderRadius: 12
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2
   },
   attachButton: {
-    padding: 10
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginRight: 5
+  },
+  fullImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.8,
+    borderRadius: 10
   },
   imageViewerContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.95)',
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -720,10 +839,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 40,
     right: 20,
-    zIndex: 10
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    padding: 8
   },
-  fullImage: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height * 0.8
-  }
 });
