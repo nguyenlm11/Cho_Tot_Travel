@@ -8,6 +8,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import BookingListScreen from '../screens/BookingListScreen';
 import { colors } from '../constants/Colors';
+import ChatScreen from '../screens/ChatScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -65,7 +66,7 @@ const BottomTabNavigator = () => {
             />
             <Tab.Screen
                 name="Profile"
-                component={ProfileScreen}
+                component={ChatScreen}
                 options={{
                     tabBarLabel: 'Tài khoản',
                 }}
