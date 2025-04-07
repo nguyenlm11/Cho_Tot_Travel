@@ -4,7 +4,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const chatApi = {
   getConversationsByCustomerId: async () => {
     try {
-      // Lấy thông tin người dùng từ AsyncStorage
       const userString = await AsyncStorage.getItem('user');
       if (!userString) {
         throw new Error('Không tìm thấy thông tin người dùng');
@@ -53,24 +52,42 @@ const chatApi = {
     }
   },
 
-  sendMessage: async (conversationId, content) => {
+  sendMessageMultipart: async (receiverId, senderName, senderId, homeStayId, content, images = []) => {
     try {
-      const userString = await AsyncStorage.getItem('user');
-      if (!userString) {
-        throw new Error('Không tìm thấy thông tin người dùng');
+      const formData = new FormData();
+      formData.append('ReceiverID', receiverId);  // ID của người nhận (chủ nhà/owner)
+      formData.append('SenderName', senderName);  // Tên người gửi (người dùng hiện tại)
+      formData.append('SenderID', senderId);      // ID của người gửi (người dùng hiện tại)
+      
+      if (homeStayId) {
+        formData.append('HomeStayId', homeStayId); // ID của homestay liên quan
       }
-
-      const user = JSON.parse(userString);
-      const userId = user.userId || user.AccountID;
-
-      const response = await apiClient.post(`/api/Chat/send-message`, {
-        conversationId,
-        senderId: userId,
-        content
+      
+      if (content) {
+        formData.append('Content', content);       // Nội dung văn bản
+      }
+      
+      // Thêm hình ảnh (nếu có)
+      if (images && images.length > 0) {
+        images.forEach((image, index) => {
+          formData.append('Images', {
+            uri: image.uri,                        // Đường dẫn URI của ảnh
+            type: image.type || 'image/jpeg',      // Loại file (mặc định là JPEG)
+            name: image.name || `image_${index}.jpg` // Tên file
+          });
+        });
+      }
+      
+      // Gửi request dạng multipart/form-data
+      const response = await apiClient.post('/api/Chat/send-message', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
+      
       return response.data;
     } catch (error) {
-      console.error('Lỗi khi gửi tin nhắn:', error);
+      console.error('Lỗi khi gửi tin nhắn multipart:', error);
       throw new Error(handleError(error));
     }
   },
