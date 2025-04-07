@@ -9,6 +9,8 @@ class SignalRService {
     this.connectionPromise = null;
     this.onMessageReceivedCallbacks = [];
     this.onUserStatusChangedCallbacks = [];
+    this.onNewConversationCallbacks = [];
+    this.onMessageReadCallbacks = [];
     this.isConnecting = false;
     this.retryCount = 0;
     this.maxRetries = 3;
@@ -188,6 +190,30 @@ class SignalRService {
     });
   }
 
+  // Thêm phương thức đăng ký lắng nghe cuộc trò chuyện mới
+  onNewConversation(callback) {
+    // Xóa tất cả callback cũ trước khi thêm mới
+    this.onNewConversationCallbacks = [];
+    // Thêm callback mới
+    this.onNewConversationCallbacks.push(callback);
+
+    return () => {
+      this.onNewConversationCallbacks = this.onNewConversationCallbacks.filter(cb => cb !== callback);
+    };
+  }
+
+  // Thêm phương thức đăng ký lắng nghe tin nhắn đã đọc
+  onMessageRead(callback) {
+    // Xóa tất cả callback cũ trước khi thêm mới
+    this.onMessageReadCallbacks = [];
+    // Thêm callback mới
+    this.onMessageReadCallbacks.push(callback);
+
+    return () => {
+      this.onMessageReadCallbacks = this.onMessageReadCallbacks.filter(cb => cb !== callback);
+    };
+  }
+
   // Thiết lập event handlers với kiểm tra trùng lặp
   _setupEventHandlers() {
     if (!this.connection) {
@@ -198,6 +224,7 @@ class SignalRService {
     // Đảm bảo xóa event handlers cũ trước khi đăng ký mới
     this.connection.off('ReceiveMessage');
     this.connection.off('MessageRead');
+    this.connection.off('NewConversation');
 
     // Đăng ký sự kiện nhận tin nhắn mới
     this.connection.on('ReceiveMessage', (senderId, content, sentAt, messageId, conversationId) => {
@@ -226,9 +253,30 @@ class SignalRService {
       }
     });
 
+    // Đăng ký sự kiện cuộc trò chuyện mới
+    this.connection.on('NewConversation', (conversationData) => {
+      console.log('New conversation received:', conversationData);
+      
+      if (this.onNewConversationCallbacks.length > 0) {
+        try {
+          this.onNewConversationCallbacks[0](conversationData);
+        } catch (error) {
+          console.error('Error in new conversation callback:', error);
+        }
+      }
+    });
+
     // Đăng ký sự kiện tin nhắn đã đọc
-    this.connection.on('MessageRead', (messageId) => {
-      console.log('Message marked as read:', messageId);
+    this.connection.on('MessageRead', (messageId, conversationId) => {
+      console.log('Message marked as read:', messageId, 'in conversation:', conversationId);
+      
+      if (this.onMessageReadCallbacks.length > 0) {
+        try {
+          this.onMessageReadCallbacks[0](messageId, conversationId);
+        } catch (error) {
+          console.error('Error in message read callback:', error);
+        }
+      }
     });
   }
 
