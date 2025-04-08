@@ -61,6 +61,33 @@ const homeStayApi = {
       };
     }
   },
+
+  getTotalPrice: async (checkInDate, checkOutDate, homeStayRentalId, roomTypeId) => {
+    try {
+      const params = {
+        checkInDate,
+        checkOutDate,
+        homeStayRentalId,
+        roomTypeId
+      };
+      Object.keys(params).forEach(key => {
+        if (params[key] === null || params[key] === undefined) {
+          delete params[key];
+        }
+      });
+      const response = await apiClient.get('/api/homestay/GetTotalPrice', { params });
+      return {
+        success: true,
+        data: response.data?.data?.totalRentPrice || 0
+      };
+    } catch (error) {
+      console.error('Error fetching total price:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: handleError(error)
+      };
+    }
+  }
 };
 
 export default homeStayApi; 

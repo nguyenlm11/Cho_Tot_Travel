@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSearch } from '../contexts/SearchContext';
@@ -18,7 +18,7 @@ const CheckoutScreen = () => {
   const rentalId = route.params?.rentalId;
   const { currentSearch } = useSearch();
   const { userData } = useUser();
-  const { getRoomsByParams, clearCart } = useCart();
+  const { getRoomsByParams, clearCart, fetchRoomPrice } = useCart();
 
   const params = {};
   if (homeStayId) params.homeStayId = homeStayId;
@@ -30,16 +30,59 @@ const CheckoutScreen = () => {
     email: userData?.email || '',
   });
 
-  const [paymentMethod, setPaymentMethod] = useState(0);
   const [isFullPayment, setIsFullPayment] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [calculating, setCalculating] = useState(true);
+  const [roomPrices, setRoomPrices] = useState({});
+  const [totalPrice, setTotalPrice] = useState(0);
   const selectedRooms = getRoomsByParams(params);
   const numberOfNights = calculateNumberOfNights();
   const [selectedServices, setSelectedServices] = useState([]);
   const [servicesModalVisible, setServicesModalVisible] = useState(false);
 
+  useEffect(() => {
+    const fetchPrices = async () => {
+      if (selectedRooms.length === 0) {
+        setTotalPrice(0);
+        setCalculating(false);
+        return;
+      }
+
+      setCalculating(true);
+      try {
+        const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
+        const prices = await Promise.all(pricePromises);
+        const newRoomPrices = {};
+        let total = 0;
+        selectedRooms.forEach((room, index) => {
+          const price = prices[index];
+          if (price) {
+            newRoomPrices[room.roomID] = price;
+            total += price;
+          } else {
+            newRoomPrices[room.roomID] = room.price || 0;
+            total += room.price || 0;
+          }
+        });
+
+        setRoomPrices(newRoomPrices);
+        setTotalPrice(total);
+      } catch (error) {
+        console.error('Lỗi khi tính tổng giá:', error);
+      } finally {
+        setCalculating(false);
+      }
+    };
+    fetchPrices();
+  }, [JSON.stringify(selectedRooms.map(room => room.roomID)), fetchRoomPrice]);
+
+  const getRoomPrice = (roomID) => {
+    if (calculating) return null;
+    return roomPrices[roomID] || null;
+  };
+
   const calculateRoomTotal = () => {
-    return selectedRooms.reduce((sum, room) => sum + (room.price || 0), 0) * numberOfNights;
+    return totalPrice;
   };
 
   const calculateServiceTotal = () => {
@@ -75,7 +118,6 @@ const CheckoutScreen = () => {
       Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin để đặt phòng');
       return false;
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       Alert.alert('Thông báo', 'Email không hợp lệ');
@@ -193,7 +235,6 @@ const CheckoutScreen = () => {
           );
           return;
         }
-
         throw new Error(paymentResult.error || "Không thể tạo liên kết thanh toán");
       }
     } catch (paymentError) {
@@ -234,7 +275,13 @@ const CheckoutScreen = () => {
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
-              <Text style={styles.paymentOptionDescription}>Thanh toán toàn bộ số tiền {calculateTotal().toLocaleString('vi-VN')}đ</Text>
+              {calculating ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.paymentOptionDescription}>
+                  Thanh toán toàn bộ số tiền {calculateTotal().toLocaleString('vi-VN')}đ
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
 
@@ -250,13 +297,20 @@ const CheckoutScreen = () => {
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
-              <Text style={styles.paymentOptionDescription}>Thanh toán 50% đặt cọc {(calculateTotal() * 0.5).toLocaleString('vi-VN')}đ</Text>
+              {calculating ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.paymentOptionDescription}>
+                  Thanh toán 30% đặt cọc {(calculateTotal() * 0.3).toLocaleString('vi-VN')}đ
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
+
 
   const renderServicesSection = () => {
     return (
@@ -311,8 +365,16 @@ const CheckoutScreen = () => {
           <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
           <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.roomPrice}>{room.price || '0'}₫</Text>
-            <Text style={styles.priceUnit}>/đêm</Text>
+            {calculating ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <View>
+                <Text style={styles.roomPrice}>
+                  {(getRoomPrice(room.roomID) || room.price || 0).toLocaleString('vi-VN')}₫
+                </Text>
+                <Text style={styles.roomPriceNote}>Tổng giá thuê cho toàn bộ thời gian lưu trú</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -407,56 +469,65 @@ const CheckoutScreen = () => {
         {renderPaymentMethodSelector()}
 
         {/* Tổng cộng */}
-        <View style={styles.summaryCard}>
+        <View style={styles.totalContainer}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Số phòng:</Text>
-            <Text style={styles.summaryValue}>{selectedRooms.length} phòng</Text>
+            <Text style={styles.summaryLabel}>Phòng ({selectedRooms.length})</Text>
+            {calculating ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <View>
+                <Text style={styles.summaryValue}>
+                  {calculateRoomTotal().toLocaleString('vi-VN')}đ
+                </Text>
+                <Text style={styles.summaryValueNote}>Tổng giá thuê</Text>
+              </View>
+            )}
           </View>
+
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Số đêm:</Text>
+            <Text style={styles.summaryLabel}>Dịch vụ ({selectedServices.length})</Text>
+            <Text style={styles.summaryValue}>{calculateServiceTotal().toLocaleString('vi-VN')}đ</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Số đêm</Text>
             <Text style={styles.summaryValue}>{numberOfNights} đêm</Text>
           </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tổng tiền phòng:</Text>
-            <Text style={styles.summaryValue}>{calculateRoomTotal() || '0'}₫</Text>
-          </View>
+          <View style={styles.divider} />
 
-          {selectedServices.length > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tổng tiền dịch vụ:</Text>
-              <Text style={styles.summaryValue}>{calculateServiceTotal() || '0'}₫</Text>
-            </View>
-          )}
-
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
-            <Text style={styles.totalPrice}>{isFullPayment ? calculateTotal().toLocaleString('vi-VN') : (calculateTotal() * 0.5).toLocaleString('vi-VN')}đ</Text>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Tổng cộng</Text>
+            {calculating ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.totalPrice}>
+                {isFullPayment ? calculateTotal().toLocaleString('vi-VN') : (calculateTotal() * 0.3).toLocaleString('vi-VN')}đ
+              </Text>
+            )}
           </View>
         </View>
 
         {/* Nút đặt phòng */}
         <TouchableOpacity
-          style={[styles.bookButton, loading && styles.disabledButton]}
+          style={[styles.bookButton, (loading || calculating) && styles.bookButtonDisabled]}
           onPress={handleBooking}
-          disabled={loading}
+          disabled={loading || calculating}
         >
           <LinearGradient
             colors={[colors.primary, colors.secondary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.gradientButton}
+            style={styles.bookButtonGradient}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator color="#fff" size="small" />
             ) : (
               <>
                 <Text style={styles.bookButtonText}>
                   {isFullPayment ? 'Thanh toán đầy đủ' : 'Đặt cọc ngay'}
                 </Text>
-                <Icon name="chevron-forward" size={20} color="#fff" />
+                <Icon name="arrow-forward" size={18} color="#fff" />
               </>
             )}
           </LinearGradient>
@@ -466,9 +537,9 @@ const CheckoutScreen = () => {
           <Text style={styles.infoTitle}>Thông tin thanh toán</Text>
           <Text style={styles.infoText}>
             {isFullPayment ? (
-              `• Thanh toán đầy đủ ngay bây giờ\n• Không mất phí khi hủy trước 24 giờ\n• Giá đã bao gồm thuế và phí dịch vụ`
+              `• Thanh toán đầy đủ tổng giá thuê ngay bây giờ\n• Không mất phí khi hủy trước 24 giờ\n• Giá đã bao gồm thuế và phí dịch vụ`
             ) : (
-              `• Đặt cọc 50% ngay bây giờ\n• Thanh toán số tiền còn lại khi nhận phòng\n• Tiền cọc không được hoàn lại khi hủy`
+              `• Đặt cọc tổng giá thuê ngay bây giờ\n• Thanh toán số tiền còn lại khi nhận phòng\n• Tiền cọc không được hoàn lại khi hủy`
             )}
           </Text>
         </View>
@@ -478,8 +549,8 @@ const CheckoutScreen = () => {
       <ServicesModal
         visible={servicesModalVisible}
         onClose={() => setServicesModalVisible(false)}
+        onSelect={handleServicesChange}
         selectedServices={selectedServices}
-        onServicesChange={handleServicesChange}
         homestayId={homeStayId}
       />
     </ScrollView>
@@ -567,10 +638,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.primary,
   },
-  priceUnit: {
-    fontSize: 14,
+  roomPriceNote: {
+    fontSize: 12,
     color: '#888',
-    marginLeft: 4,
+    fontStyle: 'italic',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -703,7 +774,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
   },
-  summaryCard: {
+  totalContainer: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
@@ -729,10 +800,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
   },
-  summaryDivider: {
+  summaryValueNote: {
+    fontSize: 10,
+    color: '#888',
+    textAlign: 'right',
+    fontStyle: 'italic',
+  },
+  divider: {
     height: 1,
     backgroundColor: '#e0e0e0',
     marginVertical: 12,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   totalLabel: {
     fontSize: 16,
@@ -744,17 +826,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.primary,
   },
-  depositLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  depositPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.secondary,
-  },
   bookButton: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -765,10 +836,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  disabledButton: {
+  bookButtonDisabled: {
     opacity: 0.7,
   },
-  gradientButton: {
+  bookButtonGradient: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

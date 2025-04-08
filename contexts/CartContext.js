@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import homeStayApi from '../services/api/homeStayApi';
 
 const CartContext = createContext();
 
@@ -11,6 +12,8 @@ export const CartProvider = ({ children }) => {
     const [currentHomeStayId, setCurrentHomeStayId] = useState(null);
     const [currentRentalId, setCurrentRentalId] = useState(null);
     const [currentRoomTypeId, setCurrentRoomTypeId] = useState(null);
+    const [roomPrices, setRoomPrices] = useState({});
+    const pendingRequests = React.useRef({});
 
     // Tải dữ liệu giỏ hàng từ AsyncStorage khi khởi động
     useEffect(() => {
@@ -218,6 +221,85 @@ export const CartProvider = ({ children }) => {
         return bookingData;
     };
 
+    // Hàm lấy giá phòng từ API
+    const fetchRoomPrice = async (room) => {
+        try {
+            if (!room.checkInDate || !room.checkOutDate || !room.roomTypeID) {
+                return null;
+            }
+            
+            const checkInDate = new Date(room.checkInDate).toISOString().split('T')[0];
+            const checkOutDate = new Date(room.checkOutDate).toISOString().split('T')[0];
+            const homeStayRentalId = room.rentalId;
+            const roomTypeId = room.roomTypeID;
+            
+            // Tạo key để lưu vào cache
+            const priceKey = `${checkInDate}_${checkOutDate}_${homeStayRentalId || 'null'}_${roomTypeId}`;
+            
+            // Kiểm tra xem đã có giá trong cache chưa
+            if (roomPrices[priceKey]) {
+                return roomPrices[priceKey];
+            }
+            
+            // Nếu đang có request đang chạy cho cặp tham số này, chờ kết quả từ request đó
+            if (pendingRequests.current[priceKey]) {
+                return pendingRequests.current[priceKey];
+            }
+            
+            // Tạo một promise mới và lưu vào danh sách pending
+            pendingRequests.current[priceKey] = new Promise(async (resolve) => {
+                try {
+                    const result = await homeStayApi.getTotalPrice(
+                        checkInDate,
+                        checkOutDate,
+                        homeStayRentalId,
+                        roomTypeId
+                    );
+                    
+                    if (result.success && result.data) {
+                        // Lưu giá vào cache
+                        setRoomPrices(prev => ({
+                            ...prev,
+                            [priceKey]: result.data
+                        }));
+                        resolve(result.data);
+                    } else {
+                        resolve(null);
+                    }
+                } catch (err) {
+                    console.error('Lỗi khi lấy giá phòng:', err);
+                    resolve(null);
+                } finally {
+                    // Xóa request khỏi danh sách pending
+                    delete pendingRequests.current[priceKey];
+                }
+            });
+            
+            return pendingRequests.current[priceKey];
+        } catch (error) {
+            console.error('Lỗi khi lấy giá phòng:', error);
+            return null;
+        }
+    };
+    
+    // Hàm tính tổng giá cho tất cả phòng đã chọn
+    const calculateTotalPrice = async (params = {}) => {
+        const rooms = getRoomsByParams(params);
+        let total = 0;
+        
+        for (const room of rooms) {
+            const price = await fetchRoomPrice(room);
+            if (price) {
+                total += price;
+            } else {
+                // Sử dụng giá mặc định từ room nếu không lấy được từ API
+                total += room.price || 0;
+            }
+        }
+        
+        return total;
+    };
+
     return (
         <CartContext.Provider
             value={{
@@ -233,7 +315,9 @@ export const CartProvider = ({ children }) => {
                 getRoomsByParams,
                 getCartCount,
                 isRoomInCart,
-                createBookingData
+                createBookingData,
+                fetchRoomPrice,
+                calculateTotalPrice
             }}
         >
             {children}

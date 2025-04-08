@@ -7,17 +7,21 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import serviceApi from '../../services/api/serviceApi';
 
-export default function ServicesModal({ visible, onClose, selectedServices, onServicesChange, homestayId }) {
+export default function ServicesModal({ visible, onClose, selectedServices, onServicesChange, onSelect, homestayId, homeStayId }) {
   const [localSelectedServices, setLocalSelectedServices] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Sử dụng một trong hai prop
+  const handleServiceChange = onServicesChange || onSelect;
+  const actualHomeStayId = homestayId || homeStayId;
 
   useEffect(() => {
-    if (visible && homestayId) {
+    if (visible && actualHomeStayId) {
       fetchServices();
     }
-  }, [visible, homestayId]);
+  }, [visible, actualHomeStayId]);
 
   useEffect(() => {
     if (visible) {
@@ -39,10 +43,13 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
     setLoading(true);
     setError(null);
     try {
-      const result = await serviceApi.getAllServices(homestayId);
+      console.log('Fetching services for homestayId:', actualHomeStayId);
+      const result = await serviceApi.getAllServices(actualHomeStayId);
       if (result.success) {
+        console.log('Services fetched successfully:', result.data);
         setServices(result.data || []);
       } else {
+        console.error('Error fetching services:', result.error);
         setError(result.error || 'Không thể tải dịch vụ');
       }
     } catch (error) {
@@ -69,7 +76,9 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
   };
 
   const handleSave = () => {
-    onServicesChange(localSelectedServices);
+    if (handleServiceChange) {
+      handleServiceChange(localSelectedServices);
+    }
     onClose();
   };
 
