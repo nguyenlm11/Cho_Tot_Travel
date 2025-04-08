@@ -133,29 +133,103 @@ const CheckoutScreen = () => {
     setLoading(true);
     try {
       const result = await bookingApi.createBooking(bookingData, paymentMethod);
-
+      console.log("Create booking result:", result);
       if (result.success) {
         clearCart();
-        Alert.alert(
-          'Đặt phòng thành công',
-          `Mã đặt phòng của bạn là: ${result.data.bookingID || 'BK' + Date.now()}`,
-          [
-            {
-              text: 'Xem đặt phòng',
-              onPress: () => navigation.navigate('BookingList')
-            },
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('HomeTabs')
-            }
-          ]
-        );
+        let bookingId = null;
+        if (result.data) {
+          bookingId = result.data.data;
+        }
+        console.log("Extracted BookingID:", bookingId);
+        if (!bookingId) {
+          throw new Error("Không nhận được mã đặt phòng từ máy chủ");
+        }
+        if (paymentMethod === 0 || paymentMethod === 1) {
+          handlePayment(bookingId);
+        } else {
+          Alert.alert(
+            'Đặt phòng thành công',
+            `Mã đặt phòng của bạn là: ${bookingId}`,
+            [
+              {
+                text: 'Xem đặt phòng',
+                onPress: () => navigation.navigate('BookingList')
+              },
+              {
+                text: 'OK',
+                onPress: () => navigation.navigate('HomeTabs')
+              }
+            ]
+          );
+        }
       } else {
         Alert.alert('Đặt phòng thất bại', result.error || 'Đã xảy ra lỗi khi đặt phòng');
       }
     } catch (error) {
       console.error('Unexpected error:', error);
       Alert.alert('Đặt phòng thất bại', 'Đã xảy ra lỗi không mong muốn');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayment = async (bookingId) => {
+    setLoading(true);
+    try {
+      console.log("Bắt đầu lấy URL thanh toán cho bookingId:", bookingId);
+      const paymentResult = await bookingApi.getPaymentUrl(bookingId, true);
+      console.log("Payment result:", paymentResult);
+      if (paymentResult.success && paymentResult.paymentUrl) {
+        console.log("Redirecting to payment URL:", paymentResult.paymentUrl);
+        navigation.navigate('PaymentWebView', {
+          paymentUrl: paymentResult.paymentUrl,
+          bookingId: bookingId
+        });
+      } else {
+        console.error('Payment URL error:', paymentResult.error);
+
+        // Kiểm tra nếu đây là lỗi NullReferenceException từ BE
+        if (paymentResult.nullRefError ||
+          (paymentResult.error && paymentResult.error.includes('NullReference')) ||
+          (paymentResult.data && typeof paymentResult.data === 'string' &&
+            paymentResult.data.includes('NullReference'))) {
+
+          // Hiển thị thông báo đặt phòng thành công nhưng không thể thanh toán
+          Alert.alert(
+            'Đặt phòng thành công',
+            'Đặt phòng đã được xác nhận nhưng không thể thanh toán online vào lúc này. Bạn có thể thanh toán sau hoặc liên hệ với chủ homestay.',
+            [
+              {
+                text: 'Xem đặt phòng',
+                onPress: () => navigation.navigate('BookingList')
+              },
+              {
+                text: 'Quay lại',
+                onPress: () => navigation.navigate('HomeTabs')
+              }
+            ]
+          );
+          return;
+        }
+
+        throw new Error(paymentResult.error || "Không thể tạo liên kết thanh toán");
+      }
+    } catch (paymentError) {
+      console.error("Lỗi khi xử lý thanh toán:", paymentError);
+      Alert.alert(
+        'Lỗi thanh toán',
+        `Không thể khởi tạo thanh toán (${paymentError.message || "Lỗi từ hệ thống"}). Bạn có thể xem chi tiết đặt phòng trong danh sách đặt phòng.`,
+        [
+          {
+            text: 'Xem đặt phòng',
+            onPress: () => navigation.navigate('BookingList')
+          },
+          {
+            text: 'Quay lại',
+            onPress: () => navigation.navigate('HomeTabs')
+          }
+        ]
+      );
     } finally {
       setLoading(false);
     }
