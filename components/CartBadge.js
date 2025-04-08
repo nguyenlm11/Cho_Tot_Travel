@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Image, ActivityIndicator } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
@@ -10,13 +10,60 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function CartBadge({ params = {} }) {
     const navigation = useNavigation();
-    const { getCartCount, getRoomsByParams, removeRoomFromCart } = useCart();
+    const { getCartCount, getRoomsByParams, removeRoomFromCart, calculateTotalPrice, fetchRoomPrice } = useCart();
     const [modalVisible, setModalVisible] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [roomPrices, setRoomPrices] = useState({});
+    
     const safeParams = params || {};
     const cartCount = getCartCount(safeParams);
     const selectedRooms = getRoomsByParams(safeParams);
 
+    useEffect(() => {
+        // Tính tổng giá khi danh sách phòng thay đổi
+        const fetchPrices = async () => {
+            if (selectedRooms.length === 0) {
+                setTotalPrice(0);
+                return;
+            }
+            
+            setLoading(true);
+            try {
+                // Lấy giá từng phòng đồng thời bằng Promise.all
+                const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
+                const prices = await Promise.all(pricePromises);
+                
+                const newRoomPrices = {};
+                let total = 0;
+                
+                selectedRooms.forEach((room, index) => {
+                    const price = prices[index];
+                    if (price) {
+                        newRoomPrices[room.roomID] = price;
+                        total += price;
+                    } else {
+                        // Sử dụng giá mặc định nếu không lấy được từ API
+                        newRoomPrices[room.roomID] = room.price || 0;
+                        total += room.price || 0;
+                    }
+                });
+                
+                setRoomPrices(newRoomPrices);
+                setTotalPrice(total);
+            } catch (error) {
+                console.error('Lỗi khi tính tổng giá:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchPrices();
+        // Chỉ gọi lại khi selectedRooms thay đổi ID
+    }, [selectedRooms.map(room => room.roomID).join(','), fetchRoomPrice]);
+
     if (cartCount === 0) return null;
+    
     const handleViewCart = () => {
         setModalVisible(true);
     };
@@ -73,7 +120,14 @@ export default function CartBadge({ params = {} }) {
                                     <View style={styles.roomInfo}>
                                         <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
                                         <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
-                                        {/* <Text style={styles.roomPrice}>{item.price.toLocaleString('vi-VN')}₫/đêm</Text> */}
+                                        <Text style={styles.roomPrice}>
+                                            {loading ? (
+                                                <ActivityIndicator size="small" color={colors.primary} />
+                                            ) : (
+                                                `${(roomPrices[item.roomID] ? roomPrices[item.roomID].toLocaleString('vi-VN') : (item.price || 0).toLocaleString('vi-VN'))}₫`
+                                            )}
+                                        </Text>
+                                        <Text style={styles.priceNote}>Tổng giá thuê cho toàn bộ thời gian lưu trú</Text>
                                     </View>
                                     <TouchableOpacity
                                         style={styles.removeButton}
@@ -96,7 +150,13 @@ export default function CartBadge({ params = {} }) {
                         <View style={styles.summaryContainer}>
                             <View style={styles.summaryInfo}>
                                 <Text style={styles.summaryText}>Tổng cộng ({cartCount} phòng)</Text>
-                                {/* <Text style={styles.summaryPrice}>{totalPrice.toLocaleString('vi-VN')}₫</Text> */}
+                                <Text style={styles.summaryPrice}>
+                                    {loading ? (
+                                        <ActivityIndicator size="small" color={colors.primary} />
+                                    ) : (
+                                        `${totalPrice.toLocaleString('vi-VN')}₫`
+                                    )}
+                                </Text>
                             </View>
 
                             <TouchableOpacity
@@ -132,6 +192,13 @@ export default function CartBadge({ params = {} }) {
                             <View style={styles.countContainer}>
                                 <Text style={styles.countText}>{cartCount}</Text>
                             </View>
+                            <Text style={styles.totalText}>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    `${totalPrice.toLocaleString('vi-VN')}₫`
+                                )}
+                            </Text>
                         </View>
 
                         <TouchableOpacity style={styles.viewButton} onPress={handleViewCart}>
@@ -292,6 +359,12 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
         color: colors.primary,
+        marginBottom: 2,
+    },
+    priceNote: {
+        fontSize: 12,
+        color: '#888',
+        fontStyle: 'italic',
     },
     removeButton: {
         width: 36,
