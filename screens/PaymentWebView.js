@@ -471,7 +471,6 @@ export default function PaymentWebView() {
                             source={{ uri: paymentUrl }}
                             style={styles.webView}
                             onNavigationStateChange={handleNavigationStateChange}
-                            // onError={handleError}
                             onLoadEnd={handleLoadEnd}
                             onLoadStart={handleLoadStart}
                             startInLoadingState={true}

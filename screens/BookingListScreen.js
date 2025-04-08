@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, RefreshControl, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, Alert } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
@@ -12,7 +12,7 @@ import QRCodeModal from '../components/Modal/QRCodeModal';
 moment.locale('vi');
 
 const STATUS_MAPPING = {
-    0: { text: 'Đang xử lý', color: '#FAD961', icon: 'time-outline' },
+    0: { text: 'Chưa thanh toán', color: '#FAD961', icon: 'time-outline' },
     1: { text: 'Đã thanh toán', color: '#4CAF50', icon: 'checkmark-circle' },
     2: { text: 'Đang phục vụ', color: '#29B6F6', icon: 'sync-outline' },
     3: { text: 'Hoàn thành', color: '#8BC34A', icon: 'checkmark-done-circle' },
@@ -26,20 +26,21 @@ export default function BookingListScreen() {
     const [filterStatus, setFilterStatus] = useState(null);
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [filterLoading, setFilterLoading] = useState(false);
     const [error, setError] = useState(null);
     const [groupedBookingsList, setGroupedBookingsList] = useState([]);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [processingPayment, setProcessingPayment] = useState(false);
 
-    console.log(bookings);
-
     useEffect(() => {
         fetchBookings();
     }, [userData]);
 
     useEffect(() => {
+        setFilterLoading(true);
         processBookings();
+        setTimeout(() => { setFilterLoading(false) }, 300);
     }, [bookings, filterStatus]);
 
     const fetchBookings = async () => {
@@ -53,7 +54,12 @@ export default function BookingListScreen() {
             const result = await bookingApi.getBookingsByAccountID(userData.userID);
             if (result && result.success) {
                 if (Array.isArray(result.data)) {
-                    setBookings(result.data);
+                    const sortedBookings = result.data.sort((a, b) => {
+                        const dateA = new Date(a.bookingDate);
+                        const dateB = new Date(b.bookingDate);
+                        return dateB - dateA;
+                    });
+                    setBookings(sortedBookings);
                 } else {
                     setBookings([]);
                     setError('Dữ liệu đặt phòng không hợp lệ');
@@ -92,6 +98,14 @@ export default function BookingListScreen() {
             }
         });
 
+        Object.keys(grouped).forEach(month => {
+            grouped[month].sort((a, b) => {
+                const dateA = new Date(a.bookingDate);
+                const dateB = new Date(b.bookingDate);
+                return dateB - dateA;
+            });
+        });
+
         const groupedList = Object.entries(grouped)
             .map(([month, monthBookings]) => ({
                 month,
@@ -107,9 +121,31 @@ export default function BookingListScreen() {
 
     const handlePayNow = async (bookingId) => {
         if (processingPayment) return;
+        Alert.alert(
+            'Chọn phương thức thanh toán',
+            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 50%?',
+            [
+                {
+                    text: 'Thanh toán đầy đủ',
+                    onPress: () => processPayment(bookingId, true)
+                },
+                {
+                    text: 'Thanh toán đặt cọc',
+                    onPress: () => processPayment(bookingId, false)
+                },
+                {
+                    text: 'Hủy',
+                    style: 'cancel'
+                }
+            ]
+        );
+    };
+
+    // Hàm xử lý thanh toán thực tế
+    const processPayment = async (bookingId, isFullPayment) => {
         setProcessingPayment(true);
         try {
-            const result = await bookingApi.getPaymentUrl(bookingId, true);
+            const result = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
             if (result.success && result.paymentUrl) {
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: result.paymentUrl,
@@ -250,7 +286,7 @@ export default function BookingListScreen() {
 
                     <View style={styles.actionsContainer}>
                         {item.status === 0 && (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={styles.payNowBtn}
                                 onPress={() => handlePayNow(item.bookingID)}
                                 disabled={processingPayment}
@@ -377,6 +413,11 @@ export default function BookingListScreen() {
                             <Text style={styles.retryButtonText}>Thử lại</Text>
                         </LinearGradient>
                     </TouchableOpacity>
+                </View>
+            ) : filterLoading ? (
+                <View style={styles.filterLoadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.loadingText}>Đang lọc dữ liệu...</Text>
                 </View>
             ) : bookings.length === 0 ? (
                 renderEmptyList()
@@ -780,6 +821,12 @@ const styles = StyleSheet.create({
     resetFilterText: {
         color: colors.primary,
         fontWeight: '600',
+    },
+    filterLoadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
     },
     actionsContainer: {
         flexDirection: 'row',

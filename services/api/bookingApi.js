@@ -1,9 +1,9 @@
 import apiClient from '../config';
 
 const bookingApi = {
-    createBooking: async (bookingData, paymentMethod) => {
+    createBooking: async (bookingData) => {
         try {
-            const response = await apiClient.post(`/api/booking-checkout/CreateBooking?paymentMethod=${paymentMethod}`, bookingData, {
+            const response = await apiClient.post(`/api/booking-checkout/CreateBooking?paymentMethod=1`, bookingData, {
                 headers: {
                     'Content-Type': 'application/json',
                 }
@@ -48,6 +48,7 @@ const bookingApi = {
                 };
             }
             console.log("Using bookingID for payment:", bookingId);
+            console.log("isFullPayment:", isFullPayment);
             const numericBookingId = isNaN(Number(bookingId)) ? bookingId : Number(bookingId);
             
             try {
@@ -132,7 +133,7 @@ const bookingApi = {
                         console.log("Phát hiện lỗi bookingID không được truyền đúng. Thử cách khác...");
                         
                         try {
-                            console.log("Thử lại với GET method, bookingID:", numericBookingId);
+                            console.log("Thử lại với GET method, bookingID:", numericBookingId, "isFullPayment:", isFullPayment);
                             const retryResponse = await apiClient.get(
                                 `/api/booking-checkout/BookingPayment?bookingID=${numericBookingId}&isFullPayment=${isFullPayment}`
                             );
