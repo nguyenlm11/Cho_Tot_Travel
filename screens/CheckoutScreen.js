@@ -31,6 +31,7 @@ const CheckoutScreen = () => {
   });
 
   const [paymentMethod, setPaymentMethod] = useState(0);
+  const [isFullPayment, setIsFullPayment] = useState(true);
   const [loading, setLoading] = useState(false);
   const selectedRooms = getRoomsByParams(params);
   const numberOfNights = calculateNumberOfNights();
@@ -132,7 +133,7 @@ const CheckoutScreen = () => {
     if (!bookingData) return;
     setLoading(true);
     try {
-      const result = await bookingApi.createBooking(bookingData, paymentMethod);
+      const result = await bookingApi.createBooking(bookingData, 1);
       console.log("Create booking result:", result);
       if (result.success) {
         clearCart();
@@ -144,24 +145,7 @@ const CheckoutScreen = () => {
         if (!bookingId) {
           throw new Error("Không nhận được mã đặt phòng từ máy chủ");
         }
-        if (paymentMethod === 0 || paymentMethod === 1) {
-          handlePayment(bookingId);
-        } else {
-          Alert.alert(
-            'Đặt phòng thành công',
-            `Mã đặt phòng của bạn là: ${bookingId}`,
-            [
-              {
-                text: 'Xem đặt phòng',
-                onPress: () => navigation.navigate('BookingList')
-              },
-              {
-                text: 'OK',
-                onPress: () => navigation.navigate('HomeTabs')
-              }
-            ]
-          );
-        }
+        handlePayment(bookingId);
       } else {
         Alert.alert('Đặt phòng thất bại', result.error || 'Đã xảy ra lỗi khi đặt phòng');
       }
@@ -177,7 +161,7 @@ const CheckoutScreen = () => {
     setLoading(true);
     try {
       console.log("Bắt đầu lấy URL thanh toán cho bookingId:", bookingId);
-      const paymentResult = await bookingApi.getPaymentUrl(bookingId, true);
+      const paymentResult = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
       console.log("Payment result:", paymentResult);
       if (paymentResult.success && paymentResult.paymentUrl) {
         console.log("Redirecting to payment URL:", paymentResult.paymentUrl);
@@ -188,13 +172,11 @@ const CheckoutScreen = () => {
       } else {
         console.error('Payment URL error:', paymentResult.error);
 
-        // Kiểm tra nếu đây là lỗi NullReferenceException từ BE
         if (paymentResult.nullRefError ||
           (paymentResult.error && paymentResult.error.includes('NullReference')) ||
           (paymentResult.data && typeof paymentResult.data === 'string' &&
             paymentResult.data.includes('NullReference'))) {
 
-          // Hiển thị thông báo đặt phòng thành công nhưng không thể thanh toán
           Alert.alert(
             'Đặt phòng thành công',
             'Đặt phòng đã được xác nhận nhưng không thể thanh toán online vào lúc này. Bạn có thể thanh toán sau hoặc liên hệ với chủ homestay.',
@@ -243,32 +225,32 @@ const CheckoutScreen = () => {
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              paymentMethod === 0 && styles.paymentOptionSelected
+              isFullPayment && styles.paymentOptionSelected
             ]}
-            onPress={() => setPaymentMethod(0)}
+            onPress={() => setIsFullPayment(true)}
           >
             <View style={styles.radioButton}>
-              {paymentMethod === 0 && <View style={styles.radioButtonInner} />}
+              {isFullPayment && <View style={styles.radioButtonInner} />}
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
-              <Text style={styles.paymentOptionDescription}>Thanh toán toàn bộ số tiền ngay bây giờ</Text>
+              <Text style={styles.paymentOptionDescription}>Thanh toán toàn bộ số tiền {calculateTotal().toLocaleString('vi-VN')}đ</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              paymentMethod === 1 && styles.paymentOptionSelected
+              !isFullPayment && styles.paymentOptionSelected
             ]}
-            onPress={() => setPaymentMethod(1)}
+            onPress={() => setIsFullPayment(false)}
           >
             <View style={styles.radioButton}>
-              {paymentMethod === 1 && <View style={styles.radioButtonInner} />}
+              {!isFullPayment && <View style={styles.radioButtonInner} />}
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
-              <Text style={styles.paymentOptionDescription}>Đặt cọc một phần và thanh toán phần còn lại sau</Text>
+              <Text style={styles.paymentOptionDescription}>Thanh toán 50% đặt cọc {(calculateTotal() * 0.5).toLocaleString('vi-VN')}đ</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -451,15 +433,8 @@ const CheckoutScreen = () => {
 
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Tổng thanh toán:</Text>
-            <Text style={styles.totalPrice}>{calculateTotal() || '0'}₫</Text>
+            <Text style={styles.totalPrice}>{isFullPayment ? calculateTotal().toLocaleString('vi-VN') : (calculateTotal() * 0.5).toLocaleString('vi-VN')}đ</Text>
           </View>
-
-          {paymentMethod === 1 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.depositLabel}>Đặt cọc (30%):</Text>
-              <Text style={styles.depositPrice}>{Math.round(calculateTotal() * 0.3) || '0'}₫</Text>
-            </View>
-          )}
         </View>
 
         {/* Nút đặt phòng */}
@@ -479,7 +454,7 @@ const CheckoutScreen = () => {
             ) : (
               <>
                 <Text style={styles.bookButtonText}>
-                  {paymentMethod === 0 ? 'Thanh toán đầy đủ' : 'Đặt cọc ngay'}
+                  {isFullPayment ? 'Thanh toán đầy đủ' : 'Đặt cọc ngay'}
                 </Text>
                 <Icon name="chevron-forward" size={20} color="#fff" />
               </>
@@ -490,10 +465,10 @@ const CheckoutScreen = () => {
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Thông tin thanh toán</Text>
           <Text style={styles.infoText}>
-            {paymentMethod === 0 ? (
+            {isFullPayment ? (
               `• Thanh toán đầy đủ ngay bây giờ\n• Không mất phí khi hủy trước 24 giờ\n• Giá đã bao gồm thuế và phí dịch vụ`
             ) : (
-              `• Đặt cọc 30% ngay bây giờ\n• Thanh toán số tiền còn lại khi nhận phòng\n• Tiền cọc không được hoàn lại khi hủy`
+              `• Đặt cọc 50% ngay bây giờ\n• Thanh toán số tiền còn lại khi nhận phòng\n• Tiền cọc không được hoàn lại khi hủy`
             )}
           </Text>
         </View>
