@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, RefreshControl, ScrollView, Alert } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
@@ -30,6 +30,7 @@ export default function BookingListScreen() {
     const [groupedBookingsList, setGroupedBookingsList] = useState([]);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
+    const [processingPayment, setProcessingPayment] = useState(false);
 
     console.log(bookings);
 
@@ -102,6 +103,33 @@ export default function BookingListScreen() {
                 return new Date(yearB, monthB - 1) - new Date(yearA, monthA - 1);
             });
         setGroupedBookingsList(groupedList);
+    };
+
+    const handlePayNow = async (bookingId) => {
+        if (processingPayment) return;
+        setProcessingPayment(true);
+        try {
+            const result = await bookingApi.getPaymentUrl(bookingId, true);
+            if (result.success && result.paymentUrl) {
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: result.paymentUrl,
+                    bookingId: bookingId
+                });
+            } else {
+                Alert.alert(
+                    'Không thể thanh toán',
+                    result.error || 'Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.'
+                );
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            Alert.alert(
+                'Lỗi thanh toán',
+                'Đã xảy ra lỗi khi khởi tạo thanh toán. Vui lòng thử lại sau.'
+            );
+        } finally {
+            setProcessingPayment(false);
+        }
     };
 
     const renderHeader = () => (
@@ -198,15 +226,17 @@ export default function BookingListScreen() {
                     )}
 
                     <View style={styles.guestInfoContainer}>
-                        <Ionicons name="people-outline" size={18} color="#666" />
-                        <Text style={styles.guestInfoText}>
-                            {item.numberOfAdults || 0} người lớn
-                            {item.numberOfChildren > 0 ? `, ${item.numberOfChildren} trẻ em` : ''}
+                        <Text style={styles.guestInfoLabel}>
+                            <Ionicons name="people-outline" size={14} color="#666" /> {item.numberOfAdults || 0} người lớn
                         </Text>
+                        {item.numberOfChildren > 0 && (
+                            <Text style={styles.guestInfoLabel}>
+                                <Ionicons name="person-outline" size={14} color="#666" /> {item.numberOfChildren} trẻ em
+                            </Text>
+                        )}
                     </View>
                 </View>
 
-                {/* Card Footer Section */}
                 <View style={styles.cardFooterSection}>
                     <View style={styles.priceContainer}>
                         <Text style={styles.priceLabel}>Tổng thanh toán</Text>
@@ -218,10 +248,26 @@ export default function BookingListScreen() {
                         </Text>
                     </View>
 
-                    <TouchableOpacity style={styles.viewDetailsBtn}>
-                        <Text style={styles.viewDetailsText}>Chi tiết</Text>
-                        <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-                    </TouchableOpacity>
+                    <View style={styles.actionsContainer}>
+                        {item.status === 0 && (
+                            <TouchableOpacity 
+                                style={styles.payNowBtn}
+                                onPress={() => handlePayNow(item.bookingID)}
+                                disabled={processingPayment}
+                            >
+                                <Text style={styles.payNowText}>Thanh toán</Text>
+                                {processingPayment ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Ionicons name="card-outline" size={16} color="#fff" />
+                                )}
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={styles.viewDetailsBtn}>
+                            <Text style={styles.viewDetailsText}>Chi tiết</Text>
+                            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </TouchableOpacity>
         </Animated.View>
@@ -595,7 +641,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    guestInfoText: {
+    guestInfoLabel: {
         fontSize: 14,
         color: '#666',
         marginLeft: 8,
@@ -734,5 +780,25 @@ const styles = StyleSheet.create({
     resetFilterText: {
         color: colors.primary,
         fontWeight: '600',
-    }
+    },
+    actionsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    payNowBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.secondary,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 6,
+    },
+    payNowText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
 });

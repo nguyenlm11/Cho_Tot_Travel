@@ -1,26 +1,70 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { colors } from '../constants/Colors';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 
 export default function BookingSuccess() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { bookingId, totalPrice, roomCount, nightCount } = route.params;
+    const { bookingId, transactionId } = route.params || {};
 
     const handleGoToBookings = () => {
-        navigation.navigate('BookingList');
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [
+                    {
+                        name: 'MainTabs',
+                        state: {
+                            routes: [
+                                {
+                                    name: 'HomeTabs',
+                                    state: {
+                                        routes: [{ name: 'Booking' }],
+                                        index: 1,
+                                    }
+                                }
+                            ],
+                            index: 0
+                        }
+                    }
+                ],
+            })
+        );
     };
 
     const handleGoHome = () => {
-        navigation.navigate('Home');
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [
+                    {
+                        name: 'MainTabs',
+                        state: {
+                            routes: [
+                                {
+                                    name: 'HomeTabs',
+                                    state: {
+                                        routes: [{ name: 'Home' }],
+                                        index: 0,
+                                    }
+                                }
+                            ],
+                            index: 0
+                        }
+                    }
+                ],
+            })
+        );
     };
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+
             <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 style={styles.background}
@@ -30,7 +74,7 @@ export default function BookingSuccess() {
                 entering={SlideInDown.delay(300).springify()}
                 style={styles.content}
             >
-                <Animated.View 
+                <Animated.View
                     entering={FadeInDown.delay(500)}
                     style={styles.successIcon}
                 >
@@ -42,18 +86,18 @@ export default function BookingSuccess() {
                     </LinearGradient>
                 </Animated.View>
 
-                <Animated.Text 
+                <Animated.Text
                     entering={FadeInDown.delay(700)}
                     style={styles.title}
                 >
-                    Đặt phòng thành công!
+                    Thanh toán thành công!
                 </Animated.Text>
 
                 <Animated.Text
                     entering={FadeInDown.delay(900)}
                     style={styles.message}
                 >
-                    Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi. Thông tin đặt phòng đã được gửi đến email của bạn.
+                    Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi. Chúng tôi đã ghi nhận thanh toán của bạn và đã xác nhận đơn đặt phòng.
                 </Animated.Text>
 
                 <Animated.View
@@ -62,19 +106,18 @@ export default function BookingSuccess() {
                 >
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Mã đặt phòng:</Text>
-                        <Text style={styles.infoValue}>{bookingId}</Text>
+                        <Text style={styles.infoValue}>{bookingId || "Không có thông tin"}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Số phòng:</Text>
-                        <Text style={styles.infoValue}>{roomCount} phòng</Text>
+                        <Text style={styles.infoLabel}>Mã giao dịch:</Text>
+                        <Text style={styles.infoValue}>{transactionId || "Không có thông tin"}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Số đêm:</Text>
-                        <Text style={styles.infoValue}>{nightCount} đêm</Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Tổng tiền:</Text>
-                        <Text style={styles.infoValue}>{totalPrice.toLocaleString('vi-VN')}₫</Text>
+                        <Text style={styles.infoLabel}>Trạng thái:</Text>
+                        <View style={styles.statusContainer}>
+                            <View style={styles.statusDot} />
+                            <Text style={styles.statusText}>Đã thanh toán</Text>
+                        </View>
                     </View>
                 </Animated.View>
 
@@ -175,6 +218,22 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: 'bold',
         color: '#333',
+    },
+    statusContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#4CAF50',
+        marginRight: 5,
+    },
+    statusText: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: '#4CAF50',
     },
     buttonContainer: {
         width: '100%',
