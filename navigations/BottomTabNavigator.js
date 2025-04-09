@@ -4,11 +4,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import Icon from 'react-native-vector-icons/Ionicons';
 import HomeScreen from '../screens/HomeScreen';
-import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import BookingListScreen from '../screens/BookingListScreen';
-import { colors } from '../constants/Colors';
 import ChatScreen from '../screens/ChatScreen';
+import NotificationScreen from '../screens/NotificationScreen';
+import { colors } from '../constants/Colors';
 
 const Tab = createBottomTabNavigator();
 
@@ -23,8 +23,11 @@ const BottomTabNavigator = () => {
                 case 'Booking':
                     iconName = focused ? 'calendar' : 'calendar-outline';
                     break;
-                case 'Profile':
-                    iconName = focused ? 'person' : 'person-outline';
+                case 'Notification':
+                    iconName = focused ? 'notifications' : 'notifications-outline';
+                    break;
+                case 'Chat':
+                    iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
                     break;
                 case 'Settings':
                     iconName = focused ? 'settings' : 'settings-outline';
@@ -61,14 +64,21 @@ const BottomTabNavigator = () => {
                 name="Booking"
                 component={BookingListScreen}
                 options={{
-                    tabBarLabel: 'Phòng đã đặt',
+                    tabBarLabel: 'Đặt phòng',
                 }}
             />
             <Tab.Screen
-                name="Profile"
+                name="Notification"
+                component={NotificationScreen}
+                options={{
+                    tabBarLabel: 'Thông báo',
+                }}
+            />
+            <Tab.Screen
+                name="Chat"
                 component={ChatScreen}
                 options={{
-                    tabBarLabel: 'Tài khoản',
+                    tabBarLabel: 'Trò chuyện',
                 }}
             />
             <Tab.Screen
