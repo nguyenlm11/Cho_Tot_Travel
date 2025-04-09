@@ -50,10 +50,10 @@ const bookingApi = {
             console.log("Using bookingID for payment:", bookingId);
             console.log("isFullPayment:", isFullPayment);
             const numericBookingId = isNaN(Number(bookingId)) ? bookingId : Number(bookingId);
-            
+
             try {
                 const response = await apiClient.post(
-                    `/api/booking-checkout/BookingPayment?bookingID=${numericBookingId}&isFullPayment=${isFullPayment}`, 
+                    `/api/booking-checkout/BookingPayment?bookingID=${numericBookingId}&isFullPayment=${isFullPayment}`,
                     {},
                     {
                         headers: {
@@ -106,7 +106,7 @@ const bookingApi = {
                         paymentUrl: paymentUrl
                     };
                 }
-                
+
                 console.error("No valid payment URL found in response:", response.data);
                 if (typeof response.data === 'string' && response.data.includes('NullReferenceException')) {
                     return {
@@ -127,19 +127,19 @@ const bookingApi = {
 
                 if (apiError.response) {
                     console.error('API error response:', apiError.response.status, apiError.response.data);
-                    
+
                     const errorStr = String(apiError.response.data);
                     if (errorStr.includes("Không tìm thấy booking với ID") || errorStr.includes("ID: 0")) {
                         console.log("Phát hiện lỗi bookingID không được truyền đúng. Thử cách khác...");
-                        
+
                         try {
                             console.log("Thử lại với GET method, bookingID:", numericBookingId, "isFullPayment:", isFullPayment);
                             const retryResponse = await apiClient.get(
                                 `/api/booking-checkout/BookingPayment?bookingID=${numericBookingId}&isFullPayment=${isFullPayment}`
                             );
-                            
+
                             console.log("Retry response:", retryResponse.data);
-                            
+
                             if (typeof retryResponse.data === 'string' && retryResponse.data.startsWith('http')) {
                                 console.log("Retry succeeded! Payment URL:", retryResponse.data);
                                 return {
@@ -151,7 +151,7 @@ const bookingApi = {
                             console.error("Retry with GET method failed:", retryError);
                         }
                     }
-                    
+
                     if (apiError.response.status === 500) {
                         return {
                             success: false,
@@ -162,7 +162,7 @@ const bookingApi = {
                             nullRefError: true
                         };
                     }
-                    
+
                     const errorText = JSON.stringify(apiError.response.data || '');
                     if (errorText.includes('NullReferenceException') ||
                         errorText.includes('Object reference not set')) {
@@ -264,6 +264,49 @@ const bookingApi = {
                 hasBooked: false,
                 error: 'Không thể kiểm tra thông tin đặt phòng'
             };
+        }
+    },
+
+    changeBookingStatus: async (bookingId, status, paymentStatus) => {
+        try {
+            if (!bookingId) {
+                return {
+                    success: false,
+                    error: 'Mã đặt phòng không hợp lệ'
+                };
+            }
+            const response = await apiClient.put(`/api/booking-checkout/ChangeBookingStatus?bookingId=${bookingId}&status=${status}&paymentStatus=${paymentStatus}`);
+
+            if (response.data) {
+                return {
+                    success: true,
+                    data: response.data
+                };
+            } else {
+                return {
+                    success: false,
+                    error: 'Không thể cập nhật trạng thái đặt phòng'
+                };
+            }
+        } catch (error) {
+            console.error('Lỗi khi cập nhật trạng thái đặt phòng:', error);
+            if (error.response) {
+                return {
+                    success: false,
+                    error: error.response.data?.message || 'Lỗi từ server khi cập nhật trạng thái đặt phòng',
+                    status: error.response.status
+                };
+            } else if (error.request) {
+                return {
+                    success: false,
+                    error: 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.'
+                };
+            } else {
+                return {
+                    success: false,
+                    error: error.message || 'Có lỗi xảy ra khi cập nhật trạng thái đặt phòng'
+                };
+            }
         }
     }
 };

@@ -151,7 +151,7 @@ export default function PaymentWebView() {
             }
             const responseCode = params.vnp_ResponseCode || '';
             updatePaymentStatusOnBackend(params);
-            
+
             if (webViewRef.current) {
                 try {
                     webViewRef.current.injectJavaScript(`
@@ -411,7 +411,7 @@ export default function PaymentWebView() {
             setLoading(false);
             setError(null);
             setIsProcessingPayment(false);
-            
+
             currentUrl.current = '';
             redirectCount.current = 0;
         };
@@ -434,8 +434,8 @@ export default function PaymentWebView() {
                 [
                     { text: 'Tiếp tục thanh toán', style: 'cancel' },
                     {
-                        text: 'Hủy thanh toán', 
-                        style: 'destructive', 
+                        text: 'Hủy thanh toán',
+                        style: 'destructive',
                         onPress: () => {
                             // Dọn dẹp WebView trước khi quay lại
                             if (webViewRef.current) {
@@ -486,8 +486,6 @@ export default function PaymentWebView() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-
-            {/* Header */}
             <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 style={styles.header}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, Alert, RefreshControl } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +17,8 @@ const STATUS_MAPPING = {
     2: { text: 'Đang phục vụ', color: '#29B6F6', icon: 'sync-outline' },
     3: { text: 'Hoàn thành', color: '#8BC34A', icon: 'checkmark-done-circle' },
     4: { text: 'Đã hủy', color: '#F44336', icon: 'close-circle' },
-    5: { text: 'Không đến', color: '#9E9E9E', icon: 'remove-circle' }
+    5: { text: 'Không đến', color: '#9E9E9E', icon: 'remove-circle' },
+    6: { text: 'Yêu cầu hoàn trả', color: '#FF9800', icon: 'cash-outline' }
 };
 
 export default function BookingListScreen() {
@@ -125,23 +126,13 @@ export default function BookingListScreen() {
             'Chọn phương thức thanh toán',
             'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 50%?',
             [
-                {
-                    text: 'Thanh toán đầy đủ',
-                    onPress: () => processPayment(bookingId, true)
-                },
-                {
-                    text: 'Thanh toán đặt cọc',
-                    onPress: () => processPayment(bookingId, false)
-                },
-                {
-                    text: 'Hủy',
-                    style: 'cancel'
-                }
+                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
+                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
+                { text: 'Hủy', style: 'cancel' }
             ]
         );
     };
 
-    // Hàm xử lý thanh toán thực tế
     const processPayment = async (bookingId, isFullPayment) => {
         setProcessingPayment(true);
         try {
@@ -168,6 +159,44 @@ export default function BookingListScreen() {
         }
     };
 
+    const handleCancelBooking = async (bookingId, currentStatus, currentPaymentStatus) => {
+        const newStatus = currentStatus === 0 ? 4 : 6;
+        Alert.alert(
+            'Xác nhận hủy đặt phòng',
+            currentStatus === 0
+                ? 'Bạn có chắc chắn muốn hủy đặt phòng này?'
+                : 'Bạn có chắc chắn muốn yêu cầu hoàn trả cho đặt phòng này?',
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xác nhận',
+                    onPress: async () => {
+                        try {
+                            const result = await bookingApi.changeBookingStatus(bookingId, newStatus, currentPaymentStatus);
+                            if (result.success) {
+                                Alert.alert(
+                                    'Thành công',
+                                    currentStatus === 0
+                                        ? 'Đã hủy đặt phòng thành công'
+                                        : 'Đã gửi yêu cầu hoàn trả thành công'
+                                );
+                                fetchBookings();
+                            } else {
+                                console.log(result.error);
+                            }
+                        } catch (error) {
+                            console.error('Error updating booking status:', error);
+                            Alert.alert(
+                                'Lỗi',
+                                'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng'
+                            );
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const renderHeader = () => (
         <LinearGradient
             colors={[colors.primary, colors.secondary]}
@@ -175,8 +204,60 @@ export default function BookingListScreen() {
         >
             <View style={styles.headerContent}>
                 <Text style={styles.headerTitle}>Đặt phòng của tôi</Text>
+                <Text style={styles.headerSubtitle}>Quản lý tất cả các đặt phòng của bạn</Text>
             </View>
         </LinearGradient>
+    );
+
+    const renderFilterTabs = () => (
+        <View style={styles.filterTabsContainer}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.tabScrollContainer}
+            >
+                <TouchableOpacity
+                    style={[
+                        styles.tabItem,
+                        filterStatus === null && styles.activeTab
+                    ]}
+                    onPress={() => setFilterStatus(null)}
+                >
+                    <Text style={[
+                        styles.tabText,
+                        filterStatus === null && styles.activeTabText
+                    ]}>
+                        Tất cả
+                    </Text>
+                    {filterStatus === null && <View style={styles.activeIndicator} />}
+                </TouchableOpacity>
+
+                {Object.entries(STATUS_MAPPING).map(([key, value]) => (
+                    <TouchableOpacity
+                        key={key}
+                        style={[
+                            styles.tabItem,
+                            filterStatus === parseInt(key) && styles.activeTab
+                        ]}
+                        onPress={() => setFilterStatus(parseInt(key))}
+                    >
+                        <Ionicons
+                            name={value.icon}
+                            size={14}
+                            color={filterStatus === parseInt(key) ? '#fff' : '#666'}
+                            style={styles.tabIcon}
+                        />
+                        <Text style={[
+                            styles.tabText,
+                            filterStatus === parseInt(key) && styles.activeTabText
+                        ]}>
+                            {value.text}
+                        </Text>
+                        {filterStatus === parseInt(key) && <View style={styles.activeIndicator} />}
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+        </View>
     );
 
     const renderBookingItem = ({ item, index }) => (
@@ -184,7 +265,7 @@ export default function BookingListScreen() {
             entering={FadeInDown.delay(index * 100).springify()}
             style={[
                 styles.bookingCard,
-                { borderTopWidth: 20, borderTopColor: STATUS_MAPPING[item.status]?.color || '#999' }
+                { borderTopWidth: 15, borderTopColor: STATUS_MAPPING[item.status]?.color || '#999' }
             ]}
         >
             <TouchableOpacity
@@ -193,15 +274,18 @@ export default function BookingListScreen() {
                     setModalVisible(true);
                 }}
                 style={styles.bookingContent}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
             >
                 <View style={styles.cardHeaderSection}>
-                    <View style={styles.hotelInfoContainer}>
+                    <TouchableOpacity
+                        style={styles.hotelInfoContainer}
+                        onPress={() => navigation.navigate('BookingDetail', { bookingId: item.bookingID })}
+                    >
                         <Ionicons name="bed" size={22} color={colors.primary} style={styles.hotelIcon} />
                         <Text style={styles.hotelName} numberOfLines={1}>
                             {item.homeStay?.name || 'Không có tên'}
                         </Text>
-                    </View>
+                    </TouchableOpacity>
 
                     <View style={styles.statusContainer}>
                         <LinearGradient
@@ -225,10 +309,18 @@ export default function BookingListScreen() {
                 {/* Card Body Section */}
                 <View style={styles.cardBodySection}>
                     <View style={styles.bookingInfoRow}>
-                        <View style={styles.bookingInfoItem}>
+                        <TouchableOpacity
+                            style={styles.bookingInfoItem}
+                            onPress={() => {
+                                setSelectedBookingId(item.bookingID);
+                                setModalVisible(true);
+                            }}
+                        >
                             <Text style={styles.bookingInfoLabel}>Mã đặt phòng</Text>
-                            <Text style={styles.bookingInfoValue}>#{item.bookingID || 'N/A'}</Text>
-                        </View>
+                            <Text style={styles.bookingInfoValue}>
+                                #{item.bookingID || 'N/A'}
+                            </Text>
+                        </TouchableOpacity>
 
                         <View style={styles.bookingInfoItem}>
                             <Text style={styles.bookingInfoLabel}>Ngày đặt</Text>
@@ -299,10 +391,26 @@ export default function BookingListScreen() {
                                 )}
                             </TouchableOpacity>
                         )}
-                        <TouchableOpacity style={styles.viewDetailsBtn}>
-                            <Text style={styles.viewDetailsText}>Chi tiết</Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-                        </TouchableOpacity>
+
+                        {/* Thêm nút hủy đặt phòng cho trạng thái chưa thanh toán và đã thanh toán */}
+                        {(item.status === 0 || item.status === 1) && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.cancelBtn,
+                                    item.status === 1 ? styles.refundBtn : null
+                                ]}
+                                onPress={() => handleCancelBooking(item.bookingID, item.status, item.paymentStatus)}
+                            >
+                                <Text style={styles.cancelBtnText}>
+                                    {item.status === 0 ? 'Hủy' : 'Hoàn trả'}
+                                </Text>
+                                <Ionicons
+                                    name={item.status === 0 ? "close-circle-outline" : "cash-outline"}
+                                    size={16}
+                                    color="#fff"
+                                />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </TouchableOpacity>
@@ -355,48 +463,7 @@ export default function BookingListScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             {renderHeader()}
-            <View style={styles.filterTabsContainer}>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.tabScrollContainer}
-                >
-                    <TouchableOpacity
-                        style={[
-                            styles.tabItem,
-                            filterStatus === null && styles.activeTab
-                        ]}
-                        onPress={() => setFilterStatus(null)}
-                    >
-                        <Text style={[
-                            styles.tabText,
-                            filterStatus === null && styles.activeTabText
-                        ]}>
-                            Tất cả
-                        </Text>
-                        {filterStatus === null && <View style={styles.activeIndicator} />}
-                    </TouchableOpacity>
-
-                    {Object.entries(STATUS_MAPPING).map(([key, value]) => (
-                        <TouchableOpacity
-                            key={key}
-                            style={[
-                                styles.tabItem,
-                                filterStatus === parseInt(key) && styles.activeTab
-                            ]}
-                            onPress={() => setFilterStatus(parseInt(key))}
-                        >
-                            <Text style={[
-                                styles.tabText,
-                                filterStatus === parseInt(key) && styles.activeTabText
-                            ]}>
-                                {value.text}
-                            </Text>
-                            {filterStatus === parseInt(key) && <View style={styles.activeIndicator} />}
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
+            {renderFilterTabs()}
 
             {error ? (
                 <View style={styles.errorContainer}>
@@ -445,6 +512,14 @@ export default function BookingListScreen() {
                     )}
                     contentContainerStyle={styles.listContainer}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={loading}
+                            onRefresh={fetchBookings}
+                            colors={[colors.primary, colors.secondary]}
+                            tintColor={colors.primary}
+                        />
+                    }
                     scrollEventThrottle={16}
                     ListEmptyComponent={() => (
                         <View style={styles.noResultsContainer}>
@@ -473,30 +548,24 @@ export default function BookingListScreen() {
     );
 }
 
-// Helper function để định dạng tháng/năm thành "Tháng 4, 2023"
 function formatMonthYear(monthYear) {
     const [month, year] = monthYear.split('/');
     return `Tháng ${month}, ${year}`;
 }
 
-// Helper function để làm tối màu
 function shadeColor(color, percent) {
     let R = parseInt(color.substring(1, 3), 16);
     let G = parseInt(color.substring(3, 5), 16);
     let B = parseInt(color.substring(5, 7), 16);
-
     R = Math.floor(R * (100 + percent) / 100);
     G = Math.floor(G * (100 + percent) / 100);
     B = Math.floor(B * (100 + percent) / 100);
-
     R = (R < 255) ? R : 255;
     G = (G < 255) ? G : 255;
     B = (B < 255) ? B : 255;
-
     const RR = ((R.toString(16).length === 1) ? "0" + R.toString(16) : R.toString(16));
     const GG = ((G.toString(16).length === 1) ? "0" + G.toString(16) : G.toString(16));
     const BB = ((B.toString(16).length === 1) ? "0" + B.toString(16) : B.toString(16));
-
     return "#" + RR + GG + BB;
 }
 
@@ -509,18 +578,31 @@ const styles = StyleSheet.create({
         paddingTop: 60,
         paddingBottom: 30,
         paddingHorizontal: 20,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        flexDirection: 'column',
+        justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
     },
-    headerContent: { flex: 1 },
+    headerContent: {
+        width: '100%',
+        alignItems: 'center'
+    },
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
-        marginBottom: 5,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
         textAlign: 'center',
     },
     filterTabsContainer: {
@@ -528,18 +610,30 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         paddingHorizontal: 16,
     },
+    tabScrollContainer: { paddingVertical: 8 },
     tabItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingVertical: 10,
         marginRight: 8,
         borderRadius: 20,
+        backgroundColor: '#fff',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-        elevation: 3,
+        elevation: 2,
     },
-    activeTab: { backgroundColor: colors.primary },
+    tabIcon: { marginRight: 6 },
+    activeTab: {
+        backgroundColor: colors.primary,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 4,
+    },
     tabText: {
         color: '#666',
         fontSize: 14,
@@ -560,6 +654,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
+        paddingLeft: 4,
     },
     monthHeader: {
         fontSize: 16,
@@ -580,20 +675,18 @@ const styles = StyleSheet.create({
     },
     bookingCard: {
         backgroundColor: '#fff',
-        borderRadius: 20,
+        borderRadius: 16,
         marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
+        shadowOpacity: 0.1,
         shadowRadius: 8,
-        elevation: 5,
+        elevation: 4,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: '#f0f0f0',
     },
-    bookingContent: {
-        padding: 0,
-    },
+    bookingContent: { padding: 0 },
     cardHeaderSection: {
         padding: 16,
         backgroundColor: '#f8f9fa',
@@ -604,21 +697,17 @@ const styles = StyleSheet.create({
     hotelInfoContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 8,
         flex: 1,
     },
-    hotelIcon: {
-        marginRight: 10,
-    },
+    hotelIcon: { marginRight: 10 },
     hotelName: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
         color: '#222',
         flex: 1,
     },
-    statusContainer: {
-        alignSelf: 'flex-start',
-    },
+    statusContainer: { alignSelf: 'flex-start' },
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -651,20 +740,18 @@ const styles = StyleSheet.create({
     bookingInfoValue: {
         fontSize: 14,
         color: '#333',
-        fontWeight: '500',
+        fontWeight: '600',
     },
     bookingDatesContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: '#f9f9f9',
-        borderRadius: 8,
+        borderRadius: 12,
         padding: 12,
         marginBottom: 16,
     },
-    dateBox: {
-        flex: 1,
-    },
+    dateBox: { flex: 1 },
     dateBoxLabel: {
         fontSize: 12,
         color: '#888',
@@ -675,9 +762,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#333',
     },
-    dateArrow: {
-        marginHorizontal: 10,
-    },
+    dateArrow: { marginHorizontal: 10 },
     guestInfoContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -695,9 +780,7 @@ const styles = StyleSheet.create({
         borderTopColor: '#eee',
         padding: 16,
     },
-    priceContainer: {
-        flex: 1,
-    },
+    priceContainer: { flex: 1 },
     priceLabel: {
         fontSize: 12,
         color: '#888',
@@ -708,19 +791,54 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: colors.primary,
     },
-    viewDetailsBtn: {
+    actionsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f0f4f8',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
+        gap: 8,
     },
-    viewDetailsText: {
+    payNowBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.secondary,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        gap: 6,
+        shadowColor: colors.secondary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    payNowText: {
+        color: '#fff',
         fontSize: 14,
-        color: colors.primary,
         fontWeight: '600',
-        marginRight: 4,
+    },
+    cancelBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F44336',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        gap: 6,
+        shadowColor: '#F44336',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    refundBtn: {
+        backgroundColor: '#FF9800',
+        shadowColor: '#FF9800',
+    },
+    cancelBtnText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
     },
     loadingContainer: {
         flex: 1,
@@ -827,25 +945,5 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
-    },
-    actionsContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    payNowBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.secondary,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        gap: 6,
-    },
-    payNowText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
     },
 });
