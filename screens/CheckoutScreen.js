@@ -439,6 +439,7 @@ const CheckoutScreen = () => {
               onChangeText={(text) => handleInputChange('fullName', text)}
               placeholder="Nhập họ và tên"
               placeholderTextColor="#999"
+              disabled={true}
             />
           </View>
           <View style={styles.formGroup}>
@@ -450,6 +451,7 @@ const CheckoutScreen = () => {
               placeholder="Nhập số điện thoại"
               placeholderTextColor="#999"
               keyboardType="phone-pad"
+              disabled={true}
             />
           </View>
           <View style={styles.formGroup}>
@@ -462,6 +464,7 @@ const CheckoutScreen = () => {
               placeholderTextColor="#999"
               keyboardType="email-address"
               autoCapitalize="none"
+              disabled={true}
             />
           </View>
         </View>

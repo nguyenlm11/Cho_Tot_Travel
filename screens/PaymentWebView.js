@@ -151,30 +151,37 @@ export default function PaymentWebView() {
             }
             const responseCode = params.vnp_ResponseCode || '';
             updatePaymentStatusOnBackend(params);
+            
             if (webViewRef.current) {
-                webViewRef.current.injectJavaScript(`
-                    window.stop();
-                    document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;"><p>Đang chuyển hướng...</p></div>';
-                    true;
-                `);
+                try {
+                    webViewRef.current.injectJavaScript(`
+                        window.stop();
+                        document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;"><p>Đang chuyển hướng...</p></div>';
+                        window.ReactNativeWebView.postMessage('WEBVIEW_CLEANUP_COMPLETE');
+                        true;
+                    `);
+                } catch (error) {
+                    console.error('Error stopping WebView:', error);
+                }
             }
 
             setTimeout(() => {
                 if (responseCode === '00') {
-                    navigation.navigate('BookingSuccess', {
+                    navigation.replace('BookingSuccess', {
                         bookingId: bookingId,
                         transactionId: params?.vnp_TransactionNo
                     });
                 } else {
                     const errorCode = params?.vnp_ResponseCode || '99';
-                    navigation.navigate('BookingFailed', {
+                    navigation.replace('BookingFailed', {
                         bookingId: bookingId,
                         errorCode: errorCode
                     });
                 }
-            }, 100);
+            }, 300);
         } catch (error) {
-            navigation.navigate('BookingFailed', {
+            console.error('Error processing VNPay response:', error);
+            navigation.replace('BookingFailed', {
                 error: 'Không thể xử lý phản hồi từ cổng thanh toán.'
             });
         } finally {
@@ -370,7 +377,6 @@ export default function PaymentWebView() {
         );
     };
 
-    // Add missing payment result handler functions
     const handlePaymentSuccess = () => {
         const fakeSuccessParams = { vnp_ResponseCode: '00', vnp_TxnRef: bookingId };
         handleVNPayResponse(fakeSuccessParams);
@@ -392,6 +398,10 @@ export default function PaymentWebView() {
                 try {
                     webViewRef.current.injectJavaScript(`
                         window.stop();
+                        document.body.innerHTML = "";
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage('WEBVIEW_UNMOUNTING');
+                        }
                         true;
                     `);
                 } catch (error) {
@@ -401,8 +411,77 @@ export default function PaymentWebView() {
             setLoading(false);
             setError(null);
             setIsProcessingPayment(false);
+            
+            currentUrl.current = '';
+            redirectCount.current = 0;
         };
     }, []);
+
+    // Thêm hàm xử lý message từ WebView
+    const handleWebViewMessage = (event) => {
+        console.log("WebView message received:", event.nativeEvent.data);
+        if (event.nativeEvent.data === 'WEBVIEW_CLEANUP_COMPLETE') {
+            console.log("WebView cleanup completed successfully");
+        }
+    };
+
+    // Tạo hàm mới để xử lý việc quay lại
+    const handleGoBack = () => {
+        if (isProcessingPayment) {
+            Alert.alert(
+                'Cảnh báo',
+                'Bạn đang trong quá trình thanh toán. Bạn có chắc chắn muốn hủy không?',
+                [
+                    { text: 'Tiếp tục thanh toán', style: 'cancel' },
+                    {
+                        text: 'Hủy thanh toán', 
+                        style: 'destructive', 
+                        onPress: () => {
+                            // Dọn dẹp WebView trước khi quay lại
+                            if (webViewRef.current) {
+                                try {
+                                    webViewRef.current.injectJavaScript(`
+                                        window.stop();
+                                        document.body.innerHTML = "";
+                                        if (window.ReactNativeWebView) {
+                                            window.ReactNativeWebView.postMessage('WEBVIEW_GOING_BACK');
+                                        }
+                                        true;
+                                    `);
+                                } catch (error) {
+                                    console.error('Error stopping WebView on go back:', error);
+                                }
+                            }
+                            // Đặt timeout để đảm bảo WebView có thời gian dọn dẹp
+                            setTimeout(() => {
+                                navigation.goBack();
+                            }, 200);
+                        }
+                    }
+                ]
+            );
+        } else {
+            // Dọn dẹp WebView trước khi quay lại
+            if (webViewRef.current) {
+                try {
+                    webViewRef.current.injectJavaScript(`
+                        window.stop();
+                        document.body.innerHTML = "";
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage('WEBVIEW_GOING_BACK');
+                        }
+                        true;
+                    `);
+                } catch (error) {
+                    console.error('Error stopping WebView on go back:', error);
+                }
+            }
+            // Đặt timeout để đảm bảo WebView có thời gian dọn dẹp
+            setTimeout(() => {
+                navigation.goBack();
+            }, 200);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -415,30 +494,7 @@ export default function PaymentWebView() {
             >
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() => {
-                        if (isProcessingPayment) {
-                            Alert.alert(
-                                'Cảnh báo',
-                                'Bạn đang trong quá trình thanh toán. Bạn có chắc chắn muốn hủy không?',
-                                [
-                                    { text: 'Tiếp tục thanh toán', style: 'cancel' },
-                                    {
-                                        text: 'Hủy thanh toán', style: 'destructive', onPress: () => {
-                                            if (webViewRef.current) {
-                                                webViewRef.current.injectJavaScript(`
-                                                window.stop();
-                                                true;
-                                            `);
-                                            }
-                                            navigation.goBack();
-                                        }
-                                    }
-                                ]
-                            );
-                        } else {
-                            navigation.goBack();
-                        }
-                    }}
+                    onPress={handleGoBack}
                 >
                     <Ionicons name="chevron-back" size={24} color="#fff" />
                 </TouchableOpacity>
@@ -473,6 +529,7 @@ export default function PaymentWebView() {
                             onNavigationStateChange={handleNavigationStateChange}
                             onLoadEnd={handleLoadEnd}
                             onLoadStart={handleLoadStart}
+                            onMessage={handleWebViewMessage}
                             startInLoadingState={true}
                             renderLoading={() => null}
                             javaScriptEnabled={true}
