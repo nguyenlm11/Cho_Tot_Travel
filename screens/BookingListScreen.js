@@ -124,7 +124,7 @@ export default function BookingListScreen() {
         if (processingPayment) return;
         Alert.alert(
             'Chọn phương thức thanh toán',
-            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 50%?',
+            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
             [
                 { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
                 { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },

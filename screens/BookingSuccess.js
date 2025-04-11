@@ -12,28 +12,9 @@ export default function BookingSuccess() {
     const { bookingId, transactionId } = route.params || {};
 
     const handleGoToBookings = () => {
-        navigation.dispatch(
-            CommonActions.reset({
-                index: 0,
-                routes: [
-                    {
-                        name: 'MainTabs',
-                        state: {
-                            routes: [
-                                {
-                                    name: 'HomeTabs',
-                                    state: {
-                                        routes: [{ name: 'Booking' }],
-                                        index: 1,
-                                    }
-                                }
-                            ],
-                            index: 0
-                        }
-                    }
-                ],
-            })
-        );
+        navigation.replace('HomeTabs', {
+            screen: 'Booking'
+        });
     };
 
     const handleGoHome = () => {

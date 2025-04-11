@@ -25,7 +25,7 @@ export default function PaymentWebView() {
             try {
                 setProcessedUrls({ [paymentUrl]: true });
                 if (!paymentUrl.includes('vnpayment.vn')) {
-                    if (paymentUrl.includes('192.168.2.17:5139') || paymentUrl.includes('localhost')) {
+                    if (paymentUrl.includes('172.20.10.4:5139') || paymentUrl.includes('localhost')) {
                         setError('URL thanh toán không hợp lệ: URL trỏ về backend thay vì VNPay');
                         setLoading(false);
                     }

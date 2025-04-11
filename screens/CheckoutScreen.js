@@ -266,12 +266,12 @@ const CheckoutScreen = () => {
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              isFullPayment && styles.paymentOptionSelected
+              isFullPayment == true && styles.paymentOptionSelected
             ]}
             onPress={() => setIsFullPayment(true)}
           >
             <View style={styles.radioButton}>
-              {isFullPayment && <View style={styles.radioButtonInner} />}
+              {isFullPayment == true && <View style={styles.radioButtonInner} />}
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
@@ -288,12 +288,12 @@ const CheckoutScreen = () => {
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              !isFullPayment && styles.paymentOptionSelected
+              isFullPayment == false && styles.paymentOptionSelected
             ]}
             onPress={() => setIsFullPayment(false)}
           >
             <View style={styles.radioButton}>
-              {!isFullPayment && <View style={styles.radioButtonInner} />}
+              {isFullPayment == false && <View style={styles.radioButtonInner} />}
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
