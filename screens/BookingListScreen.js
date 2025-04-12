@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, RefreshControl } from 'react-native';
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
@@ -32,7 +32,6 @@ export default function BookingListScreen() {
     const [groupedBookingsList, setGroupedBookingsList] = useState([]);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
-    const [processingPayment, setProcessingPayment] = useState(false);
 
     useEffect(() => {
         fetchBookings();
@@ -118,83 +117,6 @@ export default function BookingListScreen() {
                 return new Date(yearB, monthB - 1) - new Date(yearA, monthA - 1);
             });
         setGroupedBookingsList(groupedList);
-    };
-
-    const handlePayNow = async (bookingId) => {
-        if (processingPayment) return;
-        Alert.alert(
-            'Chọn phương thức thanh toán',
-            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
-            [
-                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
-                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
-                { text: 'Hủy', style: 'cancel' }
-            ]
-        );
-    };
-
-    const processPayment = async (bookingId, isFullPayment) => {
-        setProcessingPayment(true);
-        try {
-            const result = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
-            if (result.success && result.paymentUrl) {
-                navigation.navigate('PaymentWebView', {
-                    paymentUrl: result.paymentUrl,
-                    bookingId: bookingId
-                });
-            } else {
-                Alert.alert(
-                    'Không thể thanh toán',
-                    result.error || 'Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.'
-                );
-            }
-        } catch (error) {
-            console.error('Payment error:', error);
-            Alert.alert(
-                'Lỗi thanh toán',
-                'Đã xảy ra lỗi khi khởi tạo thanh toán. Vui lòng thử lại sau.'
-            );
-        } finally {
-            setProcessingPayment(false);
-        }
-    };
-
-    const handleCancelBooking = async (bookingId, currentStatus, currentPaymentStatus) => {
-        const newStatus = currentStatus === 0 ? 4 : 6;
-        Alert.alert(
-            'Xác nhận hủy đặt phòng',
-            currentStatus === 0
-                ? 'Bạn có chắc chắn muốn hủy đặt phòng này?'
-                : 'Bạn có chắc chắn muốn yêu cầu hoàn trả cho đặt phòng này?',
-            [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Xác nhận',
-                    onPress: async () => {
-                        try {
-                            const result = await bookingApi.changeBookingStatus(bookingId, newStatus, currentPaymentStatus);
-                            if (result.success) {
-                                Alert.alert(
-                                    'Thành công',
-                                    currentStatus === 0
-                                        ? 'Đã hủy đặt phòng thành công'
-                                        : 'Đã gửi yêu cầu hoàn trả thành công'
-                                );
-                                fetchBookings();
-                            } else {
-                                console.log(result.error);
-                            }
-                        } catch (error) {
-                            console.error('Error updating booking status:', error);
-                            Alert.alert(
-                                'Lỗi',
-                                'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng'
-                            );
-                        }
-                    }
-                }
-            ]
-        );
     };
 
     const renderHeader = () => (
@@ -377,40 +299,12 @@ export default function BookingListScreen() {
                     </View>
 
                     <View style={styles.actionsContainer}>
-                        {item.status === 0 && (
-                            <TouchableOpacity
-                                style={styles.payNowBtn}
-                                onPress={() => handlePayNow(item.bookingID)}
-                                disabled={processingPayment}
-                            >
-                                <Text style={styles.payNowText}>Thanh toán</Text>
-                                {processingPayment ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <Ionicons name="card-outline" size={16} color="#fff" />
-                                )}
-                            </TouchableOpacity>
-                        )}
-
-                        {/* Thêm nút hủy đặt phòng cho trạng thái chưa thanh toán và đã thanh toán */}
-                        {(item.status === 0 || item.status === 1) && (
-                            <TouchableOpacity
-                                style={[
-                                    styles.cancelBtn,
-                                    item.status === 1 ? styles.refundBtn : null
-                                ]}
-                                onPress={() => handleCancelBooking(item.bookingID, item.status, item.paymentStatus)}
-                            >
-                                <Text style={styles.cancelBtnText}>
-                                    {item.status === 0 ? 'Hủy' : 'Hoàn trả'}
-                                </Text>
-                                <Ionicons
-                                    name={item.status === 0 ? "close-circle-outline" : "cash-outline"}
-                                    size={16}
-                                    color="#fff"
-                                />
-                            </TouchableOpacity>
-                        )}
+                        <TouchableOpacity
+                            style={styles.payNowBtn}
+                            onPress={() => navigation.navigate('BookingDetail', { bookingId: item.bookingID })}
+                        >
+                            <Text style={styles.payNowText}>Xem chi tiết</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -721,17 +615,13 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginLeft: 6,
     },
-    cardBodySection: {
-        padding: 16,
-    },
+    cardBodySection: { padding: 16 },
     bookingInfoRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 16,
     },
-    bookingInfoItem: {
-        flex: 1,
-    },
+    bookingInfoItem: { flex: 1 },
     bookingInfoLabel: {
         fontSize: 12,
         color: '#888',
@@ -746,9 +636,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#f9f9f9',
-        borderRadius: 12,
-        padding: 12,
         marginBottom: 16,
     },
     dateBox: { flex: 1 },
@@ -762,7 +649,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#333',
     },
-    dateArrow: { marginHorizontal: 10 },
+    dateArrow: { marginHorizontal: 80 },
     guestInfoContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -812,30 +699,6 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     payNowText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    cancelBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F44336',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 12,
-        gap: 6,
-        shadowColor: '#F44336',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 3,
-    },
-    refundBtn: {
-        backgroundColor: '#FF9800',
-        shadowColor: '#FF9800',
-    },
-    cancelBtnText: {
         color: '#fff',
         fontSize: 14,
         fontWeight: '600',
