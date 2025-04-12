@@ -192,7 +192,7 @@ export default function PaymentWebView() {
     const updatePaymentStatusOnBackend = async (params) => {
         try {
             if (!params) return;
-            const apiUrl = 'http://192.168.2.17:5139/api/booking-checkout/vnpay-return';
+            const apiUrl = 'http://192.168.1.8:5139/api/booking-checkout/vnpay-return';
             const formattedParams = {};
             Object.keys(params).forEach(key => {
                 if (key.startsWith('vnp_') || key.startsWith('Vnp_')) {
@@ -452,10 +452,9 @@ export default function PaymentWebView() {
                                     console.error('Error stopping WebView on go back:', error);
                                 }
                             }
-                            // Đặt timeout để đảm bảo WebView có thời gian dọn dẹp
                             setTimeout(() => {
                                 navigation.goBack();
-                            }, 200);
+                            }, 100);
                         }
                     }
                 ]
@@ -476,10 +475,9 @@ export default function PaymentWebView() {
                     console.error('Error stopping WebView on go back:', error);
                 }
             }
-            // Đặt timeout để đảm bảo WebView có thời gian dọn dẹp
             setTimeout(() => {
                 navigation.goBack();
-            }, 200);
+            }, 100);
         }
     };
 

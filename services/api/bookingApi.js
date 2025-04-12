@@ -308,7 +308,53 @@ const bookingApi = {
                 };
             }
         }
-    }
+    },
+
+    getBookingDetails: async (bookingId) => {
+        try {
+            if (!bookingId) {
+                return {
+                    success: false,
+                    error: 'Mã đặt phòng không hợp lệ hoặc trống'
+                };
+            }
+
+            const response = await apiClient.get(`/api/booking-bookingservices/GetBookingByID/${bookingId}`);
+
+            if (response.data && response.data.data) {
+                return {
+                    success: true,
+                    data: response.data.data
+                };
+            } else {
+                return {
+                    success: false,
+                    error: 'Không tìm thấy thông tin đặt phòng'
+                };
+            }
+        } catch (error) {
+            console.error('Lỗi khi lấy chi tiết đặt phòng:', error);
+
+            if (error.response) {
+                return {
+                    success: false,
+                    error: error.response.data?.message || 'Lỗi từ server khi lấy thông tin đặt phòng',
+                    status: error.response.status
+                };
+            } else if (error.request) {
+                return {
+                    success: false,
+                    error: 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.',
+                    networkError: true
+                };
+            } else {
+                return {
+                    success: false,
+                    error: error.message || 'Có lỗi xảy ra khi lấy thông tin đặt phòng'
+                };
+            }
+        }
+    },
 };
 
 export default bookingApi;

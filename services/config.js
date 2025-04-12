@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Tạo instance axios với cấu hình mặc định
 const apiClient = axios.create({
-  baseURL: 'http://192.168.2.17:5139',
+  baseURL: 'http://192.168.1.8:5139',
   // baseURL: 'http://hungnv.iselab.cloud:7221',
   timeout: 10000,
   headers: {

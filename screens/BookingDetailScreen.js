@@ -1,222 +1,509 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, StatusBar } from 'react-native';
-import { Ionicons, FontAwesome5, MaterialIcons, Feather } from 'react-native-vector-icons';
-import { colors } from '../constants/Colors';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking, RefreshControl, Platform, StatusBar, Animated } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
+import bookingApi from '../services/api/bookingApi';
+import { colors } from '../constants/Colors';
+import { FadeInDown } from 'react-native-reanimated';
 
-export default function BookingDetailScreen({ route }) {
-    const { hotelName, bookingCode, price, status, statusColor } = route.params;
+const BookingDetailScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute();
+    const { bookingId } = route.params || {};
+    const [loading, setLoading] = useState(true);
+    const [bookingData, setBookingData] = useState(null);
+    const [error, setError] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [processingPayment, setProcessingPayment] = useState(false);
+    const bookingStatusMapping = {
+        0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
+        1: { label: 'Đã xác nhận', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
+        2: { label: 'Đang lưu trú', color: '#2196F3', bgColor: '#E3F2FD', icon: 'home-outline' },
+        3: { label: 'Đã trả phòng', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'exit-outline' },
+        4: { label: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE', icon: 'close-circle-outline' },
+        5: { label: 'Không đến', color: '#607D8B', bgColor: '#ECEFF1', icon: 'alert-circle-outline' },
+        6: { label: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-outline' }
+    };
+    const paymentStatusMapping = {
+        0: { label: 'Chưa thanh toán', color: '#F44336', bgColor: '#FFEBEE', icon: 'card-outline' },
+        1: { label: 'Đã đặt cọc', color: '#FF9800', bgColor: '#FFF3E0', icon: 'cash-outline' },
+        2: { label: 'Đã thanh toán', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
+        3: { label: 'Đã hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'refresh-outline' }
+    };
 
-    const [showGuestInfo, setShowGuestInfo] = useState(false);
-    const [showPriceDetails, setShowPriceDetails] = useState(false);
+    useEffect(() => {
+        fetchBookingDetails();
+    }, [bookingId]);
 
-    const renderHeader = () => (
-        <LinearGradient
-            colors={[colors.primary, colors.secondary]}
-            style={styles.header}
-        >
-            <TouchableOpacity 
-                style={styles.backButton} 
-                onPress={() => navigation.goBack()}
-            >
-                <BlurView intensity={80} tint="light" style={styles.blurButton}>
-                    <Ionicons name="chevron-back" size={24} color="#fff" />
-                </BlurView>
-            </TouchableOpacity>
-            <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">
-                {hotelName}
-            </Text>
-            <View style={styles.placeholder} />
-        </LinearGradient>
-    );
+    const fetchBookingDetails = async () => {
+        try {
+            setLoading(true);
+            if (!bookingId) {
+                setError('Không tìm thấy mã đặt phòng');
+                setLoading(false);
+                return;
+            }
+            const response = await bookingApi.getBookingDetails(bookingId);
+            if (response.success) {
+                setBookingData(response.data);
+            } else {
+                setError(response.error || 'Không tìm thấy thông tin đặt phòng');
+            }
+        } catch (error) {
+            setError('Đã có lỗi xảy ra khi tải thông tin đặt phòng');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-            {renderHeader()}
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    };
 
-            <ScrollView 
-                style={styles.scrollView}
-                showsVerticalScrollIndicator={false}
-            >
-                <Animated.View 
-                    entering={FadeInDown.delay(100)}
-                    style={styles.content}
-                >
-                    <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-                        <Text style={styles.statusText}>{status}</Text>
+    const formatDateTime = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const formatCurrency = (amount) => {
+        return amount ? amount.toLocaleString('vi-VN') + 'đ' : '0đ';
+    };
+
+    const calculateDays = (checkIn, checkOut) => {
+        if (!checkIn || !checkOut) return 0;
+        const start = new Date(checkIn);
+        const end = new Date(checkOut);
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    };
+
+    const handleCancelBooking = () => {
+        const newStatus = bookingData.status === 0 ? 4 : 6;
+        Alert.alert(
+            'Xác nhận hủy đặt phòng',
+            bookingData.status === 0
+                ? 'Bạn có chắc chắn muốn hủy đặt phòng này?'
+                : 'Bạn có chắc chắn muốn yêu cầu hoàn trả cho đặt phòng này?',
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xác nhận',
+                    onPress: async () => {
+                        try {
+                            const result = await bookingApi.changeBookingStatus(bookingId, newStatus, bookingData.paymentStatus);
+                            if (result.success) {
+                                Alert.alert(
+                                    'Thành công',
+                                    bookingData.status === 0
+                                        ? 'Đã hủy đặt phòng thành công'
+                                        : 'Đã gửi yêu cầu hoàn trả thành công'
+                                );
+                                fetchBookingDetails();
+                            } else {
+                                Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái đặt phòng');
+                            }
+                        } catch (error) {
+                            console.error('Lỗi khi cập nhật trạng thái đặt phòng:', error);
+                            Alert.alert(
+                                'Lỗi',
+                                'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng'
+                            );
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const renderStatus = (status, statusMapping) => {
+        const statusInfo = statusMapping[status] || {
+            label: 'Không xác định',
+            color: '#757575',
+            bgColor: '#F5F5F5',
+            icon: 'help-circle-outline'
+        };
+
+        return (
+            <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
+                <Ionicons name={statusInfo.icon} size={16} color={statusInfo.color} style={styles.statusIcon} />
+                <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                    {statusInfo.label}
+                </Text>
+            </View>
+        );
+    };
+
+    const renderBookingDetails = () => {
+        if (!bookingData) return null;
+
+        return (
+            <View style={styles.detailsContainer}>
+                <View style={styles.bookingHeader}>
+                    <View style={styles.bookingIdContainer}>
+                        <Text style={styles.bookingIdLabel}>Mã đặt phòng</Text>
+                        <Text style={styles.bookingIdValue}>#{bookingData.bookingID}</Text>
                     </View>
+                    <View style={styles.bookingDateContainer}>
+                        <Text style={styles.bookingDateLabel}>Ngày đặt</Text>
+                        <Text style={styles.bookingDateValue}>{formatDateTime(bookingData.bookingDate)}</Text>
+                    </View>
+                </View>
 
-                    {/* Thông tin phòng */}
-                    <View style={styles.card}>
-                        <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
-                            style={styles.cardHeader}
-                        >
-                            <FontAwesome5 name="hotel" size={20} color="#fff" />
-                            <Text style={styles.cardTitle}>{hotelName}</Text>
-                        </LinearGradient>
+                {/* Status Cards */}
+                <View style={styles.statusCardsContainer}>
+                    <View style={styles.statusCard}>
+                        <Text style={styles.statusCardTitle}>Trạng thái đặt phòng</Text>
+                        {renderStatus(bookingData.status, bookingStatusMapping)}
+                    </View>
+                    <View style={styles.statusCard}>
+                        <Text style={styles.statusCardTitle}>Trạng thái thanh toán</Text>
+                        {renderStatus(bookingData.paymentStatus, paymentStatusMapping)}
+                    </View>
+                </View>
 
-                        <View style={styles.cardContent}>
-                            <Text style={styles.roomTitle}>
-                                Phòng Superior, 2 giường đơn, quang cảnh thành phố
-                            </Text>
-                            <Text style={styles.roomSubtitle}>240m²</Text>
-
-                            <View style={styles.infoRow}>
-                                <FontAwesome5 name="moon" size={18} color={colors.textSecondary} />
-                                <View style={styles.infoContent}>
-                                    <Text style={styles.infoLabel}>Số đêm</Text>
-                                    <Text style={styles.infoValue}>1 đêm</Text>
+                {/* Contact Info */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <MaterialIcons name="person" size={24} color={colors.primary} />
+                        <Text style={styles.sectionTitle}>Thông tin liên hệ</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                        <View style={styles.contactInfoContainer}>
+                            <View style={styles.contactInfoRow}>
+                                <View style={styles.contactInfoIconContainer}>
+                                    <MaterialIcons name="person" size={18} color={colors.primary} />
+                                </View>
+                                <View style={styles.contactInfoTextContainer}>
+                                    <Text style={styles.contactInfoLabel}>Họ và tên:</Text>
+                                    <Text style={styles.contactInfoValue}>{bookingData.account?.name || 'Không có thông tin'}</Text>
                                 </View>
                             </View>
 
-                            <View style={styles.infoRow}>
-                                <FontAwesome5 name="user" size={18} color={colors.textSecondary} />
-                                <View style={styles.infoContent}>
-                                    <Text style={styles.infoLabel}>Khách</Text>
-                                    <Text style={styles.infoValue}>1 người lớn</Text>
+                            <View style={styles.contactInfoRow}>
+                                <View style={styles.contactInfoIconContainer}>
+                                    <MaterialIcons name="email" size={18} color={colors.primary} />
+                                </View>
+                                <View style={styles.contactInfoTextContainer}>
+                                    <Text style={styles.contactInfoLabel}>Email:</Text>
+                                    <Text style={styles.contactInfoValue}>{bookingData.account?.email || 'Không có thông tin'}</Text>
                                 </View>
                             </View>
 
-                            <View style={styles.infoRow}>
-                                <Ionicons name="bed-outline" size={20} color={colors.textSecondary} />
-                                <View style={styles.infoContent}>
-                                    <Text style={styles.infoLabel}>Loại giường</Text>
-                                    <Text style={styles.infoValue}>2 giường đơn</Text>
+                            <View style={styles.contactInfoRow}>
+                                <View style={styles.contactInfoIconContainer}>
+                                    <MaterialIcons name="phone" size={18} color={colors.primary} />
                                 </View>
-                            </View>
-
-                            <View style={styles.infoRow}>
-                                <FontAwesome5 name="clock" size={18} color={colors.textSecondary} />
-                                <View style={styles.infoContent}>
-                                    <Text style={styles.infoLabel}>Nhận phòng</Text>
-                                    <Text style={styles.infoValue}>
-                                        Thứ Ba, 04/03/2025 (15:00 - 03:00)
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.infoRow}>
-                                <FontAwesome5 name="clock" size={18} color={colors.textSecondary} />
-                                <View style={styles.infoContent}>
-                                    <Text style={styles.infoLabel}>Trả phòng</Text>
-                                    <Text style={styles.infoValue}>
-                                        Thứ Tư, 05/03/2025 (trước 11:00)
-                                    </Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.infoRow}>
-                                <MaterialIcons name="confirmation-number" size={20} color={colors.textSecondary} />
-                                <View style={styles.infoContent}>
-                                    <Text style={styles.infoLabel}>Mã đặt chỗ</Text>
-                                    <Text style={styles.bookingCode}>{bookingCode}</Text>
+                                <View style={styles.contactInfoTextContainer}>
+                                    <Text style={styles.contactInfoLabel}>Điện thoại:</Text>
+                                    <Text style={styles.contactInfoValue}>{bookingData.account?.phone || 'Không có thông tin'}</Text>
                                 </View>
                             </View>
                         </View>
                     </View>
+                </View>
 
-                    {/* Thông tin khách */}
-                    <Animated.View 
-                        entering={FadeInDown.delay(200)}
-                        style={styles.card}
-                    >
-                        <TouchableOpacity 
-                            style={styles.sectionHeader}
-                            onPress={() => setShowGuestInfo(!showGuestInfo)}
-                        >
-                            <View style={styles.sectionTitleContainer}>
-                                <FontAwesome5 name="user-circle" size={20} color={colors.primary} />
-                                <Text style={styles.sectionTitle}>Thông tin khách</Text>
+                {/* Homestay Info */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <MaterialIcons name="home" size={24} color={colors.primary} />
+                        <Text style={styles.sectionTitle}>Thông tin homestay</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                        <View style={styles.homestayInfoContainer}>
+                            <View style={styles.homestayInfoRow}>
+                                <View style={styles.homestayInfoIconContainer}>
+                                    <MaterialIcons name="business" size={18} color={colors.primary} />
+                                </View>
+                                <View style={styles.homestayInfoTextContainer}>
+                                    <Text style={styles.homestayInfoLabel}>Tên homestay:</Text>
+                                    <Text style={styles.homestayInfoValue}>{bookingData.homeStay?.name || 'Không có thông tin'}</Text>
+                                </View>
                             </View>
-                            <Ionicons 
-                                name={showGuestInfo ? "chevron-up" : "chevron-down"} 
-                                size={24} 
-                                color={colors.primary} 
-                            />
-                        </TouchableOpacity>
 
-                        {showGuestInfo && (
-                            <View style={styles.cardContent}>
-                                <View style={styles.infoRow}>
-                                    <FontAwesome5 name="user" size={18} color={colors.textSecondary} />
-                                    <View style={styles.infoContent}>
-                                        <Text style={styles.infoLabel}>Tên khách hàng</Text>
-                                        <Text style={styles.infoValue}>NGUYEN VAN A</Text>
+                            <View style={styles.homestayInfoRow}>
+                                <View style={styles.homestayInfoIconContainer}>
+                                    <MaterialIcons name="location-on" size={18} color={colors.primary} />
+                                </View>
+                                <View style={styles.homestayInfoTextContainer}>
+                                    <Text style={styles.homestayInfoLabel}>Địa chỉ:</Text>
+                                    <Text style={styles.homestayInfoValue}>{bookingData.homeStay?.address || 'Không có thông tin'}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Room Details */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <MaterialIcons name="hotel" size={24} color={colors.primary} />
+                        <Text style={styles.sectionTitle}>Chi tiết đặt phòng</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                        {/* Common booking dates and nights */}
+                        <View style={styles.bookingDatesContainer}>
+                            <View style={styles.bookingDateItem}>
+                                <Text style={styles.bookingDateLabel}>Ngày nhận phòng</Text>
+                                <Text style={styles.bookingDateValue}>{formatDate(bookingData.bookingDetails?.[0]?.checkInDate)}</Text>
+                            </View>
+                            <View style={styles.bookingDateItem}>
+                                <Text style={styles.bookingDateLabel}>Ngày trả phòng</Text>
+                                <Text style={styles.bookingDateValue}>{formatDate(bookingData.bookingDetails?.[0]?.checkOutDate)}</Text>
+                            </View>
+                            <View style={styles.bookingDateItem}>
+                                <Text style={styles.bookingDateLabel}>Số đêm</Text>
+                                <Text style={styles.bookingDateValue}>{calculateDays(bookingData.bookingDetails?.[0]?.checkInDate, bookingData.bookingDetails?.[0]?.checkOutDate)} đêm</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.bookingDatesDivider} />
+
+                        {/* Room list */}
+                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => (
+                            <View key={detail.bookingDetailID} style={styles.roomCard}>
+                                <View style={styles.roomHeader}>
+                                    <View style={styles.roomTitleContainer}>
+                                        <MaterialIcons name="bed" size={20} color={colors.primary} />
+                                        <Text style={styles.roomTitle}>Phòng {index + 1}</Text>
                                     </View>
                                 </View>
 
-                                <View style={styles.infoRow}>
-                                    <FontAwesome5 name="phone-alt" size={18} color={colors.textSecondary} />
-                                    <View style={styles.infoContent}>
-                                        <Text style={styles.infoLabel}>Số điện thoại</Text>
-                                        <Text style={styles.infoValue}>0327953466</Text>
-                                    </View>
+                                <View style={styles.roomTotal}>
+                                    <Text style={styles.roomTotalLabel}>Thành tiền</Text>
+                                    <Text style={styles.roomTotalValue}>{formatCurrency(detail.totalAmount)}</Text>
                                 </View>
+                            </View>
+                        ))}
+                    </View>
+                </View>
 
-                                <View style={styles.infoRow}>
-                                    <Feather name="mail" size={18} color={colors.textSecondary} />
-                                    <View style={styles.infoContent}>
-                                        <Text style={styles.infoLabel}>Email</Text>
-                                        <Text style={styles.infoValue}>lmn050103@gmail.com</Text>
+                {/* Additional Services */}
+                {bookingData.bookingServices && bookingData.bookingServices.length > 0 && (
+                    <View style={styles.sectionCard}>
+                        <View style={styles.sectionHeader}>
+                            <MaterialIcons name="room-service" size={24} color={colors.primary} />
+                            <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
+                        </View>
+                        <View style={styles.sectionContent}>
+                            {bookingData.bookingServices.map((service) => (
+                                <View key={service.bookingServiceID} style={styles.serviceCard}>
+                                    <View style={styles.serviceInfo}>
+                                        <MaterialIcons name="local-offer" size={20} color={colors.primary} />
+                                        <Text style={styles.serviceName}>{service.serviceName || 'Dịch vụ'}</Text>
                                     </View>
+                                    <Text style={styles.servicePrice}>{formatCurrency(service.price)}</Text>
                                 </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                {/* Payment Summary */}
+                <View style={styles.sectionCard}>
+                    <View style={styles.sectionHeader}>
+                        <MaterialIcons name="payment" size={24} color={colors.primary} />
+                        <Text style={styles.sectionTitle}>Thông tin thanh toán</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                        <View style={styles.paymentItem}>
+                            <Text style={styles.paymentLabel}>Tổng tiền phòng</Text>
+                            <Text style={styles.paymentValue}>{formatCurrency(bookingData.totalRentPrice)}</Text>
+                        </View>
+
+                        {bookingData.bookingServices && bookingData.bookingServices.length > 0 && (
+                            <View style={styles.paymentItem}>
+                                <Text style={styles.paymentLabel}>Tổng tiền dịch vụ</Text>
+                                <Text style={styles.paymentValue}>
+                                    {formatCurrency(
+                                        bookingData.bookingServices.reduce((sum, service) => sum + (service.price || 0), 0)
+                                    )}
+                                </Text>
                             </View>
                         )}
-                    </Animated.View>
 
-                    {/* Chi tiết giá */}
-                    <Animated.View 
-                        entering={FadeInDown.delay(300)}
-                        style={styles.card}
-                    >
-                        <TouchableOpacity 
-                            style={styles.sectionHeader}
-                            onPress={() => setShowPriceDetails(!showPriceDetails)}
-                        >
-                            <View style={styles.sectionTitleContainer}>
-                                <MaterialIcons name="payment" size={20} color={colors.primary} />
-                                <Text style={styles.sectionTitle}>Chi tiết giá</Text>
-                            </View>
-                            <Ionicons 
-                                name={showPriceDetails ? "chevron-up" : "chevron-down"} 
-                                size={24} 
-                                color={colors.primary} 
-                            />
-                        </TouchableOpacity>
+                        {bookingData.paymentStatus === 1 && (
+                            <>
+                                <View style={styles.paymentItem}>
+                                    <Text style={styles.paymentLabel}>Đã đặt cọc</Text>
+                                    <Text style={styles.paymentValue}>{formatCurrency(bookingData.bookingDeposit)}</Text>
+                                </View>
 
-                        {showPriceDetails && (
-                            <View style={styles.cardContent}>
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Giá phòng (1 đêm)</Text>
-                                    <Text style={styles.priceValue}>1.000.000 đ</Text>
+                                <View style={styles.paymentItem}>
+                                    <Text style={styles.paymentLabel}>Còn lại</Text>
+                                    <Text style={styles.paymentValue}>{formatCurrency(bookingData.remainingBalance)}</Text>
                                 </View>
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Phí dịch vụ</Text>
-                                    <Text style={styles.priceValue}>100.000 đ</Text>
-                                </View>
-                                <View style={styles.priceRow}>
-                                    <Text style={styles.priceLabel}>Thuế</Text>
-                                    <Text style={styles.priceValue}>126.000 đ</Text>
-                                </View>
-                                <View style={styles.divider} />
-                                <View style={styles.totalRow}>
-                                    <Text style={styles.totalLabel}>Tổng tiền</Text>
-                                    <Text style={styles.totalValue}>{price}</Text>
-                                </View>
-                            </View>
+                            </>
                         )}
-                    </Animated.View>
+                        <View style={styles.paymentDivider} />
+                        <View style={styles.paymentTotal}>
+                            <Text style={styles.paymentTotalLabel}>Tổng cộng</Text>
+                            <Text style={styles.paymentTotalValue}>{formatCurrency(bookingData.total)}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
+    const renderActionButtons = () => {
+        if (!bookingData) return null;
+        const canCancel = bookingData.status === 0 || bookingData.status === 1;
+        const canPay = bookingData.paymentStatus === 0;
+        const canBookService = bookingData.status === 1;
+
+        return (
+            <View style={styles.actionButtons}>
+                {canCancel && (
+                    <TouchableOpacity style={styles.cancelButton} onPress={handleCancelBooking}>
+                        <Ionicons name="close-circle-outline" size={20} color="#FF5252" />
+                        <Text style={styles.cancelButtonText}>Hủy đặt phòng</Text>
+                    </TouchableOpacity>
+                )}
+
+                {canPay && (
+                    <TouchableOpacity
+                        style={styles.payButton}
+                        onPress={() => handlePayNow(bookingId)}
+                        disabled={processingPayment}
+                    >
+                        {processingPayment ? (
+                            <ActivityIndicator color="#FFF" size="small" />
+                        ) : (
+                            <>
+                                <Ionicons name="card-outline" size={20} color="#FFF" />
+                                <Text style={styles.payButtonText}>Thanh toán ngay</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                )}
+
+                {canBookService && (
+                    <TouchableOpacity
+                        style={styles.serviceButton}
+                        onPress={handleBookService}
+                    >
+                        <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+                        <Text style={styles.serviceButtonText}>Đặt dịch vụ</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    };
+
+    const handleBookService = () => {
+        navigation.navigate('BookService', { bookingId: bookingId });
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchBookingDetails();
+        setRefreshing(false);
+    };
+
+    const processPayment = async (bookingId, isFullPayment) => {
+        try {
+            setProcessingPayment(true);
+            const response = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
+            if (response.success && response.paymentUrl) {
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: response.paymentUrl,
+                    bookingId: bookingId,
+                    onPaymentComplete: () => {
+                        fetchBookingDetails();
+                    }
+                });
+            } else {
+                Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tạo URL thanh toán:', error);
+            Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
+        } finally {
+            setProcessingPayment(false);
+        }
+    };
+
+    const handlePayNow = async (bookingId) => {
+        if (processingPayment) return;
+        Alert.alert(
+            'Chọn phương thức thanh toán',
+            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
+            [
+                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
+                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
+                { text: 'Hủy', style: 'cancel' }
+            ]
+        );
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Đang tải thông tin đặt phòng...</Text>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle-outline" size={60} color="#FF5252" />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchBookingDetails}>
+                    <Text style={styles.retryButtonText}>Thử lại</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+
+            {/* Header */}
+            <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                style={styles.header}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+            >
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.replace('HomeTabs', { screen: 'Booking' })}>
+                    <BlurView intensity={80} tint="light" style={styles.blurButton}>
+                        <Ionicons name="chevron-back" size={24} color="#fff" />
+                    </BlurView>
+                </TouchableOpacity>
+                <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">
+                    Chi tiết đặt phòng
+                </Text>
+                <View style={styles.placeholder} />
+            </LinearGradient>
+
+            {/* Content */}
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
+            >
+                <Animated.View
+                    entering={FadeInDown.delay(100)}
+                    style={styles.content}
+                >
+                    {renderBookingDetails()}
                 </Animated.View>
             </ScrollView>
-        </View>
+            {renderActionButtons()}
+        </View >
     );
-}
+};
 
 const styles = StyleSheet.create({
     container: {
@@ -232,6 +519,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
     backButton: {
         width: 40,
@@ -253,148 +545,386 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginHorizontal: 10,
     },
-    placeholder: {
-        width: 40,
+    placeholder: { width: 40 },
+    scrollView: { flex: 1 },
+    content: { padding: 16 },
+    detailsContainer: { marginBottom: 20 },
+    bookingHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
     },
-    scrollView: {
+    bookingIdContainer: {
         flex: 1,
-    },
-    content: {
-        padding: 20,
-    },
-    statusBadge: {
-        alignSelf: 'flex-start',
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        borderRadius: 20,
-        marginBottom: 20,
-    },
-    statusText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#fff',
-    },
-    card: {
         backgroundColor: '#fff',
-        borderRadius: 15,
-        marginBottom: 20,
-        overflow: 'hidden',
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 4,
-            },
-        }),
+        borderRadius: 12,
+        padding: 16,
+        marginRight: 8,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
     },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 15,
-        borderTopLeftRadius: 15,
-        borderTopRightRadius: 15,
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#fff',
-        marginLeft: 10,
-    },
-    cardContent: {
-        padding: 15,
-    },
-    roomTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: colors.textPrimary,
-        marginBottom: 5,
-    },
-    roomSubtitle: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        marginBottom: 15,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    infoContent: {
-        marginLeft: 15,
-        flex: 1,
-    },
-    infoLabel: {
-        fontSize: 14,
+    bookingIdLabel: {
+        fontSize: 12,
         color: colors.textSecondary,
         marginBottom: 4,
     },
-    infoValue: {
-        fontSize: 16,
+    bookingIdValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    bookingDateContainer: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginLeft: 8,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+    },
+    bookingDateLabel: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginBottom: 4,
+    },
+    bookingDateValue: {
+        fontSize: 14,
         color: colors.textPrimary,
         fontWeight: '500',
     },
-    bookingCode: {
-        fontSize: 16,
+    statusCardsContainer: {
+        flexDirection: 'row',
+        marginBottom: 16,
+    },
+    statusCard: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginHorizontal: 4,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+    },
+    statusCardTitle: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginBottom: 8,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    statusIcon: { marginRight: 6 },
+    statusText: {
+        fontSize: 12,
         fontWeight: '600',
-        color: colors.primary,
+    },
+    sectionCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        marginBottom: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        overflow: 'hidden',
     },
     sectionHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 15,
-        backgroundColor: '#fff',
-    },
-    sectionTitleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: colors.textPrimary,
-        marginLeft: 10,
+        marginLeft: 12,
     },
-    priceRow: {
+    sectionContent: { padding: 16 },
+    roomCard: {
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+    },
+    roomHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 12,
     },
-    priceLabel: {
+    roomTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    roomTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+        marginLeft: 8,
+    },
+    roomTotal: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    roomTotalLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+    },
+    roomTotalValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    serviceCard: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 8,
+    },
+    serviceInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    serviceName: {
+        fontSize: 14,
+        color: colors.textPrimary,
+        marginLeft: 8,
+        flex: 1,
+    },
+    servicePrice: {
+        fontSize: 14,
+        color: colors.primary,
+        fontWeight: '500',
+    },
+    paymentItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    paymentLabel: {
         fontSize: 14,
         color: colors.textSecondary,
     },
-    priceValue: {
+    paymentValue: {
         fontSize: 14,
         color: colors.textPrimary,
         fontWeight: '500',
     },
-    divider: {
+    paymentDivider: {
         height: 1,
         backgroundColor: '#f0f0f0',
         marginVertical: 12,
     },
-    totalRow: {
+    paymentTotal: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 4,
     },
-    totalLabel: {
+    paymentTotalLabel: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: colors.textPrimary,
     },
-    totalValue: {
+    paymentTotalValue: {
         fontSize: 18,
         fontWeight: 'bold',
         color: colors.primary,
     },
+    actionButtons: {
+        padding: 16,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    cancelButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#FF5252',
+        marginRight: 8,
+        marginBottom: 8,
+        flex: 1,
+    },
+    cancelButtonText: {
+        color: '#FF5252',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    payButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: colors.primary,
+        marginRight: 8,
+        marginBottom: 8,
+        flex: 1,
+    },
+    payButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    serviceButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: '#4CAF50',
+        marginRight: 8,
+        marginBottom: 8,
+        flex: 1,
+    },
+    serviceButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: colors.textSecondary,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#fff',
+    },
+    errorText: {
+        marginTop: 10,
+        fontSize: 16,
+        textAlign: 'center',
+        color: '#757575',
+        marginBottom: 20,
+    },
+    retryButton: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    bookingDatesContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        padding: 12,
+    },
+    bookingDateItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    bookingDatesDivider: {
+        height: 1,
+        backgroundColor: '#f0f0f0',
+        marginBottom: 16,
+    },
+    contactInfoContainer: { borderRadius: 8 },
+    contactInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingVertical: 4,
+    },
+    contactInfoIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0, 122, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    contactInfoTextContainer: {
+        flex: 1,
+        justifyContent: 'space-between',
+        flexDirection: 'row',
+    },
+    contactInfoLabel: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: colors.textSecondary,
+        marginBottom: 2,
+    },
+    contactInfoValue: {
+        fontSize: 15,
+        color: colors.textPrimary,
+    },
+    homestayInfoContainer: { borderRadius: 8 },
+    homestayInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingVertical: 4,
+    },
+    homestayInfoIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0, 122, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    homestayInfoTextContainer: { flex: 1 },
+    homestayInfoLabel: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: colors.textSecondary,
+        marginBottom: 2,
+    },
+    homestayInfoValue: {
+        fontSize: 15,
+        color: colors.textPrimary,
+    },
 });
+
+export default BookingDetailScreen;
