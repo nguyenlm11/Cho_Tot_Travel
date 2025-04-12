@@ -43,10 +43,8 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching services for homestayId:', actualHomeStayId);
       const result = await serviceApi.getAllServices(actualHomeStayId);
       if (result.success) {
-        console.log('Services fetched successfully:', result.data);
         setServices(result.data || []);
       } else {
         console.error('Error fetching services:', result.error);

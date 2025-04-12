@@ -1,4 +1,5 @@
 import apiClient from '../config';
+import axios from 'axios';
 
 const bookingApi = {
     createBooking: async (bookingData) => {
@@ -353,6 +354,51 @@ const bookingApi = {
                     error: error.message || 'Có lỗi xảy ra khi lấy thông tin đặt phòng'
                 };
             }
+        }
+    },
+
+    createBookingServices: async (data) => {
+        try {
+            const response = await apiClient.post(`/api/bookingservices/CreateBookingServices?paymentServicesMethod=1`, data, {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            console.error('Error creating booking services:', error);
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Không thể tạo dịch vụ đặt phòng'
+            };
+        }
+    },
+
+    getBookingServicePaymentUrl: async (bookingServiceId, isFullPayment = true) => {
+        try {
+            const response = await apiClient.post(
+                `/api/booking-checkout/BookingServicePayment?bookingServiceId=${bookingServiceId}&isFullPayment=${isFullPayment}`,
+                {},
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    timeout: 30000
+                }
+            );
+            return {
+                success: true,
+                paymentUrl: response.data
+            };
+        } catch (error) {
+            console.error('Error getting booking service payment URL:', error);
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Không thể tạo URL thanh toán dịch vụ'
+            };
         }
     },
 };

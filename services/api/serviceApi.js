@@ -3,8 +3,6 @@ import apiClient, { BASE_URL } from '../config';
 
 const serviceApi = {
     getAllServices: async (homestayId) => {
-        console.log(`Calling getAllServices API with homestayId: ${homestayId}`);
-        
         if (!homestayId) {
             console.error('Missing homestayId parameter in getAllServices');
             return {
@@ -12,12 +10,9 @@ const serviceApi = {
                 error: 'Thiếu tham số homestayId'
             };
         }
-        
+
         try {
-            console.log(`API URL: /api/Service/GetAllServices/${homestayId}`);
             const response = await apiClient.get(`/api/Service/GetAllServices/${homestayId}`);
-            console.log('API Response:', response.data);
-            
             if (response.data && response.data.data) {
                 return {
                     success: true,
