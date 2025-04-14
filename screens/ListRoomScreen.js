@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, Platform, Alert, Image, } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, Platform, Alert, Image, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeInDown, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import PropTypes from 'prop-types';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
 import CalendarModal from '../components/Modal/CalendarModal';
@@ -12,35 +13,211 @@ import { useSearch } from '../contexts/SearchContext';
 import { useCart } from '../contexts/CartContext';
 import CartBadge from '../components/CartBadge';
 
+const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
+    const scale = useSharedValue(1);
+
+    const handlePressIn = useCallback(() => {
+        scale.value = withSpring(0.97, { damping: 15 });
+    }, [scale]);
+
+    const handlePressOut = useCallback(() => {
+        scale.value = withSpring(1, { damping: 15 });
+    }, [scale]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }]
+    }));
+
+    return (
+        <Animated.View
+            style={[styles.itemContainer, animatedStyle]}
+            entering={FadeInDown.delay(index * 80).springify()}
+        >
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                onPress={() => onSelectRoom(item)}
+            >
+                <Animated.View
+                    style={[styles.roomCard, isSelected && styles.selectedRoomCard]}>
+                    <View style={styles.roomImageContainer}>
+                        <Image
+                            source={{ uri: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                            style={styles.roomImage}
+                        />
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.5)']}
+                            style={styles.imageOverlay}
+                        />
+                        <View style={styles.roomNumberContainer}>
+                            <LinearGradient
+                                colors={[isSelected ? colors.secondary : colors.primary, isSelected ? colors.primary : colors.secondary]}
+                                style={styles.roomNumberBadge}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                <Text style={styles.roomNumberText}>Phòng {item.roomNumber}</Text>
+                            </LinearGradient>
+                        </View>
+                    </View>
+
+                    <View style={styles.roomContent}>
+                        <View style={styles.roomInfoSection}>
+                            <Text style={styles.roomName}>Phòng {item.roomNumber}</Text>
+                        </View>
+                    </View>
+
+                    {isSelected && (
+                        <LinearGradient
+                            colors={[colors.primary, colors.secondary]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.selectedBadge}
+                        >
+                            <FontAwesome5 name="check-circle" size={16} color="#fff" solid />
+                            <Text style={styles.selectedBadgeText}>Đã chọn</Text>
+                        </LinearGradient>
+                    )}
+                </Animated.View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+});
+
+RoomItem.propTypes = {
+    item: PropTypes.shape({
+        roomID: PropTypes.number.isRequired,
+        roomNumber: PropTypes.string.isRequired,
+    }).isRequired,
+    index: PropTypes.number.isRequired,
+    onSelectRoom: PropTypes.func.isRequired,
+    isSelected: PropTypes.bool.isRequired,
+};
+
+const FilterHeader = React.memo(({ onPress, checkInDate, checkOutDate }) => {
+    const formatDate = useCallback((dateString) => {
+        if (!dateString) return 'Chưa chọn';
+
+        if (dateString.includes('/')) {
+            const [day, month, year] = dateString.split('/');
+            const date = new Date(year, month - 1, day);
+            return date.toLocaleDateString('vi-VN', {
+                weekday: 'long',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        }
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return 'Định dạng không hợp lệ';
+        }
+
+        return date.toLocaleDateString('vi-VN', {
+            weekday: 'long',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    }, []);
+
+    return (
+        <View style={styles.filterHeader}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filterScrollContent}
+            >
+                <TouchableOpacity style={styles.filterChip} onPress={onPress}>
+                    <Ionicons name="calendar-outline" size={20} color="#ffffff" />
+                    <Text style={styles.filterText}>
+                        {formatDate(checkInDate)} - {formatDate(checkOutDate)}
+                    </Text>
+                </TouchableOpacity>
+            </ScrollView>
+        </View>
+    );
+});
+
+FilterHeader.propTypes = {
+    onPress: PropTypes.func.isRequired,
+    checkInDate: PropTypes.string,
+    checkOutDate: PropTypes.string,
+};
+
+const LoadingState = React.memo(() => (
+    <View style={styles.loadingContainer}>
+        <View style={styles.loadingIconContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+        <Text style={styles.loadingText}>Đang tải danh sách phòng...</Text>
+    </View>
+));
+
+const EmptyState = React.memo(({ onRetry }) => (
+    <View style={styles.emptyContainer}>
+        <Image
+            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/6598/6598519.png' }}
+            style={styles.emptyImage}
+            resizeMode="contain"
+        />
+        <Text style={styles.emptyTitle}>Không tìm thấy phòng phù hợp</Text>
+        <Text style={styles.emptyText}>
+            Không có phòng nào phù hợp với tiêu chí tìm kiếm của bạn.
+            Hãy thử thay đổi ngày hoặc tìm kiếm khác.
+        </Text>
+        <TouchableOpacity
+            style={styles.retryButton}
+            onPress={onRetry}
+        >
+            <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.retryButtonGradient}
+            >
+                <Text style={styles.retryText}>Thay đổi tìm kiếm</Text>
+            </LinearGradient>
+        </TouchableOpacity>
+    </View>
+));
+
+EmptyState.propTypes = {
+    onRetry: PropTypes.func.isRequired,
+};
+
 export default function ListRoomScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const roomTypeId = route.params?.roomTypeId;
-    const roomTypeName = route.params?.roomTypeName;
-    const homeStayId = route.params?.homeStayId;
-    const rentalId = route.params?.rentalId;
     const { currentSearch, updateCurrentSearch } = useSearch();
-    const { addRoomToCart, removeRoomFromCart, isRoomInCart, getCartCount } = useCart();
+    const { addRoomToCart, removeRoomFromCart, isRoomInCart, getCartCount, clearCart } = useCart();
+
+    const { roomTypeId, roomTypeName, homeStayId, rentalId } = route.params || {};
+
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
-    const [isUpdating, setIsUpdating] = useState(false);
 
-    const params = {};
-    if (homeStayId) params.homeStayId = homeStayId;
-    if (rentalId) params.rentalId = rentalId;
+    const params = useMemo(() => {
+        const result = {};
+        if (homeStayId) result.homeStayId = homeStayId;
+        if (rentalId) result.rentalId = rentalId;
+        return result;
+    }, [homeStayId, rentalId]);
 
-    const formattedCheckInDate = currentSearch?.checkInDate ?
-        currentSearch.checkInDate.split(', ')[1] : null;
-    const formattedCheckOutDate = currentSearch?.checkOutDate ?
-        currentSearch.checkOutDate.split(', ')[1] : null;
+    const formattedCheckInDate = useMemo(() => 
+        currentSearch?.checkInDate ? currentSearch.checkInDate.split(', ')[1] : null,
+        [currentSearch?.checkInDate]
+    );
+    const formattedCheckOutDate = useMemo(() => 
+        currentSearch?.checkOutDate ? currentSearch.checkOutDate.split(', ')[1] : null,
+        [currentSearch?.checkOutDate]
+    );
 
-    useEffect(() => {
-        fetchRooms();
-    }, []);
-
-    const fetchRooms = async () => {
+    const fetchRooms = useCallback(async () => {
         if (!roomTypeId) {
             setError("Không tìm thấy thông tin loại phòng");
             setLoading(false);
@@ -66,11 +243,14 @@ export default function ListRoomScreen() {
             setError('Không thể tải thông tin phòng. Vui lòng thử lại sau.');
         } finally {
             setLoading(false);
-            setIsUpdating(false);
         }
-    };
+    }, [roomTypeId, currentSearch.formattedCheckIn, currentSearch.formattedCheckOut]);
 
-    const toggleRoomSelection = (room) => {
+    useEffect(() => {
+        fetchRooms();
+    }, [fetchRooms]);
+
+    const toggleRoomSelection = useCallback((room) => {
         if (isRoomInCart(room.roomID)) {
             removeRoomFromCart(room.roomID);
         } else {
@@ -82,9 +262,9 @@ export default function ListRoomScreen() {
                 currentSearch?.formattedCheckOut
             );
         }
-    };
+    }, [isRoomInCart, removeRoomFromCart, addRoomToCart, roomTypeId, roomTypeName, params, currentSearch]);
 
-    const handleDateSelect = (dateInfo) => {
+    const handleDateSelect = useCallback(async (dateInfo) => {
         const updatedSearch = {
             ...currentSearch,
             checkInDate: dateInfo.formattedDate,
@@ -94,189 +274,33 @@ export default function ListRoomScreen() {
         };
         updateCurrentSearch(updatedSearch);
         setCalendarVisible(false);
-    };
+        clearCart();
+        setLoading(true);
+        await fetchRooms();
+    }, [currentSearch, updateCurrentSearch, clearCart, fetchRooms]);
 
-    const updateSearch = () => {
-        if (!currentSearch?.formattedCheckIn || !currentSearch?.formattedCheckOut) {
-            Alert.alert("Thông báo", "Vui lòng chọn đầy đủ ngày check-in và check-out");
-            return;
-        }
-        setIsUpdating(true);
-        fetchRooms();
-    };
-
-    const RoomItem = ({ item, index }) => {
-        const scale = useSharedValue(1);
+    const renderRoomItem = useCallback(({ item, index }) => {
         const isSelected = isRoomInCart(item.roomID);
-        const handlePressIn = () => { scale.value = withSpring(0.97, { damping: 15 }) };
-        const handlePressOut = () => { scale.value = withSpring(1, { damping: 15 }) };
-        const handleSelectRoom = () => { toggleRoomSelection(item) };
-
         return (
-            <Animated.View
-                style={styles.itemContainer}
-                entering={FadeInDown.delay(index * 80).springify()}
-            >
-                <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPressIn={handlePressIn}
-                    onPressOut={handlePressOut}
-                    onPress={handleSelectRoom}
-                >
-                    <Animated.View
-                        style={[styles.roomCard, isSelected && styles.selectedRoomCard]}>
-                        <View style={styles.roomImageContainer}>
-                            <Image
-                                source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
-                                style={styles.roomImage}
-                            />
-                            <View style={styles.roomNumberContainer}>
-                                <LinearGradient
-                                    colors={[isSelected ? colors.secondary : colors.primary, isSelected ? colors.primary : colors.secondary]}
-                                    style={styles.roomNumberBadge}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                >
-                                    <Text style={styles.roomNumberText}>{item.roomNumber}</Text>
-                                </LinearGradient>
-                            </View>
-                        </View>
-
-                        <View style={styles.roomContent}>
-                            <View style={styles.roomInfoSection}>
-                                <Text style={styles.roomName}>Phòng {item.roomNumber}</Text>
-                            </View>
-
-                            <View style={styles.roomDetailsContainer}>
-                                <View style={styles.featureContainer}>
-                                    <View style={styles.featureItem}>
-                                        <LinearGradient
-                                            colors={[colors.primary + '20', colors.primary + '10']}
-                                            style={styles.featureIconContainer}
-                                        >
-                                            <FontAwesome5 name="bed" size={14} color={colors.primary} />
-                                        </LinearGradient>
-                                        <Text style={styles.featureText}>{item.beds} giường</Text>
-                                    </View>
-
-                                    <View style={styles.featureItem}>
-                                        <LinearGradient
-                                            colors={[colors.primary + '20', colors.primary + '10']}
-                                            style={styles.featureIconContainer}
-                                        >
-                                            <FontAwesome5 name="calendar-check" size={14} color={colors.primary} />
-                                        </LinearGradient>
-                                        <Text style={styles.featureText}>Có sẵn</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-
-                        {isSelected && (
-                            <LinearGradient
-                                colors={[colors.primary, colors.secondary]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.selectedBadge}
-                            >
-                                <FontAwesome5 name="check-circle" size={16} color="#fff" solid />
-                                <Text style={styles.selectedBadgeText}>Đã chọn</Text>
-                            </LinearGradient>
-                        )}
-                    </Animated.View>
-                </TouchableOpacity>
-            </Animated.View>
-        );
-    };
-
-    const FilterHeader = () => (
-        <Animated.View style={styles.filterBar}>
-            <View style={styles.filterChipsContainer}>
-                <TouchableOpacity
-                    style={styles.filterChip}
-                    onPress={() => setCalendarVisible(true)}
-                >
-                    <LinearGradient
-                        colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.15)']}
-                        style={styles.filterChipGradient}
-                    >
-                        <Ionicons name="calendar-outline" size={20} color="#fff" />
-                        <Text style={styles.filterText}>
-                            {formattedCheckInDate || 'Ngày nhận'} - {formattedCheckOutDate || 'Ngày trả'}
-                        </Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-                style={styles.editButton}
-                onPress={updateSearch}
-                disabled={isUpdating}
-            >
-                <BlurView intensity={80} tint="dark" style={styles.editButtonBlur}>
-                    {isUpdating ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <View style={styles.editButtonContent}>
-                            <Ionicons name="refresh-outline" size={18} color="#fff" />
-                            <Text style={styles.editButtonText}>Cập nhật</Text>
-                        </View>
-                    )}
-                </BlurView>
-            </TouchableOpacity>
-        </Animated.View>
-    );
-
-    const LoadingState = () => (
-        <View style={styles.loadingContainer}>
-            <View style={styles.loadingIconContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-            <Text style={styles.loadingText}>Đang tải danh sách phòng...</Text>
-        </View>
-    );
-
-    const EmptyState = () => (
-        <View style={styles.emptyContainer}>
-            <Image
-                source={{ uri: 'https://cdn-icons-png.flaticon.com/512/6598/6598519.png' }}
-                style={styles.emptyImage}
-                resizeMode="contain"
+            <RoomItem
+                item={item}
+                index={index}
+                isSelected={isSelected}
+                onSelectRoom={toggleRoomSelection}
             />
-            <Text style={styles.emptyTitle}>Không tìm thấy phòng phù hợp</Text>
-            <Text style={styles.emptyText}>
-                Không có phòng nào phù hợp với tiêu chí tìm kiếm của bạn.
-                Hãy thử thay đổi ngày hoặc tìm kiếm khác.
-            </Text>
-            <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => setCalendarVisible(true)}
-            >
-                <LinearGradient
-                    colors={[colors.primary, colors.secondary]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.retryButtonGradient}
-                >
-                    <Text style={styles.retryText}>Thay đổi tìm kiếm</Text>
-                </LinearGradient>
-            </TouchableOpacity>
-        </View>
-    );
-
-    if (loading && !isUpdating) {
-        return (
-            <View style={styles.loadingContainer}>
-                <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-                <LinearGradient
-                    colors={[colors.primary + '30', colors.primary + '10']}
-                    style={styles.loadingIconContainer}
-                >
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </LinearGradient>
-                <Text style={styles.loadingText}>Đang tìm phòng trống...</Text>
-            </View>
         );
+    }, [isRoomInCart, toggleRoomSelection]);
+
+    const handleOpenCalendar = useCallback(() => {
+        setCalendarVisible(true);
+    }, []);
+
+    const handleCloseCalendar = useCallback(() => {
+        setCalendarVisible(false);
+    }, []);
+
+    if (loading) {
+        return <LoadingState />;
     }
 
     return (
@@ -303,22 +327,26 @@ export default function ListRoomScreen() {
                 </Animated.Text>
                 <View style={styles.rightPlaceholder} />
             </LinearGradient>
-            <FilterHeader />
+            <FilterHeader
+                onPress={handleOpenCalendar}
+                checkInDate={formattedCheckInDate}
+                checkOutDate={formattedCheckOutDate}
+            />
             <FlatList
                 data={rooms}
                 keyExtractor={(item) => `room-${item.roomID}`}
-                renderItem={({ item, index }) => <RoomItem item={item} index={index} />}
+                renderItem={renderRoomItem}
                 contentContainerStyle={[
                     styles.listContainer,
                     { paddingBottom: getCartCount(params) > 0 ? 80 : 16 }
                 ]}
                 showsVerticalScrollIndicator={false}
-                ListEmptyComponent={!loading && error ? <EmptyState /> : null}
+                ListEmptyComponent={!loading && error ? <EmptyState onRetry={handleOpenCalendar} /> : null}
             />
             <CartBadge params={params} />
             <CalendarModal
                 visible={isCalendarVisible}
-                onClose={() => setCalendarVisible(false)}
+                onClose={handleCloseCalendar}
                 onDateSelect={handleDateSelect}
                 selectedDate={currentSearch?.checkInDate}
             />
@@ -361,53 +389,27 @@ const styles = StyleSheet.create({
     rightPlaceholder: {
         width: 40,
     },
-    filterBar: {
+    filterHeader: {
+        backgroundColor: colors.primary,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: colors.primary + 'DD',
+        paddingVertical: 10,
     },
-    filterChipsContainer: {
-        flex: 1,
-        flexDirection: 'row',
+    filterScrollContent: {
+        paddingHorizontal: 15,
     },
     filterChip: {
-        flex: 1,
-        borderRadius: 20,
-        overflow: 'hidden',
-        marginRight: 8,
-    },
-    filterChipGradient: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
         paddingHorizontal: 12,
         paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 10,
     },
     filterText: {
         color: '#fff',
         marginLeft: 6,
-        fontWeight: '500',
-    },
-    editButton: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    editButtonBlur: {
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        overflow: 'hidden',
-    },
-    editButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    editButtonText: {
-        color: '#fff',
-        fontWeight: '500',
         fontSize: 14,
     },
     listContainer: {
@@ -478,34 +480,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#444',
-    },
-    roomDetailsContainer: {
-        marginTop: 8,
-        padding: 12,
-        backgroundColor: colors.primary + '05',
-        borderRadius: 12,
-    },
-    featureContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 16,
-    },
-    featureItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    featureIconContainer: {
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    featureText: {
-        fontSize: 14,
-        color: '#444',
-        fontWeight: '500',
     },
     selectedBadge: {
         flexDirection: 'row',
@@ -582,5 +556,13 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
         fontSize: 14,
+    },
+    imageOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 16,
     },
 });
