@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Platform, StatusBar, Alert, FlatList, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Platform, StatusBar, FlatList, Modal } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../constants/Colors';
@@ -8,8 +8,6 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import serviceApi from '../services/api/serviceApi';
-import bookingApi from '../services/api/bookingApi';
-import { useUser } from '../contexts/UserContext';
 
 const SORT_OPTIONS = { DEFAULT: 'DEFAULT', PRICE_ASC: 'PRICE_ASC', PRICE_DESC: 'PRICE_DESC' };
 const FILTER_OPTIONS = { ALL: 'ALL', UNDER_500K: 'UNDER_500K', FROM_500K_TO_1M: 'FROM_500K_TO_1M', ABOVE_1M: 'ABOVE_1M' };
@@ -17,14 +15,11 @@ const FILTER_OPTIONS = { ALL: 'ALL', UNDER_500K: 'UNDER_500K', FROM_500K_TO_1M: 
 const ServiceScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { userData } = useUser();
     const { homestayId } = route.params;
     const [services, setServices] = useState([]);
     const [filteredServices, setFilteredServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [hasBookedBefore, setHasBookedBefore] = useState(false);
-    const [checkingBookingStatus, setCheckingBookingStatus] = useState(true);
     const [sortOption, setSortOption] = useState(SORT_OPTIONS.DEFAULT);
     const [filterOption, setFilterOption] = useState(FILTER_OPTIONS.ALL);
     const [showSortOptions, setShowSortOptions] = useState(false);
@@ -35,7 +30,6 @@ const ServiceScreen = () => {
             if (!homestayId) {
                 setError("Không tìm thấy thông tin homestay");
                 setLoading(false);
-                setCheckingBookingStatus(false);
                 return;
             }
             try {
@@ -52,28 +46,10 @@ const ServiceScreen = () => {
             } finally {
                 setLoading(false);
             }
-
-            if (userData && userData.userID) {
-                try {
-                    const bookingResult = await bookingApi.checkUserHasBookedHomestay(userData.userID, homestayId);
-                    if (bookingResult && bookingResult.success) {
-                        setHasBookedBefore(bookingResult.hasBooked || false);
-                    } else {
-                        setHasBookedBefore(false);
-                    }
-                } catch (err) {
-                    setHasBookedBefore(false);
-                } finally {
-                    setCheckingBookingStatus(false);
-                }
-            } else {
-                setHasBookedBefore(false);
-                setCheckingBookingStatus(false);
-            }
         };
 
         fetchData();
-    }, [homestayId, userData]);
+    }, [homestayId]);
 
     useEffect(() => {
         let filtered = [...services];
@@ -100,26 +76,6 @@ const ServiceScreen = () => {
     }, [services, filterOption, sortOption]);
 
     const handleServiceSelect = (service) => {
-        if (!userData) {
-            Alert.alert(
-                "Yêu cầu đăng nhập",
-                "Vui lòng đăng nhập để sử dụng dịch vụ",
-                [
-                    { text: "Đăng nhập ngay", onPress: () => navigation.navigate("Login") },
-                    { text: "Hủy", style: "cancel" }
-                ]);
-            return;
-        }
-        if (!hasBookedBefore) {
-            Alert.alert(
-                "Chưa đặt phòng",
-                "Bạn cần đặt phòng tại homestay này trước khi sử dụng dịch vụ.",
-                [
-                    { text: "Đặt phòng ngay", onPress: () => navigation.navigate("HomestayRental", { homeStayId: homestayId }) },
-                    { text: "Hủy", style: "cancel" }
-                ]);
-            return;
-        }
         navigation.navigate("BookService", {
             service: service,
             homestayId: homestayId
@@ -142,7 +98,6 @@ const ServiceScreen = () => {
                             <Ionicons name="close" size={24} color="#666" />
                         </TouchableOpacity>
                     </View>
-
                     <TouchableOpacity
                         style={[
                             styles.modalOptionItem,
@@ -351,17 +306,6 @@ const ServiceScreen = () => {
                                     {item.servicesPrice?.toLocaleString('vi-VN') || 0}₫
                                 </Text>
                             </View>
-
-                            {hasBookedBefore ? (
-                                <View style={styles.bookNowButton}>
-                                    <Text style={styles.bookNowText}>Đặt ngay</Text>
-                                    <Ionicons name="chevron-forward" size={16} color="#fff" />
-                                </View>
-                            ) : (
-                                <View style={styles.bookRequiresButton}>
-                                    <Text style={styles.bookRequiresText}>Cần đặt phòng trước</Text>
-                                </View>
-                            )}
                         </View>
                     </View>
                 </TouchableOpacity>
@@ -369,7 +313,7 @@ const ServiceScreen = () => {
         );
     };
 
-    if (loading || checkingBookingStatus) {
+    if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -377,6 +321,7 @@ const ServiceScreen = () => {
             </View>
         );
     }
+
     if (error) {
         return (
             <View style={styles.errorContainer}>
@@ -398,6 +343,7 @@ const ServiceScreen = () => {
             </View>
         );
     }
+
     if (services.length === 0) {
         return (
             <View style={styles.emptyContainer}>
@@ -438,6 +384,32 @@ const ServiceScreen = () => {
                 </LinearGradient>
             </Animated.View>
 
+            <View style={styles.filterBar}>
+                <View style={styles.filterButtons}>
+                    <TouchableOpacity
+                        style={[
+                            styles.filterChip,
+                            filterOption !== FILTER_OPTIONS.ALL && styles.activeFilterChip
+                        ]}
+                        onPress={() => setShowFilterOptions(true)}
+                    >
+                        <Ionicons name="filter" size={18} color="#fff" />
+                        <Text style={styles.filterText}>Lọc giá</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.filterChip,
+                            sortOption !== SORT_OPTIONS.DEFAULT && styles.activeFilterChip
+                        ]}
+                        onPress={() => setShowSortOptions(true)}
+                    >
+                        <MaterialIcons name="sort" size={18} color="#fff" />
+                        <Text style={styles.filterText}>Sắp xếp</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
             <Animated.FlatList
                 data={filteredServices}
                 renderItem={renderServiceItem}
@@ -445,73 +417,6 @@ const ServiceScreen = () => {
                 contentContainerStyle={styles.listContainer}
                 showsVerticalScrollIndicator={false}
                 scrollEventThrottle={16}
-                ListHeaderComponent={() => (
-                    <View>
-                        <View style={styles.filterToolbar}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.filterButton,
-                                    filterOption !== FILTER_OPTIONS.ALL && styles.activeFilterButton
-                                ]}
-                                onPress={() => {
-                                    setShowFilterOptions(!showFilterOptions);
-                                    setShowSortOptions(false);
-                                }}
-                            >
-                                <Ionicons
-                                    name="filter"
-                                    size={18}
-                                    color={filterOption !== FILTER_OPTIONS.ALL ? "#fff" : colors.primary}
-                                />
-                                <Text
-                                    style={[
-                                        styles.filterButtonText,
-                                        filterOption !== FILTER_OPTIONS.ALL && styles.activeFilterButtonText
-                                    ]}
-                                >
-                                    Lọc giá
-                                </Text>
-                                <Ionicons
-                                    name={showFilterOptions ? "chevron-up" : "chevron-down"}
-                                    size={16}
-                                    color={filterOption !== FILTER_OPTIONS.ALL ? "#fff" : colors.primary}
-                                />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.sortButton,
-                                    sortOption !== SORT_OPTIONS.DEFAULT && styles.activeFilterButton
-                                ]}
-                                onPress={() => {
-                                    setShowSortOptions(!showSortOptions);
-                                    setShowFilterOptions(false);
-                                }}
-                            >
-                                <MaterialIcons
-                                    name="sort"
-                                    size={18}
-                                    color={sortOption !== SORT_OPTIONS.DEFAULT ? "#fff" : colors.primary}
-                                />
-                                <Text
-                                    style={[
-                                        styles.sortButtonText,
-                                        sortOption !== SORT_OPTIONS.DEFAULT && styles.activeFilterButtonText
-                                    ]}
-                                >
-                                    Sắp xếp
-                                </Text>
-                                <Ionicons
-                                    name={showSortOptions ? "chevron-up" : "chevron-down"}
-                                    size={16}
-                                    color={sortOption !== SORT_OPTIONS.DEFAULT ? "#fff" : colors.primary}
-                                />
-                            </TouchableOpacity>
-                        </View>
-                        {renderFilterOptions()}
-                        {renderSortOptions()}
-                    </View>
-                )}
                 ListEmptyComponent={() => (
                     <View style={styles.noResultsContainer}>
                         <Text style={styles.noResultsTitle}>Không tìm thấy dịch vụ</Text>
@@ -535,6 +440,9 @@ const ServiceScreen = () => {
                     </View>
                 )}
             />
+
+            {renderFilterOptions()}
+            {renderSortOptions()}
         </View>
     );
 };
@@ -573,65 +481,39 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     headerRight: { width: 40 },
-    listContainer: {
+    filterBar: {
+        backgroundColor: colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
         paddingTop: Platform.OS === 'ios' ? 110 : 95,
-        paddingHorizontal: 16,
-        paddingBottom: 30,
+        marginTop: 10,
     },
-    filterToolbar: {
+    filterButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 10,
+        paddingHorizontal: 16,
+        width: '100%',
     },
-    filterButton: {
+    filterChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 12,
         paddingVertical: 8,
-        paddingHorizontal: 14,
         borderRadius: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-        marginRight: 10,
     },
-    activeFilterButton: { backgroundColor: colors.primary },
-    filterButtonText: {
+    activeFilterChip: {
+        backgroundColor: 'rgba(255,255,255,0.3)',
+    },
+    filterText: {
+        color: '#fff',
+        marginLeft: 6,
         fontSize: 14,
-        color: colors.primary,
-        marginHorizontal: 6,
-        fontWeight: '500',
     },
-    activeFilterButtonText: { color: '#fff' },
-    sortButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-        marginRight: 10,
-    },
-    sortButtonText: {
-        fontSize: 14,
-        color: colors.primary,
-        marginHorizontal: 6,
-        fontWeight: '500',
-    },
-    selectedOption: {
-        backgroundColor: colors.primary + '10',
-        borderRadius: 8,
-    },
-    selectedOptionText: {
-        fontWeight: 'bold',
-        color: colors.primary,
+    listContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 30,
     },
     serviceCard: {
         marginBottom: 16,
@@ -691,31 +573,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: colors.primary,
     },
-    bookNowButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.primary,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-    },
-    bookNowText: {
-        fontSize: 12,
-        color: '#fff',
-        fontWeight: '600',
-        marginRight: 4,
-    },
-    bookRequiresButton: {
-        backgroundColor: '#f1f1f1',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-    },
-    bookRequiresText: {
-        fontSize: 12,
-        color: '#777',
-        fontWeight: '500',
-    },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -773,15 +630,6 @@ const styles = StyleSheet.create({
         color: '#666',
         textAlign: 'center',
         marginBottom: 24,
-    },
-    backButton: {
-        borderRadius: 25,
-        overflow: 'hidden',
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
     },
     gradientButton: {
         paddingVertical: 12,
@@ -877,6 +725,14 @@ const styles = StyleSheet.create({
     modalOptionText: {
         fontSize: 16,
         color: '#444',
+    },
+    selectedOption: {
+        backgroundColor: colors.primary + '10',
+        borderRadius: 8,
+    },
+    selectedOptionText: {
+        fontWeight: 'bold',
+        color: colors.primary,
     },
 });
 
