@@ -87,6 +87,16 @@ const homeStayApi = {
         error: handleError(error)
       };
     }
+  },
+
+  getCancellationPolicy: async (homeStayId) => {
+    try {
+      const response = await apiClient.get(`/api/CancellationPolicy/GetByHomeStayId/${homeStayId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching cancellation policy:', error);
+      throw error;
+    }
   }
 };
 
