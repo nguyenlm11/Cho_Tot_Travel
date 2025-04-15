@@ -120,8 +120,8 @@ const BookingDetailScreen = () => {
         Alert.alert(
             'Xác nhận hủy đặt phòng',
             canRefund
-                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền đặt phòng vì còn ${daysUntilCheckIn} ngày trước check-in`
-                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước check-in, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
+                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền đặt phòng vì còn ${daysUntilCheckIn} ngày trước khi nhận phòng`
+                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước khi nhận phòng, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
@@ -344,7 +344,7 @@ const BookingDetailScreen = () => {
                                         </View>
                                         <View style={[styles.serviceStatusBadge, { backgroundColor: service.status === 0 ? '#FFF3E0' : '#E8F5E9' }]}>
                                             <Text style={[styles.serviceStatusText, { color: service.status === 0 ? '#FF9800' : '#4CAF50' }]}>
-                                                {service.status === 0 ? 'Chờ thanh toán' : 'Đã thanh toán'}
+                                                {service.status === 0 ? 'Chờ thanh toán' : service.status === 1 ? 'Đã thanh toán' : service.status === 4 ? 'Đã hủy' : service.status === 5 ? 'Yêu cầu hoàn tiền' : service.status === 2 ? 'Đang phục vụ' : 'Đã hoàn thành'}
                                             </Text>
                                         </View>
                                     </View>
@@ -355,7 +355,7 @@ const BookingDetailScreen = () => {
                                                 <View style={styles.serviceDetailInfo}>
                                                     <View style={styles.serviceDetailHeader}>
                                                         <MaterialIcons name="local-offer" size={20} color={colors.primary} />
-                                                        <Text style={styles.serviceName}>Dịch vụ #{detail.servicesID}</Text>
+                                                        <Text style={styles.serviceName}>{detail.services?.servicesName}</Text>
                                                     </View>
                                                     <View style={styles.serviceDetailMeta}>
                                                         <View style={styles.serviceMetaItem}>
@@ -386,7 +386,9 @@ const BookingDetailScreen = () => {
                                                         style={[styles.serviceActionButton, styles.cancelButton]}
                                                         onPress={() => handleCancelService(service.bookingServicesID, false)}
                                                     >
-                                                        <Ionicons name="close-circle-outline" size={20} color="#FF5252" />
+                                                        <View style={styles.serviceActionIconContainer}>
+                                                            <Ionicons name="close-circle-outline" size={20} color="#FF5252" />
+                                                        </View>
                                                         <Text style={[styles.serviceActionButtonText, { color: '#FF5252' }]}>Hủy</Text>
                                                     </TouchableOpacity>
                                                     <TouchableOpacity
@@ -398,7 +400,9 @@ const BookingDetailScreen = () => {
                                                             <ActivityIndicator color="#FFF" size="small" />
                                                         ) : (
                                                             <>
-                                                                <Ionicons name="card-outline" size={20} color="#FFF" />
+                                                                <View style={styles.serviceActionIconContainer}>
+                                                                    <Ionicons name="card-outline" size={20} color="#FFF" />
+                                                                </View>
                                                                 <Text style={[styles.serviceActionButtonText, { color: '#FFF' }]}>Thanh toán</Text>
                                                             </>
                                                         )}
@@ -410,7 +414,9 @@ const BookingDetailScreen = () => {
                                                     style={[styles.serviceActionButton, styles.refundButton]}
                                                     onPress={() => handleCancelService(service.bookingServicesID, true)}
                                                 >
-                                                    <Ionicons name="refresh-outline" size={20} color="#FF9800" />
+                                                    <View style={styles.serviceActionIconContainer}>
+                                                        <Ionicons name="refresh-outline" size={20} color="#FF9800" />
+                                                    </View>
                                                     <Text style={[styles.serviceActionButtonText, { color: '#FF9800' }]}>Hủy & Hoàn tiền</Text>
                                                 </TouchableOpacity>
                                             )}
@@ -669,25 +675,63 @@ const BookingDetailScreen = () => {
     };
 
     const handleCancelService = async (bookingServiceId, isRefund = false) => {
+        if (!bookingData || !cancellationPolicy) {
+            return;
+        }
+
+        const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
+        const currentDate = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
+
+        const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
+        const newStatus = canRefund ? 5 : 0;
+
+        // Tìm booking service để lấy paymentServiceStatus
+        const bookingService = bookingData.bookingServices.find(service => service.bookingServicesID === bookingServiceId);
+        if (!bookingService) {
+            Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
+            return;
+        }
+
         Alert.alert(
             'Xác nhận hủy dịch vụ',
-            isRefund ? 'Bạn có chắc chắn muốn hủy dịch vụ này? Số tiền sẽ được hoàn trả.' : 'Bạn có chắc chắn muốn hủy dịch vụ này? Số tiền sẽ không được hoàn trả.',
+            canRefund
+                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền dịch vụ vì còn ${daysUntilCheckIn} ngày trước check-in`
+                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước check-in, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
                     text: 'Xác nhận',
                     onPress: async () => {
                         try {
-                            const result = await bookingApi.cancelBookingService(bookingServiceId, isRefund);
+                            const result = await bookingApi.changeBookingServiceStatus( 
+                                bookingId, 
+                                bookingServiceId, 
+                                bookingData.status,
+                                bookingData.paymentStatus,
+                                newStatus, 
+                                bookingService.paymentServiceStatus
+                            );
+                            console.log('Booking id:', bookingId);
+                            console.log('Booking serviceID:', bookingServiceId);
+                            console.log('Status:', bookingData.status);
+                            console.log('Payment status:', bookingData.paymentStatus);
+                            console.log('New status:', newStatus);
+                            console.log('Payment service status:', bookingService.paymentServiceStatus);
+                            console.log('Result:', result);
                             if (result.success) {
-                                Alert.alert('Thành công', 'Đã hủy dịch vụ thành công');
+                                Alert.alert(
+                                    'Thành công',
+                                    canRefund
+                                        ? 'Đã gửi yêu cầu hoàn trả thành công'
+                                        : 'Đã hủy dịch vụ thành công'
+                                );
                                 fetchBookingDetails();
                             } else {
-                                Alert.alert('Lỗi', result.error || 'Không thể hủy dịch vụ');
+                                Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái dịch vụ');
                             }
                         } catch (error) {
-                            console.error('Lỗi khi hủy dịch vụ:', error);
-                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi hủy dịch vụ');
+                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái dịch vụ');
                         }
                     }
                 }
@@ -761,7 +805,7 @@ const BookingDetailScreen = () => {
                 onSelect={handleServiceSelected}
                 homestayId={bookingData?.homeStay?.homeStayID}
             />
-        </View >
+        </View>
     );
 };
 
@@ -963,6 +1007,11 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         borderWidth: 1,
         borderColor: '#f0f0f0',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
     },
     serviceHeader: {
         flexDirection: 'row',
@@ -1074,10 +1123,17 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
     },
+    serviceActionIconContainer: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 4,
+    },
     serviceActionButtonText: {
         fontSize: 14,
         fontWeight: '600',
-        marginLeft: 4,
     },
     cancelButton: {
         borderColor: '#FF5252',

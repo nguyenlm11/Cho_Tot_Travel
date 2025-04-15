@@ -401,6 +401,28 @@ const bookingApi = {
             };
         }
     },
+
+    changeBookingServiceStatus: async (bookingId, bookingServiceId, status, paymentStatus, servicesStatus, paymentServiceStatus) => { 
+        try {
+            const response = await apiClient.put(`/api/booking-checkout/ChangeBookingStatus?bookingId=${bookingId}&bookingServiceID=${bookingServiceId}&status=${status}&paymentStatus=${paymentStatus}&servicesStatus=${servicesStatus}&statusPayment=${paymentServiceStatus}`);
+            if (response.data) {
+                return {
+                    success: true,
+                    data: response.data
+                };
+            } else {
+                return {
+                    success: false,
+                    error: 'Không thể cập nhật trạng thái dịch vụ'
+                };
+            }
+        } catch (error) {
+            return {
+                success: false,
+                error: 'Đã xảy ra lỗi khi cập nhật trạng thái dịch vụ'
+            };
+        }
+    },
 };
 
 export default bookingApi;
