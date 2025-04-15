@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import bookingApi from '../services/api/bookingApi';
+import homestayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import { FadeInDown } from 'react-native-reanimated';
 import ServicesModal from '../components/Modal/ServicesModal';
@@ -20,6 +21,7 @@ const BookingDetailScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [processingPayment, setProcessingPayment] = useState(false);
     const [isServicesModalVisible, setIsServicesModalVisible] = useState(false);
+    const [cancellationPolicy, setCancellationPolicy] = useState(null);
     const bookingStatusMapping = {
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
         1: { label: 'Đã xác nhận', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
@@ -40,6 +42,12 @@ const BookingDetailScreen = () => {
         fetchBookingDetails();
     }, [bookingId]);
 
+    useEffect(() => {
+        if (bookingData?.homeStay?.homeStayID) {
+            fetchCancellationPolicy(bookingData.homeStay.homeStayID);
+        }
+    }, [bookingData?.homeStay?.homeStayID]);
+
     const fetchBookingDetails = async () => {
         try {
             setLoading(true);
@@ -58,6 +66,17 @@ const BookingDetailScreen = () => {
             setError('Đã có lỗi xảy ra khi tải thông tin đặt phòng');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchCancellationPolicy = async (homeStayId) => {
+        try {
+            const response = await homestayApi.getCancellationPolicy(homeStayId);
+            if (response.statusCode === 200) {
+                setCancellationPolicy(response.data);
+            }
+        } catch (error) {
+            setError('Không thể tải chính sách hủy phòng');
         }
     };
 
@@ -87,12 +106,22 @@ const BookingDetailScreen = () => {
     };
 
     const handleCancelBooking = () => {
-        const newStatus = bookingData.status === 0 ? 4 : 6;
+        if (!bookingData || !cancellationPolicy) {
+            return;
+        }
+
+        const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
+        const currentDate = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
+
+        const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
+        const newStatus = canRefund ? 6 : 4;
+
         Alert.alert(
             'Xác nhận hủy đặt phòng',
-            bookingData.status === 0
-                ? 'Bạn có chắc chắn muốn hủy đặt phòng này?'
-                : 'Bạn có chắc chắn muốn yêu cầu hoàn trả cho đặt phòng này?',
+            canRefund
+                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền đặt phòng vì còn ${daysUntilCheckIn} ngày trước check-in`
+                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước check-in, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
@@ -103,20 +132,16 @@ const BookingDetailScreen = () => {
                             if (result.success) {
                                 Alert.alert(
                                     'Thành công',
-                                    bookingData.status === 0
-                                        ? 'Đã hủy đặt phòng thành công'
-                                        : 'Đã gửi yêu cầu hoàn trả thành công'
+                                    canRefund
+                                        ? 'Đã gửi yêu cầu hoàn trả thành công'
+                                        : 'Đã hủy đặt phòng thành công'
                                 );
                                 fetchBookingDetails();
                             } else {
                                 Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái đặt phòng');
                             }
                         } catch (error) {
-                            console.error('Lỗi khi cập nhật trạng thái đặt phòng:', error);
-                            Alert.alert(
-                                'Lỗi',
-                                'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng'
-                            );
+                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng');
                         }
                     }
                 }
@@ -445,6 +470,51 @@ const BookingDetailScreen = () => {
         );
     };
 
+    const renderCancellationPolicy = () => {
+        if (!cancellationPolicy) return null;
+
+        return (
+            <View style={styles.sectionCard}>
+                <View style={styles.sectionHeader}>
+                    <MaterialIcons name="policy" size={24} color={colors.primary} />
+                    <Text style={styles.sectionTitle}>Chính sách hủy phòng</Text>
+                </View>
+                <View style={styles.sectionContent}>
+                    <View style={styles.policyContainer}>
+                        <View style={styles.policyCard}>
+                            <View style={styles.policyIconContainer}>
+                                <MaterialIcons name="check-circle" size={18} color="#4CAF50" />
+                            </View>
+                            <View style={styles.policyTextContainer}>
+                                <Text style={styles.policyTitle}>Hoàn tiền</Text>
+                                <Text style={styles.policyDescription}>
+                                    Hủy trước {cancellationPolicy.dayBeforeCancel} ngày check-in
+                                </Text>
+                                <Text style={styles.policyAmount}>
+                                    Hoàn {cancellationPolicy.refundPercentage * 100}% tiền đặt phòng
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={styles.policyCard}>
+                            <View style={[styles.policyIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                                <MaterialIcons name="cancel" size={18} color="#F44336" />
+                            </View>
+                            <View style={styles.policyTextContainer}>
+                                <Text style={styles.policyTitle}>Không hoàn tiền</Text>
+                                <Text style={styles.policyDescription}>
+                                    Hủy trong vòng {cancellationPolicy.dayBeforeCancel} ngày check-in
+                                </Text>
+                                <Text style={styles.policyAmount}>
+                                    Không được hoàn tiền
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+            </View>
+        );
+    };
+
     const renderActionButtons = () => {
         if (!bookingData) return null;
         const canCancel = bookingData.status === 0 || bookingData.status === 1;
@@ -681,6 +751,7 @@ const BookingDetailScreen = () => {
                     style={styles.content}
                 >
                     {renderBookingDetails()}
+                    {renderCancellationPolicy()}
                 </Animated.View>
             </ScrollView>
             {renderActionButtons()}
@@ -921,7 +992,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
     },
-    serviceDetails: {marginBottom: 16},
+    serviceDetails: { marginBottom: 16 },
     serviceDetailItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -959,7 +1030,7 @@ const styles = StyleSheet.create({
         color: '#666',
         marginLeft: 4,
     },
-    serviceDetailPrice: {alignItems: 'flex-end'},
+    serviceDetailPrice: { alignItems: 'flex-end' },
     serviceDetailPriceLabel: {
         fontSize: 12,
         color: colors.textSecondary,
@@ -1233,6 +1304,38 @@ const styles = StyleSheet.create({
     guestInfoLabel: {
         fontSize: 14,
         color: colors.textSecondary,
+    },
+    policyContainer: {
+        gap: 12,
+    },
+    policyCard: { flexDirection: 'row' },
+    policyIconContainer: {
+        width: 45,
+        height: 45,
+        borderRadius: 24,
+        backgroundColor: '#E8F5E9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    policyTextContainer: {
+        flex: 1,
+    },
+    policyTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+        marginBottom: 4,
+    },
+    policyDescription: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        marginBottom: 4,
+    },
+    policyAmount: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: colors.primary,
     },
 });
 
