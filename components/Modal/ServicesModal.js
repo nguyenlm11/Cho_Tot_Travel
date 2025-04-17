@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, SafeAreaView, TextInput } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, SafeAreaView, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import serviceApi from '../../services/api/serviceApi';
@@ -7,7 +7,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '../../constants/Colors';
 import CalendarModal from './CalendarModal';
 
-const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, homestayId, homeStayId }) => {
+const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, homestayId, homeStayId, checkInDate, checkOutDate }) => {
   const [localSelectedServices, setLocalSelectedServices] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,9 +51,13 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
   };
 
   const toggleService = (service) => {
+    console.log('=== TOGGLING SERVICE ===');
+    console.log('Service being toggled:', service);
+
     const isAlreadySelected = localSelectedServices.some(
       s => s.servicesID === service.servicesID
     );
+
     const newSelected = isAlreadySelected
       ? localSelectedServices.filter(s => s.servicesID !== service.servicesID)
       : [...localSelectedServices, {
@@ -61,8 +65,10 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
         quantity: 1,
         startDate: null,
         endDate: null,
-        rentHour: 0
+        rentHour: null
       }];
+
+    console.log('Updated selected services:', newSelected);
     setLocalSelectedServices(newSelected);
   };
 
@@ -81,23 +87,59 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
     setLocalSelectedServices(updatedServices);
   };
 
+  const validateServiceDates = (service) => {
+    if (service.serviceType !== 2) return true;
+    if (!service.startDate || !service.endDate) return false;
+
+    const serviceStart = new Date(service.startDate);
+    const serviceEnd = new Date(service.endDate);
+    const bookingStart = new Date(checkInDate);
+    const bookingEnd = new Date(checkOutDate);
+
+    // Reset hours to compare dates only
+    serviceStart.setHours(0, 0, 0, 0);
+    serviceEnd.setHours(0, 0, 0, 0);
+    bookingStart.setHours(0, 0, 0, 0);
+    bookingEnd.setHours(0, 0, 0, 0);
+
+    return serviceStart >= bookingStart && serviceEnd <= bookingEnd;
+  };
+
   const handleDateSelect = (dateObject) => {
-    console.log('handleDateSelect - Date object received:', dateObject);
+    console.log('=== DATE SELECTION ===');
+    console.log('Date object received:', dateObject);
+    console.log('Selected service ID:', selectedServiceId);
+    console.log('Booking period:', { checkInDate, checkOutDate });
 
     const actualStartDateString = dateObject?.dateString;
     const actualEndDateString = dateObject?.checkOutDateString;
-    console.log('handleDateSelect - Extracted startDateString:', actualStartDateString);
-    console.log('handleDateSelect - Extracted endDateString:', actualEndDateString);
 
     if (selectedServiceId && actualStartDateString && actualEndDateString) {
       const newStartDate = new Date(actualStartDateString);
       const newEndDate = new Date(actualEndDateString);
-      console.log('handleDateSelect - Parsed Start Date:', newStartDate);
-      console.log('handleDateSelect - Parsed End Date:', newEndDate);
+      const bookingStart = new Date(checkInDate);
+      const bookingEnd = new Date(checkOutDate);
 
-      if (isNaN(newStartDate.getTime()) || isNaN(newEndDate.getTime())) {
-        console.error('handleDateSelect - Invalid date strings extracted:', actualStartDateString, actualEndDateString);
-        setCalendarVisible(false);
+      // Reset hours for date comparison
+      newStartDate.setHours(0, 0, 0, 0);
+      newEndDate.setHours(0, 0, 0, 0);
+      bookingStart.setHours(0, 0, 0, 0);
+      bookingEnd.setHours(0, 0, 0, 0);
+
+      console.log('Dates after normalization:', {
+        serviceStart: newStartDate,
+        serviceEnd: newEndDate,
+        bookingStart,
+        bookingEnd
+      });
+
+      // Validate date range
+      if (newStartDate < bookingStart || newEndDate > bookingEnd) {
+        Alert.alert(
+          'Thông báo',
+          'Ngày sử dụng dịch vụ phải nằm trong khoảng thời gian đặt phòng ' +
+          `(${bookingStart.toLocaleDateString('vi-VN')} - ${bookingEnd.toLocaleDateString('vi-VN')})`
+        );
         return;
       }
 
@@ -111,10 +153,16 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
         }
         return service;
       });
+
+      console.log('Services after date update:', updatedServices);
       setLocalSelectedServices(updatedServices);
       setCalendarVisible(false);
     } else {
-      console.log('handleDateSelect - Condition not met (selectedServiceId or dates missing)');
+      console.log('Date selection conditions not met:', {
+        selectedServiceId,
+        actualStartDateString,
+        actualEndDateString
+      });
       setCalendarVisible(false);
     }
   };
@@ -131,23 +179,54 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
   };
 
   const handleSave = () => {
+    console.log('=== SAVING SERVICES ===');
+    console.log('Current selected services:', localSelectedServices);
+
     if (onSelect) {
+      // Validate all selected services
+      const invalidServices = localSelectedServices.filter(service => {
+        if (service.serviceType === 2) {
+          if (!service.startDate || !service.endDate) {
+            console.log('Service missing dates:', service);
+            return true;
+          }
+          if (!validateServiceDates(service)) {
+            console.log('Service dates outside booking period:', service);
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (invalidServices.length > 0) {
+        console.log('Invalid services found:', invalidServices);
+        Alert.alert(
+          'Thông báo',
+          'Vui lòng chọn ngày sử dụng dịch vụ trong khoảng thời gian đặt phòng ' +
+          `(${new Date(checkInDate).toLocaleDateString('vi-VN')} - ${new Date(checkOutDate).toLocaleDateString('vi-VN')})`
+        );
+        return;
+      }
+
       const servicesToSave = localSelectedServices.map(selected => {
         const originalService = services.find(s => s.servicesID === selected.servicesID);
         return {
           quantity: selected.quantity,
           servicesID: selected.servicesID,
-          startDate: selected.startDate,
-          endDate: selected.endDate,
-          rentHour: selected.rentHour || 0,
+          startDate: selected.serviceType === 0 ? null : selected.startDate,
+          endDate: selected.serviceType === 0 ? null : selected.endDate,
+          rentHour: null,
           servicesName: originalService?.servicesName || 'Không rõ',
-          servicesPrice: originalService?.servicesPrice || 0
+          servicesPrice: originalService?.servicesPrice || 0,
+          serviceType: originalService?.serviceType || 0
         };
       });
-      console.log('ServicesModal - Saving services with display info:', servicesToSave);
+
+      console.log('=== FINAL SERVICES DATA ===');
+      console.log('Services to be saved:', JSON.stringify(servicesToSave, null, 2));
       onSelect(servicesToSave);
+      onClose();
     }
-    onClose();
   };
 
   const formatDate = (dateString) => {
@@ -167,6 +246,9 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
   };
 
   const renderServiceItem = (item, index) => {
+    // Skip rendering if quantity is 0 or less
+    if (item.quantity <= 0) return null;
+
     const isSelected = localSelectedServices.some(
       s => s.servicesID === item.servicesID
     );
@@ -203,13 +285,19 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
               <Text style={styles.serviceQuantity}>
                 Số lượng còn lại: {item.quantity}
               </Text>
-              {isSelected && (
+              {isSelected && item.serviceType === 2 && (
                 <View style={styles.dateContainer}>
-                  <TouchableOpacity 
-                    style={styles.dateButton}
+                  <TouchableOpacity
+                    style={[
+                      styles.dateButton,
+                      (!formattedStartDate || !formattedEndDate) && styles.dateButtonRequired
+                    ]}
                     onPress={() => openCalendar(item.servicesID)}
                   >
-                    <Text style={styles.dateLabel}>Thời gian sử dụng:</Text>
+                    <Text style={styles.dateLabel}>
+                      Thời gian sử dụng:
+                      <Text style={styles.requiredStar}> *</Text>
+                    </Text>
                     <Text style={[
                       styles.dateText,
                       (!formattedStartDate || !formattedEndDate) && styles.datePlaceholder
@@ -225,6 +313,7 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
             <View style={styles.serviceRight}>
               <Text style={styles.servicePrice}>
                 {(item.servicesPrice || 0).toLocaleString()} đ
+                {item.serviceType === 2 && <Text style={styles.perDay}>/ngày</Text>}
               </Text>
               {isSelected && (
                 <View style={styles.quantityContainer}>
@@ -557,6 +646,18 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     fontWeight: 'normal',
+  },
+  dateButtonRequired: {
+    borderColor: '#ff4444',
+  },
+  requiredStar: {
+    color: '#ff4444',
+    fontWeight: 'bold',
+  },
+  perDay: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
   },
 });
 

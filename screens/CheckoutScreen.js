@@ -89,6 +89,16 @@ const CheckoutScreen = () => {
     return selectedServices.reduce((sum, service) => {
       const price = service.servicesPrice || 0;
       const quantity = service.quantity || 0;
+
+      if (service.serviceType === 2 && service.startDate && service.endDate) {
+        // For daily rental services, calculate based on number of days
+        const start = new Date(service.startDate);
+        const end = new Date(service.endDate);
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        return sum + (price * quantity * days);
+      }
+
+      // For regular services (serviceType === 0)
       return sum + (price * quantity);
     }, 0);
   };
@@ -146,6 +156,11 @@ const CheckoutScreen = () => {
       return null;
     }
 
+    console.log('=== BOOKING DATA PREPARATION ===');
+    console.log('Selected Rooms:', selectedRooms);
+    console.log('Selected Services:', selectedServices);
+    console.log('Current Search:', currentSearch);
+
     const bookingDetails = selectedRooms.map(room => ({
       homeStayTypeID: rentalId || room.rentalId || 0,
       roomTypeID: room.roomTypeID || 0,
@@ -157,9 +172,9 @@ const CheckoutScreen = () => {
     const bookingServicesDetails = selectedServices.map(service => ({
       quantity: service.quantity,
       servicesID: service.servicesID,
-      startDate: service.startDate,
-      endDate: service.endDate,
-      rentHour: service.rentHour
+      startDate: service.serviceType === 0 ? null : service.startDate,
+      endDate: service.serviceType === 0 ? null : service.endDate,
+      rentHour: null
     }));
 
     const bookingData = {
@@ -172,7 +187,12 @@ const CheckoutScreen = () => {
         bookingServicesDetails: bookingServicesDetails
       }
     };
-    console.log('CheckoutScreen - Booking data to be sent:', JSON.stringify(bookingData, null, 2));
+
+    console.log('=== FINAL BOOKING DATA ===');
+    console.log('Booking Details:', bookingDetails);
+    console.log('Services Details:', bookingServicesDetails);
+    console.log('Complete Booking Data:', JSON.stringify(bookingData, null, 2));
+
     return bookingData;
   };
 
@@ -180,10 +200,14 @@ const CheckoutScreen = () => {
     if (!validateForm()) return;
     const bookingData = createBookingData();
     if (!bookingData) return;
+
+    console.log('=== SENDING BOOKING REQUEST ===');
+    console.log('Booking Data being sent:', JSON.stringify(bookingData, null, 2));
+
     setLoading(true);
     try {
       const result = await bookingApi.createBooking(bookingData, 1);
-      console.log("Create booking result:", result);
+      console.log("Create booking API response:", result);
       if (result.success) {
         clearCart();
         let bookingId = null;
@@ -199,7 +223,7 @@ const CheckoutScreen = () => {
         Alert.alert('Đặt phòng thất bại', result.error || 'Đã xảy ra lỗi khi đặt phòng');
       }
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error('Booking error:', error);
       Alert.alert('Đặt phòng thất bại', 'Đã xảy ra lỗi không mong muốn');
     } finally {
       setLoading(false);
@@ -348,10 +372,33 @@ const CheckoutScreen = () => {
                   key={`service-${service.servicesID}`}
                   style={styles.selectedServiceItem}
                 >
-                  <Text style={styles.selectedServiceName}>{service.servicesName}</Text>
-                  <Text style={styles.selectedServicePrice}>
-                    {(service.servicesPrice || 0).toLocaleString('vi-VN')}₫
-                  </Text>
+                  <View style={styles.selectedServiceInfo}>
+                    <Text style={styles.selectedServiceName}>
+                      {service.servicesName}
+                      {service.serviceType === 2 && (
+                        <Text style={styles.serviceType}> (Thuê theo ngày)</Text>
+                      )}
+                    </Text>
+                    {service.serviceType === 2 && service.startDate && service.endDate && (
+                      <Text style={styles.serviceDates}>
+                        {new Date(service.startDate).toLocaleDateString('vi-VN')} - {new Date(service.endDate).toLocaleDateString('vi-VN')}
+                      </Text>
+                    )}
+                    <Text style={styles.serviceQuantity}>
+                      Số lượng: {service.quantity}
+                    </Text>
+                  </View>
+                  <View style={styles.selectedServicePriceContainer}>
+                    <Text style={styles.selectedServicePrice}>
+                      {(service.servicesPrice || 0).toLocaleString('vi-VN')}₫
+                      {service.serviceType === 2 && <Text style={styles.perDay}>/ngày</Text>}
+                    </Text>
+                    {service.serviceType === 2 && service.startDate && service.endDate && (
+                      <Text style={styles.totalDays}>
+                        {Math.ceil((new Date(service.endDate) - new Date(service.startDate)) / (1000 * 60 * 60 * 24))} ngày
+                      </Text>
+                    )}
+                  </View>
                 </View>
               ))}
             </View>
@@ -555,13 +602,14 @@ const CheckoutScreen = () => {
         </View>
       </Animated.View>
 
-      {/* Thêm Modal dịch vụ */}
       <ServicesModal
         visible={servicesModalVisible}
         onClose={() => setServicesModalVisible(false)}
         onSelect={handleServicesChange}
         selectedServices={selectedServices}
         homestayId={homeStayId}
+        checkInDate={selectedRooms[0]?.checkInDate}
+        checkOutDate={selectedRooms[0]?.checkOutDate}
       />
     </ScrollView>
   );
@@ -729,14 +777,45 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  selectedServiceInfo: {
+    flex: 1,
+  },
   selectedServiceName: {
     fontSize: 15,
     color: '#333',
+    marginBottom: 4,
+  },
+  serviceType: {
+    fontSize: 13,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  serviceDates: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 2,
+  },
+  serviceQuantity: {
+    fontSize: 13,
+    color: '#666',
+  },
+  selectedServicePriceContainer: {
+    alignItems: 'flex-end',
   },
   selectedServicePrice: {
     fontSize: 15,
     fontWeight: 'bold',
     color: colors.primary,
+  },
+  perDay: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'normal',
+  },
+  totalDays: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   paymentOptions: {
     marginTop: 8,
