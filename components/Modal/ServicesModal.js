@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, SafeAreaView, TextInput } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../constants/Colors';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
 import serviceApi from '../../services/api/serviceApi';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors } from '../../constants/Colors';
+import CalendarModal from './CalendarModal';
 
-export default function ServicesModal({ visible, onClose, selectedServices, onServicesChange, onSelect, homestayId, homeStayId }) {
+const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, homestayId, homeStayId }) => {
   const [localSelectedServices, setLocalSelectedServices] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Sử dụng một trong hai prop
-  const handleServiceChange = onServicesChange || onSelect;
+  const [selectedDates, setSelectedDates] = useState({});
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState(null);
+
   const actualHomeStayId = homestayId || homeStayId;
 
   useEffect(() => {
@@ -25,17 +26,14 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
 
   useEffect(() => {
     if (visible) {
-      const uniqueServices = [];
-      const serviceIDs = new Set();
-      if (selectedServices && selectedServices.length > 0) {
-        selectedServices.forEach(service => {
-          if (service.servicesID && !serviceIDs.has(service.servicesID)) {
-            serviceIDs.add(service.servicesID);
-            uniqueServices.push(service);
-          }
-        });
-      }
-      setLocalSelectedServices(uniqueServices);
+      setLocalSelectedServices(selectedServices);
+      const dates = {};
+      selectedServices.forEach(service => {
+        dates[service.servicesID] = {
+          date: service.date
+        };
+      });
+      setSelectedDates(dates);
     }
   }, [visible, selectedServices]);
 
@@ -44,14 +42,8 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
     setError(null);
     try {
       const result = await serviceApi.getAllServices(actualHomeStayId);
-      if (result.success) {
-        setServices(result.data || []);
-      } else {
-        console.error('Error fetching services:', result.error);
-        setError(result.error || 'Không thể tải dịch vụ');
-      }
+      setServices(result.data || []);
     } catch (error) {
-      console.error('Error fetching services:', error);
       setError('Đã xảy ra lỗi khi tải dịch vụ');
     } finally {
       setLoading(false);
@@ -59,54 +51,201 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
   };
 
   const toggleService = (service) => {
-    let newSelected;
     const isAlreadySelected = localSelectedServices.some(
       s => s.servicesID === service.servicesID
     );
-    if (isAlreadySelected) {
-      newSelected = localSelectedServices.filter(
-        s => s.servicesID !== service.servicesID
-      );
-    } else {
-      newSelected = [...localSelectedServices, service];
-    }
+    const newSelected = isAlreadySelected
+      ? localSelectedServices.filter(s => s.servicesID !== service.servicesID)
+      : [...localSelectedServices, {
+        ...service,
+        quantity: 1,
+        startDate: null,
+        endDate: null,
+        rentHour: 0
+      }];
     setLocalSelectedServices(newSelected);
   };
 
+  const updateServiceQuantity = (serviceId, newQuantity) => {
+    if (newQuantity < 1) return;
+
+    const service = services.find(s => s.servicesID === serviceId);
+    if (newQuantity > service.quantity) return;
+
+    const updatedServices = localSelectedServices.map(service => {
+      if (service.servicesID === serviceId) {
+        return { ...service, quantity: newQuantity };
+      }
+      return service;
+    });
+    setLocalSelectedServices(updatedServices);
+  };
+
+  const handleDateSelect = (dateObject) => {
+    console.log('handleDateSelect - Date object received:', dateObject);
+
+    const actualStartDateString = dateObject?.dateString;
+    const actualEndDateString = dateObject?.checkOutDateString;
+    console.log('handleDateSelect - Extracted startDateString:', actualStartDateString);
+    console.log('handleDateSelect - Extracted endDateString:', actualEndDateString);
+
+    if (selectedServiceId && actualStartDateString && actualEndDateString) {
+      const newStartDate = new Date(actualStartDateString);
+      const newEndDate = new Date(actualEndDateString);
+      console.log('handleDateSelect - Parsed Start Date:', newStartDate);
+      console.log('handleDateSelect - Parsed End Date:', newEndDate);
+
+      if (isNaN(newStartDate.getTime()) || isNaN(newEndDate.getTime())) {
+        console.error('handleDateSelect - Invalid date strings extracted:', actualStartDateString, actualEndDateString);
+        setCalendarVisible(false);
+        return;
+      }
+
+      const updatedServices = localSelectedServices.map(service => {
+        if (service.servicesID === selectedServiceId) {
+          return {
+            ...service,
+            startDate: newStartDate.toISOString(),
+            endDate: newEndDate.toISOString()
+          };
+        }
+        return service;
+      });
+      setLocalSelectedServices(updatedServices);
+      setCalendarVisible(false);
+    } else {
+      console.log('handleDateSelect - Condition not met (selectedServiceId or dates missing)');
+      setCalendarVisible(false);
+    }
+  };
+
+  const openCalendar = (serviceId) => {
+    setSelectedServiceId(serviceId);
+    setCalendarVisible(true);
+  };
+
+  const calculateTotalPrice = () => {
+    return localSelectedServices.reduce((total, service) => {
+      return total + (service.servicesPrice * service.quantity);
+    }, 0);
+  };
+
   const handleSave = () => {
-    if (handleServiceChange) {
-      handleServiceChange(localSelectedServices);
+    if (onSelect) {
+      const servicesToSave = localSelectedServices.map(selected => {
+        const originalService = services.find(s => s.servicesID === selected.servicesID);
+        return {
+          quantity: selected.quantity,
+          servicesID: selected.servicesID,
+          startDate: selected.startDate,
+          endDate: selected.endDate,
+          rentHour: selected.rentHour || 0,
+          servicesName: originalService?.servicesName || 'Không rõ',
+          servicesPrice: originalService?.servicesPrice || 0
+        };
+      });
+      console.log('ServicesModal - Saving services with display info:', servicesToSave);
+      onSelect(servicesToSave);
     }
     onClose();
   };
 
-  const renderService = ({ item }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const renderServiceItem = (item, index) => {
     const isSelected = localSelectedServices.some(
       s => s.servicesID === item.servicesID
     );
+    const selectedService = localSelectedServices.find(
+      s => s.servicesID === item.servicesID
+    );
+    const quantity = selectedService?.quantity || 0;
+    const startDate = selectedService?.startDate;
+    const endDate = selectedService?.endDate;
+
+    const formattedStartDate = formatDate(startDate);
+    const formattedEndDate = formatDate(endDate);
+
     return (
       <Animated.View
-        entering={FadeInDown.delay((item.servicesID || 0) * 50).springify()}
+        key={item.servicesID}
+        entering={FadeInDown.delay(index * 100).duration(500)}
+        style={styles.serviceItemContainer}
       >
         <TouchableOpacity
           style={[styles.serviceItem, isSelected && styles.serviceItemSelected]}
           onPress={() => toggleService(item)}
         >
-          <View style={styles.serviceLeft}>
-            <View style={styles.serviceInfo}>
+          {item.imageServices && item.imageServices[0] && (
+            <Image
+              source={{ uri: item.imageServices[0].image }}
+              style={styles.serviceImage}
+            />
+          )}
+          <View style={styles.serviceContent}>
+            <View style={styles.serviceLeft}>
               <Text style={styles.serviceName}>{item.servicesName}</Text>
-              <Text style={styles.serviceDescription}>{item.description || "Không có mô tả"}</Text>
+              <Text style={styles.serviceDescription}>{item.description}</Text>
+              <Text style={styles.serviceQuantity}>
+                Số lượng còn lại: {item.quantity}
+              </Text>
+              {isSelected && (
+                <View style={styles.dateContainer}>
+                  <TouchableOpacity 
+                    style={styles.dateButton}
+                    onPress={() => openCalendar(item.servicesID)}
+                  >
+                    <Text style={styles.dateLabel}>Thời gian sử dụng:</Text>
+                    <Text style={[
+                      styles.dateText,
+                      (!formattedStartDate || !formattedEndDate) && styles.datePlaceholder
+                    ]}>
+                      {formattedStartDate && formattedEndDate
+                        ? `${formattedStartDate} - ${formattedEndDate}`
+                        : 'Chọn ngày'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-          </View>
-          <View style={styles.serviceRight}>
-            <Text style={[styles.servicePrice, isSelected && styles.servicePriceSelected]}>
-              {(item.servicesPrice || 0).toLocaleString()} đ
-            </Text>
-            <View style={[
-              styles.checkbox,
-              isSelected && styles.checkboxSelected
-            ]}>
-              {isSelected && <Icon name="checkmark" size={16} color="#fff" />}
+            <View style={styles.serviceRight}>
+              <Text style={styles.servicePrice}>
+                {(item.servicesPrice || 0).toLocaleString()} đ
+              </Text>
+              {isSelected && (
+                <View style={styles.quantityContainer}>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => updateServiceQuantity(item.servicesID, quantity - 1)}
+                  >
+                    <Icon name="remove" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                  <Text style={styles.quantityText}>{quantity}</Text>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => updateServiceQuantity(item.servicesID, quantity + 1)}
+                  >
+                    <Icon name="add" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                {isSelected && <Icon name="checkmark" size={16} color="#fff" />}
+              </View>
             </View>
           </View>
         </TouchableOpacity>
@@ -115,23 +254,14 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent={true} animationType="slide">
       <View style={styles.modalContainer}>
-        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
         <SafeAreaView style={styles.safeArea}>
-          <Animated.View
-            entering={FadeInDown}
-            style={styles.modalContent}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Dịch vụ bổ sung</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Icon name="close" size={24} color="#666" />
+          <View style={styles.modalContent}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Dịch vụ bổ sung</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
 
@@ -142,143 +272,175 @@ export default function ServicesModal({ visible, onClose, selectedServices, onSe
               </View>
             ) : error ? (
               <View style={styles.errorContainer}>
-                <Icon name="alert-circle-outline" size={40} color="#e53935" />
                 <Text style={styles.errorText}>{error}</Text>
                 <TouchableOpacity
                   style={styles.retryButton}
                   onPress={fetchServices}
                 >
-                  <Text style={styles.retryText}>Thử lại</Text>
+                  <Text style={styles.retryButtonText}>Thử lại</Text>
                 </TouchableOpacity>
               </View>
             ) : services.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Không có dịch vụ nào cho homestay này</Text>
+                <Text style={styles.emptyText}>Không có dịch vụ nào</Text>
               </View>
             ) : (
-              <>
-                <FlatList
-                  data={services}
-                  renderItem={renderService}
-                  keyExtractor={item => item.servicesID.toString()}
-                  contentContainerStyle={styles.servicesList}
-                  showsVerticalScrollIndicator={false}
-                />
-
-                <View style={styles.footer}>
-                  <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                    <LinearGradient
-                      colors={[colors.primary, colors.secondary]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.saveButtonGradient}
-                    >
-                      <Text style={styles.saveButtonText}>
-                        {localSelectedServices.length > 0
-                          ? `Chọn ${localSelectedServices.length} dịch vụ`
-                          : 'Không chọn dịch vụ'}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </>
+              <ScrollView style={styles.servicesList}>
+                {services.map((service, index) => renderServiceItem(service, index))}
+              </ScrollView>
             )}
-          </Animated.View>
+
+            <View style={styles.footer}>
+              <View style={styles.totalContainer}>
+                <Text style={styles.totalLabel}>Tổng tiền:</Text>
+                <Text style={styles.totalPrice}>
+                  {calculateTotalPrice().toLocaleString()} đ
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSave}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  style={styles.gradient}
+                >
+                  <Text style={styles.saveButtonText}>
+                    Lưu ({localSelectedServices.length})
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
         </SafeAreaView>
+        <CalendarModal
+          visible={calendarVisible}
+          onClose={() => setCalendarVisible(false)}
+          onDateSelect={handleDateSelect}
+        />
       </View>
     </Modal>
   );
-}
+};
 
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   safeArea: {
     flex: 1,
-    width: '100%',
-    justifyContent: 'center',
   },
   modalContent: {
+    flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 16,
+    marginTop: 50,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: 'hidden',
-    width: '90%',
-    maxHeight: '80%',
-    alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  modalHeader: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderBottomColor: '#f0f0f0',
     borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  modalTitle: {
-    fontSize: 18,
+  title: {
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
   },
   servicesList: {
+    flex: 1,
     padding: 16,
   },
+  serviceItemContainer: {
+    marginBottom: 12,
+  },
   serviceItem: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  serviceItemSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  serviceImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  serviceContent: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  serviceItemSelected: {
-    backgroundColor: colors.primary + '10',
-    borderColor: colors.primary,
   },
   serviceLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  serviceInfo: {
-    marginLeft: 0,
     flex: 1,
   },
   serviceName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#333',
     marginBottom: 4,
   },
   serviceDescription: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 4,
+  },
+  serviceQuantity: {
+    fontSize: 12,
+    color: '#888',
   },
   serviceRight: {
     alignItems: 'flex-end',
   },
   servicePrice: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: colors.primary,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  servicePriceSelected: {
-    color: colors.primary,
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quantityButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.primary + '10',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  quantityText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 12,
+    minWidth: 20,
+    textAlign: 'center',
   },
   checkbox: {
     width: 24,
@@ -288,7 +450,6 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
   checkboxSelected: {
     backgroundColor: colors.primary,
@@ -297,14 +458,30 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: '#eee',
+  },
+  totalContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  totalPrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
   },
   saveButton: {
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: 'hidden',
   },
-  saveButtonGradient: {
-    paddingVertical: 12,
+  gradient: {
+    padding: 16,
     alignItems: 'center',
   },
   saveButtonText: {
@@ -313,42 +490,74 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   loadingContainer: {
-    padding: 40,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: 12,
     fontSize: 16,
     color: '#666',
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   emptyContainer: {
-    padding: 40,
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   emptyText: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
   },
-  errorContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 16,
-  },
-  retryButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: colors.primary,
+  dateContainer: {
+    marginTop: 8,
     borderRadius: 8,
   },
-  retryText: {
-    color: '#fff',
-    fontWeight: '600',
+  dateButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  dateLabel: {
+    fontSize: 12,
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  datePlaceholder: {
+    color: '#999',
+    fontStyle: 'italic',
+    fontWeight: 'normal',
   },
 });
+
+export default ServicesModal;

@@ -1,4 +1,5 @@
 import apiClient, { handleError } from '../config';
+import axios from 'axios';
 
 const homeStayApi = {
   filterHomeStays: async (filterParams) => {
@@ -18,7 +19,6 @@ const homeStayApi = {
     }
   },
 
-  // Lấy chi tiết homestay theo ID
   getHomeStayDetail: async (homestayId) => {
     try {
       const response = await apiClient.get(`/api/homestay/GetHomeStayDetail/${homestayId}`);
@@ -92,10 +92,16 @@ const homeStayApi = {
   getCancellationPolicy: async (homeStayId) => {
     try {
       const response = await apiClient.get(`/api/CancellationPolicy/GetByHomeStayId/${homeStayId}`);
-      return response.data;
+      return {
+        success: true,
+        data: response.data
+      };
     } catch (error) {
       console.error('Error fetching cancellation policy:', error);
-      throw error;
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Không thể lấy thông tin chính sách hủy phòng'
+      };
     }
   }
 };
