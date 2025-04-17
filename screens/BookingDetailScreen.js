@@ -5,11 +5,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import bookingApi from '../services/api/bookingApi';
-import homestayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import { FadeInDown } from 'react-native-reanimated';
 import ServicesModal from '../components/Modal/ServicesModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import homeStayApi from '../services/api/homeStayApi';
 
 const BookingDetailScreen = () => {
     const navigation = useNavigation();
@@ -71,7 +71,7 @@ const BookingDetailScreen = () => {
 
     const fetchCancellationPolicy = async (homeStayId) => {
         try {
-            const response = await homestayApi.getCancellationPolicy(homeStayId);
+            const response = await homeStayApi.getCancellationPolicy(homeStayId);
             if (response.statusCode === 200) {
                 setCancellationPolicy(response.data);
             }

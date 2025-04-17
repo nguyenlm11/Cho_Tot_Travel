@@ -86,7 +86,11 @@ const CheckoutScreen = () => {
   };
 
   const calculateServiceTotal = () => {
-    return selectedServices.reduce((sum, service) => sum + (service.servicesPrice || 0), 0);
+    return selectedServices.reduce((sum, service) => {
+      const price = service.servicesPrice || 0;
+      const quantity = service.quantity || 0;
+      return sum + (price * quantity);
+    }, 0);
   };
 
   const calculateTotal = () => {
@@ -151,8 +155,11 @@ const CheckoutScreen = () => {
     }));
 
     const bookingServicesDetails = selectedServices.map(service => ({
-      quantity: 1,
-      servicesID: service.servicesID
+      quantity: service.quantity,
+      servicesID: service.servicesID,
+      startDate: service.startDate,
+      endDate: service.endDate,
+      rentHour: service.rentHour
     }));
 
     const bookingData = {
@@ -165,7 +172,7 @@ const CheckoutScreen = () => {
         bookingServicesDetails: bookingServicesDetails
       }
     };
-    console.log('Booking data:', JSON.stringify(bookingData, null, 2));
+    console.log('CheckoutScreen - Booking data to be sent:', JSON.stringify(bookingData, null, 2));
     return bookingData;
   };
 
