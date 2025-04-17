@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking, RefreshControl, Platform, StatusBar, Animated } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -21,6 +21,7 @@ const BookingDetailScreen = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [processingPayment, setProcessingPayment] = useState(false);
     const [isServicesModalVisible, setIsServicesModalVisible] = useState(false);
+    const [selectedServices, setSelectedServices] = useState([]);
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
     const bookingStatusMapping = {
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
@@ -38,17 +39,7 @@ const BookingDetailScreen = () => {
         3: { label: 'Đã hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'refresh-outline' }
     };
 
-    useEffect(() => {
-        fetchBookingDetails();
-    }, [bookingId]);
-
-    useEffect(() => {
-        if (bookingData?.homeStay?.homeStayID) {
-            fetchCancellationPolicy(bookingData.homeStay.homeStayID);
-        }
-    }, [bookingData?.homeStay?.homeStayID]);
-
-    const fetchBookingDetails = async () => {
+    const fetchBookingDetails = useCallback(async () => {
         try {
             setLoading(true);
             if (!bookingId) {
@@ -67,9 +58,9 @@ const BookingDetailScreen = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [bookingId]);
 
-    const fetchCancellationPolicy = async (homeStayId) => {
+    const fetchCancellationPolicy = useCallback(async (homeStayId) => {
         try {
             const response = await homeStayApi.getCancellationPolicy(homeStayId);
             if (response.statusCode === 200) {
@@ -78,7 +69,17 @@ const BookingDetailScreen = () => {
         } catch (error) {
             setError('Không thể tải chính sách hủy phòng');
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchBookingDetails();
+    }, [fetchBookingDetails]);
+
+    useEffect(() => {
+        if (bookingData?.homeStay?.homeStayID) {
+            fetchCancellationPolicy(bookingData.homeStay.homeStayID);
+        }
+    }, [bookingData?.homeStay?.homeStayID, fetchCancellationPolicy]);
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -342,9 +343,15 @@ const BookingDetailScreen = () => {
                                                 {formatDateTime(service.bookingServicesDate)}
                                             </Text>
                                         </View>
-                                        <View style={[styles.serviceStatusBadge, { backgroundColor: service.status === 0 ? '#FFF3E0' : '#E8F5E9' }]}>
-                                            <Text style={[styles.serviceStatusText, { color: service.status === 0 ? '#FF9800' : '#4CAF50' }]}>
-                                                {service.status === 0 ? 'Chờ thanh toán' : service.status === 1 ? 'Đã thanh toán' : service.status === 4 ? 'Đã hủy' : service.status === 5 ? 'Yêu cầu hoàn tiền' : service.status === 2 ? 'Đang phục vụ' : 'Đã hoàn thành'}
+                                        <View style={styles.serviceStatusBadge}>
+                                            <Text style={styles.serviceStatusText}>
+                                                {service.status === 0 ? 'Chờ thanh toán' :
+                                                    service.status === 1 ? 'Đã thanh toán' :
+                                                        service.status === 2 ? 'Đang phục vụ' :
+                                                            service.status === 3 ? 'Đã hoàn thành' :
+                                                                service.status === 4 ? 'Đã hủy' :
+                                                                    service.status === 5 ? 'Yêu cầu hoàn tiền' :
+                                                                        service.status === 6 ? 'Đã hoàn tiền' : 'Không xác định'}
                                             </Text>
                                         </View>
                                     </View>
@@ -570,88 +577,71 @@ const BookingDetailScreen = () => {
         setIsServicesModalVisible(true);
     };
 
-    const handleServiceSelected = async (selectedServices) => {
+    const handleServiceSelected = useCallback(async (selectedServices) => {
         try {
+            if (!bookingData?.homeStay?.homeStayID) {
+                Alert.alert('Lỗi', 'Không tìm thấy thông tin homestay');
+                return;
+            }
+
             setLoading(true);
-            const userDataString = await AsyncStorage.getItem('user');
-            if (!userDataString) {
-                Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+            const userData = await AsyncStorage.getItem('user');
+            const userInfo = userData ? JSON.parse(userData) : null;
+            if (!userInfo) {
+                Alert.alert('Lỗi', 'Vui lòng đăng nhập để thực hiện chức năng này');
                 return;
             }
-            const userData = JSON.parse(userDataString);
-            const accountID = userData.userId || userData.AccountID;
-            if (!accountID) {
-                Alert.alert('Lỗi', 'Không tìm thấy ID người dùng');
+            if (!userInfo.userId) {
+                Alert.alert('Lỗi', 'Không tìm thấy thông tin tài khoản');
                 return;
             }
+
+            const invalidServices = selectedServices.filter(service => {
+                if (service.serviceType === 2) {
+                    return !service.startDate || !service.endDate;
+                }
+                return false;
+            });
+            if (invalidServices.length > 0) {
+                Alert.alert('Lỗi', 'Vui lòng chọn ngày cho các dịch vụ thuê theo ngày');
+                return;
+            }
+
             const bookingServiceData = {
                 bookingID: bookingId,
-                accountID: accountID,
+                bookingServicesDate: new Date().toISOString(),
+                accountID: userInfo.userId,
                 homeStayID: bookingData.homeStay.homeStayID,
                 bookingServicesDetails: selectedServices.map(service => ({
-                    quantity: 1,
-                    servicesID: service.servicesID
+                    quantity: service.quantity,
+                    servicesID: service.servicesID,
+                    startDate: service.serviceType === 2 ? service.startDate : null,
+                    endDate: service.serviceType === 2 ? service.endDate : null,
+                    rentHour: null
                 }))
             };
-            console.log('Booking service data:', bookingServiceData);
+
             const response = await bookingApi.createBookingServices(bookingServiceData);
             if (response.success) {
-                handleServicePayment(response.data.data.bookingServicesID);
+                const bookingServiceId = response.data?.data?.bookingServicesID;
+                if (bookingServiceId) {
+                    setIsServicesModalVisible(false);
+                    handleServicePayment(bookingServiceId);
+                } else {
+                    Alert.alert('Lỗi', 'Không nhận được mã đặt dịch vụ');
+                }
             } else {
-                Alert.alert('Lỗi', response.error || 'Không thể đặt dịch vụ');
+                Alert.alert('Lỗi', response.message || 'Không thể thêm dịch vụ');
             }
         } catch (error) {
-            console.error('Lỗi khi đặt dịch vụ:', error);
-            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi đặt dịch vụ');
+            console.error('Error adding services:', error);
+            Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi thêm dịch vụ');
         } finally {
             setLoading(false);
-            setIsServicesModalVisible(false);
         }
-    };
+    }, [bookingId, handleServicePayment, bookingData]);
 
-    const onRefresh = async () => {
-        setRefreshing(true);
-        await fetchBookingDetails();
-        setRefreshing(false);
-    };
-
-    const processPayment = async (bookingId, isFullPayment) => {
-        try {
-            setProcessingPayment(true);
-            const response = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
-            if (response.success && response.paymentUrl) {
-                navigation.navigate('PaymentWebView', {
-                    paymentUrl: response.paymentUrl,
-                    bookingId: bookingId,
-                    onPaymentComplete: () => {
-                        fetchBookingDetails();
-                    }
-                });
-            } else {
-                Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
-            }
-        } catch (error) {
-            console.error('Lỗi khi tạo URL thanh toán:', error);
-            Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
-        } finally {
-            setProcessingPayment(false);
-        }
-    };
-
-    const handlePayNow = async (bookingId) => {
-        if (processingPayment) return;
-        Alert.alert(
-            'Chọn phương thức thanh toán',
-            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
-            [
-                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
-                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
-                { text: 'Hủy', style: 'cancel' }
-            ]
-        );
-    };
-
-    const handleServicePayment = async (bookingServiceId) => {
+    const handleServicePayment = useCallback(async (bookingServiceId) => {
         if (processingPayment) return;
         try {
             setProcessingPayment(true);
@@ -672,9 +662,9 @@ const BookingDetailScreen = () => {
         } finally {
             setProcessingPayment(false);
         }
-    };
+    }, [processingPayment, navigation, fetchBookingDetails]);
 
-    const handleCancelService = async (bookingServiceId, isRefund = false) => {
+    const handleCancelService = useCallback(async (bookingServiceId, isRefund = false) => {
         if (!bookingData || !cancellationPolicy) {
             return;
         }
@@ -686,7 +676,6 @@ const BookingDetailScreen = () => {
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 5 : 0;
 
-        // Tìm booking service để lấy paymentServiceStatus
         const bookingService = bookingData.bookingServices.find(service => service.bookingServicesID === bookingServiceId);
         if (!bookingService) {
             Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
@@ -704,21 +693,15 @@ const BookingDetailScreen = () => {
                     text: 'Xác nhận',
                     onPress: async () => {
                         try {
-                            const result = await bookingApi.changeBookingServiceStatus( 
-                                bookingId, 
-                                bookingServiceId, 
+                            const result = await bookingApi.changeBookingServiceStatus(
+                                bookingId,
+                                bookingServiceId,
                                 bookingData.status,
                                 bookingData.paymentStatus,
-                                newStatus, 
+                                newStatus,
                                 bookingService.paymentServiceStatus
                             );
-                            console.log('Booking id:', bookingId);
-                            console.log('Booking serviceID:', bookingServiceId);
-                            console.log('Status:', bookingData.status);
-                            console.log('Payment status:', bookingData.paymentStatus);
-                            console.log('New status:', newStatus);
-                            console.log('Payment service status:', bookingService.paymentServiceStatus);
-                            console.log('Result:', result);
+
                             if (result.success) {
                                 Alert.alert(
                                     'Thành công',
@@ -737,7 +720,49 @@ const BookingDetailScreen = () => {
                 }
             ]
         );
-    };
+    }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchBookingDetails();
+        setRefreshing(false);
+    }, [fetchBookingDetails]);
+
+    const processPayment = useCallback(async (bookingId, isFullPayment) => {
+        try {
+            setProcessingPayment(true);
+            const response = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
+            if (response.success && response.paymentUrl) {
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: response.paymentUrl,
+                    bookingId: bookingId,
+                    onPaymentComplete: () => {
+                        fetchBookingDetails();
+                    }
+                });
+            } else {
+                Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tạo URL thanh toán:', error);
+            Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
+        } finally {
+            setProcessingPayment(false);
+        }
+    }, [navigation, fetchBookingDetails]);
+
+    const handlePayNow = useCallback(async (bookingId) => {
+        if (processingPayment) return;
+        Alert.alert(
+            'Chọn phương thức thanh toán',
+            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
+            [
+                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
+                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
+                { text: 'Hủy', style: 'cancel' }
+            ]
+        );
+    }, [processingPayment, processPayment]);
 
     if (loading) {
         return (
@@ -803,7 +828,10 @@ const BookingDetailScreen = () => {
                 visible={isServicesModalVisible}
                 onClose={() => setIsServicesModalVisible(false)}
                 onSelect={handleServiceSelected}
+                selectedServices={selectedServices}
                 homestayId={bookingData?.homeStay?.homeStayID}
+                checkInDate={bookingData?.bookingDetails?.[0]?.checkInDate}
+                checkOutDate={bookingData?.bookingDetails?.[0]?.checkOutDate}
             />
         </View>
     );
@@ -1036,10 +1064,34 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 20,
+        backgroundColor: (status) => {
+            switch (status) {
+                case 0: return '#FFF3E0';  // Chờ thanh toán
+                case 1: return '#E8F5E9';  // Đã thanh toán
+                case 2: return '#E3F2FD';  // Đang phục vụ
+                case 3: return '#F3E5F5';  // Đã hoàn thành
+                case 4: return '#FFEBEE';  // Đã hủy
+                case 5: return '#FBE9E7';  // Yêu cầu hoàn tiền
+                case 6: return '#F3E5F5';  // Đã hoàn tiền
+                default: return '#ECEFF1'; // Không xác định
+            }
+        }
     },
     serviceStatusText: {
         fontSize: 12,
         fontWeight: '600',
+        color: (status) => {
+            switch (status) {
+                case 0: return '#FF9800';  // Chờ thanh toán
+                case 1: return '#4CAF50';  // Đã thanh toán
+                case 2: return '#2196F3';  // Đang phục vụ
+                case 3: return '#9C27B0';  // Đã hoàn thành
+                case 4: return '#F44336';  // Đã hủy
+                case 5: return '#FF5722';  // Yêu cầu hoàn tiền
+                case 6: return '#9C27B0';  // Đã hoàn tiền
+                default: return '#607D8B'; // Không xác định
+            }
+        }
     },
     serviceDetails: { marginBottom: 16 },
     serviceDetailItem: {
@@ -1392,6 +1444,18 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '600',
         color: colors.primary,
+    },
+    serviceDates: {
+        marginTop: 4,
+    },
+    serviceDate: {
+        fontSize: 12,
+        color: '#666',
+    },
+    emptyText: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        textAlign: 'center',
     },
 });
 

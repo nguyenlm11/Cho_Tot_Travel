@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Image, SafeAreaView, TextInput, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,7 +7,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '../../constants/Colors';
 import CalendarModal from './CalendarModal';
 
-const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, homestayId, homeStayId, checkInDate, checkOutDate }) => {
+const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, homestayId, checkInDate, checkOutDate }) => {
   const [localSelectedServices, setLocalSelectedServices] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,78 +16,97 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState(null);
 
-  const actualHomeStayId = homestayId || homeStayId;
+  // Memoize fetchServices
+  const fetchServices = useCallback(async () => {
+    if (!homestayId) return;
 
-  useEffect(() => {
-    if (visible && actualHomeStayId) {
-      fetchServices();
-    }
-  }, [visible, actualHomeStayId]);
-
-  useEffect(() => {
-    if (visible) {
-      setLocalSelectedServices(selectedServices);
-      const dates = {};
-      selectedServices.forEach(service => {
-        dates[service.servicesID] = {
-          date: service.date
-        };
-      });
-      setSelectedDates(dates);
-    }
-  }, [visible, selectedServices]);
-
-  const fetchServices = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await serviceApi.getAllServices(actualHomeStayId);
+      const result = await serviceApi.getAllServices(homestayId);
       setServices(result.data || []);
     } catch (error) {
       setError('Đã xảy ra lỗi khi tải dịch vụ');
     } finally {
       setLoading(false);
     }
-  };
+  }, [homestayId]);
 
-  const toggleService = (service) => {
-    console.log('=== TOGGLING SERVICE ===');
-    console.log('Service being toggled:', service);
+  // Fetch services khi modal hiển thị
+  useEffect(() => {
+    if (visible && homestayId) {
+      fetchServices();
+    }
+  }, [visible, homestayId, fetchServices]);
 
-    const isAlreadySelected = localSelectedServices.some(
-      s => s.servicesID === service.servicesID
-    );
+  // Khởi tạo local state khi modal hiển thị, chỉ cập nhật nếu cần
+  useEffect(() => {
+    if (visible) {
+      console.log('Modal visible, initializing state');
+      // Chỉ cập nhật nếu localSelectedServices khác
+      if (JSON.stringify(localSelectedServices) !== JSON.stringify(selectedServices)) {
+        console.log('Updating localSelectedServices');
+        setLocalSelectedServices(selectedServices);
+      }
 
-    const newSelected = isAlreadySelected
-      ? localSelectedServices.filter(s => s.servicesID !== service.servicesID)
-      : [...localSelectedServices, {
-        ...service,
-        quantity: 1,
-        startDate: null,
-        endDate: null,
-        rentHour: null
-      }];
+      // Chỉ cập nhật nếu selectedDates khác
+      const dates = {};
+      selectedServices.forEach(service => {
+        if (service.startDate && service.endDate) {
+          dates[service.servicesID] = {
+            startDate: service.startDate,
+            endDate: service.endDate
+          };
+        }
+      });
+      if (JSON.stringify(selectedDates) !== JSON.stringify(dates)) {
+        console.log('Updating selectedDates');
+        setSelectedDates(dates);
+      }
+    }
+  }, [visible, selectedServices]);
 
-    console.log('Updated selected services:', newSelected);
-    setLocalSelectedServices(newSelected);
-  };
+  // Memoize toggleService
+  const toggleService = useCallback((service) => {
+    console.log('Toggle service:', service.servicesID);
+    setLocalSelectedServices(prevServices => {
+      const isAlreadySelected = prevServices.some(
+        s => s.servicesID === service.servicesID
+      );
 
-  const updateServiceQuantity = (serviceId, newQuantity) => {
+      if (isAlreadySelected) {
+        return prevServices.filter(s => s.servicesID !== service.servicesID);
+      } else {
+        return [...prevServices, {
+          ...service,
+          quantity: 1,
+          startDate: null,
+          endDate: null,
+          rentHour: null
+        }];
+      }
+    });
+  }, []);
+
+  // Memoize updateServiceQuantity
+  const updateServiceQuantity = useCallback((serviceId, newQuantity) => {
     if (newQuantity < 1) return;
 
     const service = services.find(s => s.servicesID === serviceId);
     if (newQuantity > service.quantity) return;
 
-    const updatedServices = localSelectedServices.map(service => {
-      if (service.servicesID === serviceId) {
-        return { ...service, quantity: newQuantity };
-      }
-      return service;
-    });
-    setLocalSelectedServices(updatedServices);
-  };
+    setLocalSelectedServices(prevServices =>
+      prevServices.map(service => {
+        if (service.servicesID === serviceId) {
+          return { ...service, quantity: newQuantity };
+        }
+        return service;
+      })
+    );
+  }, [services]);
 
-  const validateServiceDates = (service) => {
+  // Memoize validateServiceDates
+  const validateServiceDates = useCallback((service) => {
     if (service.serviceType !== 2) return true;
     if (!service.startDate || !service.endDate) return false;
 
@@ -96,54 +115,42 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
     const bookingStart = new Date(checkInDate);
     const bookingEnd = new Date(checkOutDate);
 
-    // Reset hours to compare dates only
     serviceStart.setHours(0, 0, 0, 0);
     serviceEnd.setHours(0, 0, 0, 0);
     bookingStart.setHours(0, 0, 0, 0);
     bookingEnd.setHours(0, 0, 0, 0);
 
     return serviceStart >= bookingStart && serviceEnd <= bookingEnd;
-  };
+  }, [checkInDate, checkOutDate]);
 
-  const handleDateSelect = (dateObject) => {
-    console.log('=== DATE SELECTION ===');
-    console.log('Date object received:', dateObject);
-    console.log('Selected service ID:', selectedServiceId);
-    console.log('Booking period:', { checkInDate, checkOutDate });
+  // Memoize handleDateSelect
+  const handleDateSelect = useCallback((dateObject) => {
+    if (!selectedServiceId || !dateObject?.dateString || !dateObject?.checkOutDateString) {
+      setCalendarVisible(false);
+      return;
+    }
 
-    const actualStartDateString = dateObject?.dateString;
-    const actualEndDateString = dateObject?.checkOutDateString;
+    const newStartDate = new Date(dateObject.dateString);
+    const newEndDate = new Date(dateObject.checkOutDateString);
+    const bookingStart = new Date(checkInDate);
+    const bookingEnd = new Date(checkOutDate);
 
-    if (selectedServiceId && actualStartDateString && actualEndDateString) {
-      const newStartDate = new Date(actualStartDateString);
-      const newEndDate = new Date(actualEndDateString);
-      const bookingStart = new Date(checkInDate);
-      const bookingEnd = new Date(checkOutDate);
+    newStartDate.setHours(0, 0, 0, 0);
+    newEndDate.setHours(0, 0, 0, 0);
+    bookingStart.setHours(0, 0, 0, 0);
+    bookingEnd.setHours(0, 0, 0, 0);
 
-      // Reset hours for date comparison
-      newStartDate.setHours(0, 0, 0, 0);
-      newEndDate.setHours(0, 0, 0, 0);
-      bookingStart.setHours(0, 0, 0, 0);
-      bookingEnd.setHours(0, 0, 0, 0);
+    if (newStartDate < bookingStart || newEndDate > bookingEnd) {
+      Alert.alert(
+        'Thông báo',
+        'Ngày sử dụng dịch vụ phải nằm trong khoảng thời gian đặt phòng ' +
+        `(${bookingStart.toLocaleDateString('vi-VN')} - ${bookingEnd.toLocaleDateString('vi-VN')})`
+      );
+      return;
+    }
 
-      console.log('Dates after normalization:', {
-        serviceStart: newStartDate,
-        serviceEnd: newEndDate,
-        bookingStart,
-        bookingEnd
-      });
-
-      // Validate date range
-      if (newStartDate < bookingStart || newEndDate > bookingEnd) {
-        Alert.alert(
-          'Thông báo',
-          'Ngày sử dụng dịch vụ phải nằm trong khoảng thời gian đặt phòng ' +
-          `(${bookingStart.toLocaleDateString('vi-VN')} - ${bookingEnd.toLocaleDateString('vi-VN')})`
-        );
-        return;
-      }
-
-      const updatedServices = localSelectedServices.map(service => {
+    setLocalSelectedServices(prevServices =>
+      prevServices.map(service => {
         if (service.servicesID === selectedServiceId) {
           return {
             ...service,
@@ -152,46 +159,33 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
           };
         }
         return service;
-      });
+      })
+    );
+    setCalendarVisible(false);
+  }, [selectedServiceId, checkInDate, checkOutDate]);
 
-      console.log('Services after date update:', updatedServices);
-      setLocalSelectedServices(updatedServices);
-      setCalendarVisible(false);
-    } else {
-      console.log('Date selection conditions not met:', {
-        selectedServiceId,
-        actualStartDateString,
-        actualEndDateString
-      });
-      setCalendarVisible(false);
-    }
-  };
-
-  const openCalendar = (serviceId) => {
+  // Memoize openCalendar
+  const openCalendar = useCallback((serviceId) => {
     setSelectedServiceId(serviceId);
     setCalendarVisible(true);
-  };
+  }, []);
 
-  const calculateTotalPrice = () => {
+  // Memoize calculateTotalPrice
+  const calculateTotalPrice = useCallback(() => {
     return localSelectedServices.reduce((total, service) => {
       return total + (service.servicesPrice * service.quantity);
     }, 0);
-  };
+  }, [localSelectedServices]);
 
-  const handleSave = () => {
-    console.log('=== SAVING SERVICES ===');
-    console.log('Current selected services:', localSelectedServices);
-
+  // Memoize handleSave
+  const handleSave = useCallback(() => {
     if (onSelect) {
-      // Validate all selected services
       const invalidServices = localSelectedServices.filter(service => {
         if (service.serviceType === 2) {
           if (!service.startDate || !service.endDate) {
-            console.log('Service missing dates:', service);
             return true;
           }
           if (!validateServiceDates(service)) {
-            console.log('Service dates outside booking period:', service);
             return true;
           }
         }
@@ -199,7 +193,6 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
       });
 
       if (invalidServices.length > 0) {
-        console.log('Invalid services found:', invalidServices);
         Alert.alert(
           'Thông báo',
           'Vui lòng chọn ngày sử dụng dịch vụ trong khoảng thời gian đặt phòng ' +
@@ -222,14 +215,13 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
         };
       });
 
-      console.log('=== FINAL SERVICES DATA ===');
-      console.log('Services to be saved:', JSON.stringify(servicesToSave, null, 2));
       onSelect(servicesToSave);
       onClose();
     }
-  };
+  }, [localSelectedServices, services, onSelect, onClose, checkInDate, checkOutDate, validateServiceDates]);
 
-  const formatDate = (dateString) => {
+  // Memoize formatDate
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return null;
     try {
       const date = new Date(dateString);
@@ -243,10 +235,10 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
     } catch (error) {
       return null;
     }
-  };
+  }, []);
 
-  const renderServiceItem = (item, index) => {
-    // Skip rendering if quantity is 0 or less
+  // Memoize renderServiceItem
+  const renderServiceItem = useCallback((item, index) => {
     if (item.quantity <= 0) return null;
 
     const isSelected = localSelectedServices.some(
@@ -270,7 +262,10 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
       >
         <TouchableOpacity
           style={[styles.serviceItem, isSelected && styles.serviceItemSelected]}
-          onPress={() => toggleService(item)}
+          onPress={() => {
+            console.log('Service item pressed:', item.servicesID);
+            toggleService(item);
+          }}
         >
           {item.imageServices && item.imageServices[0] && (
             <Image
@@ -340,7 +335,7 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  }, [localSelectedServices, toggleService, openCalendar, updateServiceQuantity, formatDate]);
 
   return (
     <Modal visible={visible} transparent={true} animationType="slide">
@@ -605,60 +600,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  dateContainer: {
-    marginTop: 8,
-    borderRadius: 8,
-  },
-  dateButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: '#fff',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: colors.primary,
-    marginBottom: 2,
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  datePlaceholder: {
-    color: '#999',
-    fontStyle: 'italic',
-    fontWeight: 'normal',
-  },
-  dateButtonRequired: {
-    borderColor: '#ff4444',
-  },
-  requiredStar: {
-    color: '#ff4444',
-    fontWeight: 'bold',
-  },
-  perDay: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-  },
+  }
 });
 
 export default ServicesModal;
