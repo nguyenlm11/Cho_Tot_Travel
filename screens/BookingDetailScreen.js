@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking, RefreshControl, Platform, StatusBar, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, StatusBar, Animated } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +23,7 @@ const BookingDetailScreen = () => {
     const [isServicesModalVisible, setIsServicesModalVisible] = useState(false);
     const [selectedServices, setSelectedServices] = useState([]);
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
+
     const bookingStatusMapping = {
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
         1: { label: 'Đã xác nhận', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
@@ -63,9 +64,7 @@ const BookingDetailScreen = () => {
     const fetchCancellationPolicy = useCallback(async (homeStayId) => {
         try {
             const response = await homeStayApi.getCancellationPolicy(homeStayId);
-            if (response.statusCode === 200) {
-                setCancellationPolicy(response.data);
-            }
+            setCancellationPolicy(response.data.data);
         } catch (error) {
             setError('Không thể tải chính sách hủy phòng');
         }
@@ -108,16 +107,15 @@ const BookingDetailScreen = () => {
 
     const handleCancelBooking = () => {
         if (!bookingData || !cancellationPolicy) {
+            console.log('cancel policy', cancellationPolicy)
+            Alert.alert('Lỗi', 'Không thể lấy thông tin đặt phòng hoặc chính sách hủy');
             return;
         }
-
         const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
-
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 6 : 4;
-
         Alert.alert(
             'Xác nhận hủy đặt phòng',
             canRefund
@@ -170,7 +168,6 @@ const BookingDetailScreen = () => {
 
     const renderBookingDetails = () => {
         if (!bookingData) return null;
-
         return (
             <View style={styles.detailsContainer}>
                 <View style={styles.bookingHeader}>
@@ -668,7 +665,6 @@ const BookingDetailScreen = () => {
         if (!bookingData || !cancellationPolicy) {
             return;
         }
-
         const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
@@ -681,7 +677,6 @@ const BookingDetailScreen = () => {
             Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
             return;
         }
-
         Alert.alert(
             'Xác nhận hủy dịch vụ',
             canRefund
@@ -840,7 +835,7 @@ const BookingDetailScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: colors.background,
     },
     header: {
         paddingTop: Platform.OS === 'ios' ? 60 : StatusBar.currentHeight + 20,
