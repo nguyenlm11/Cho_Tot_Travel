@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, StatusBar, Animated } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -24,7 +24,7 @@ const BookingDetailScreen = () => {
     const [selectedServices, setSelectedServices] = useState([]);
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
 
-    const bookingStatusMapping = {
+    const bookingStatusMapping = useMemo(() => ({
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
         1: { label: 'Đã xác nhận', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
         2: { label: 'Đang lưu trú', color: '#2196F3', bgColor: '#E3F2FD', icon: 'home-outline' },
@@ -32,25 +32,26 @@ const BookingDetailScreen = () => {
         4: { label: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE', icon: 'close-circle-outline' },
         5: { label: 'Không đến', color: '#607D8B', bgColor: '#ECEFF1', icon: 'alert-circle-outline' },
         6: { label: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-outline' }
-    };
-    const paymentStatusMapping = {
+    }), []);
+
+    const paymentStatusMapping = useMemo(() => ({
         0: { label: 'Chưa thanh toán', color: '#F44336', bgColor: '#FFEBEE', icon: 'card-outline' },
         1: { label: 'Đã đặt cọc', color: '#FF9800', bgColor: '#FFF3E0', icon: 'cash-outline' },
         2: { label: 'Đã thanh toán', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
         3: { label: 'Đã hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'refresh-outline' }
-    };
+    }), []);
 
     const fetchBookingDetails = useCallback(async () => {
         try {
             setLoading(true);
             if (!bookingId) {
                 setError('Không tìm thấy mã đặt phòng');
-                setLoading(false);
                 return;
             }
             const response = await bookingApi.getBookingDetails(bookingId);
             if (response.success) {
                 setBookingData(response.data);
+                setError(null);
             } else {
                 setError(response.error || 'Không tìm thấy thông tin đặt phòng');
             }
@@ -66,7 +67,7 @@ const BookingDetailScreen = () => {
             const response = await homeStayApi.getCancellationPolicy(homeStayId);
             setCancellationPolicy(response.data.data);
         } catch (error) {
-            setError('Không thể tải chính sách hủy phòng');
+            console.error('Error fetching cancellation policy:', error);
         }
     }, []);
 
@@ -80,42 +81,43 @@ const BookingDetailScreen = () => {
         }
     }, [bookingData?.homeStay?.homeStayID, fetchCancellationPolicy]);
 
-    const formatDate = (dateString) => {
+    const formatDate = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
+    }, []);
 
-    const formatDateTime = (dateString) => {
+    const formatDateTime = useCallback((dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    };
+    }, []);
 
-    const formatCurrency = (amount) => {
+    const formatCurrency = useCallback((amount) => {
         return amount ? amount.toLocaleString('vi-VN') + 'đ' : '0đ';
-    };
+    }, []);
 
-    const calculateDays = (checkIn, checkOut) => {
+    const calculateDays = useCallback((checkIn, checkOut) => {
         if (!checkIn || !checkOut) return 0;
         const start = new Date(checkIn);
         const end = new Date(checkOut);
         const diffTime = Math.abs(end - start);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
-    };
+    }, []);
 
-    const handleCancelBooking = () => {
+    const handleCancelBooking = useCallback(async () => {
         if (!bookingData || !cancellationPolicy) {
-            console.log('cancel policy', cancellationPolicy)
             Alert.alert('Lỗi', 'Không thể lấy thông tin đặt phòng hoặc chính sách hủy');
             return;
         }
+
         const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 6 : 4;
+
         Alert.alert(
             'Xác nhận hủy đặt phòng',
             canRefund
@@ -127,6 +129,20 @@ const BookingDetailScreen = () => {
                     text: 'Xác nhận',
                     onPress: async () => {
                         try {
+                            setLoading(true);
+                            if (bookingData.bookingServices?.length > 0) {
+                                for (const service of bookingData.bookingServices) {
+                                    await bookingApi.changeBookingServiceStatus(
+                                        bookingId,
+                                        service.bookingServicesID,
+                                        bookingData.status,
+                                        bookingData.paymentStatus,
+                                        4,
+                                        service.paymentServiceStatus
+                                    );
+                                }
+                            }
+
                             const result = await bookingApi.changeBookingStatus(bookingId, newStatus, bookingData.paymentStatus);
                             if (result.success) {
                                 Alert.alert(
@@ -141,12 +157,195 @@ const BookingDetailScreen = () => {
                             }
                         } catch (error) {
                             Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng');
+                        } finally {
+                            setLoading(false);
                         }
                     }
                 }
             ]
         );
-    };
+    }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
+
+    const handleServiceSelected = useCallback(async (selectedServices) => {
+        try {
+            if (!bookingData?.homeStay?.homeStayID) {
+                Alert.alert('Lỗi', 'Không tìm thấy thông tin homestay');
+                return;
+            }
+
+            setLoading(true);
+            const userData = await AsyncStorage.getItem('user');
+            const userInfo = userData ? JSON.parse(userData) : null;
+            if (!userInfo?.userId) {
+                Alert.alert('Lỗi', 'Vui lòng đăng nhập để thực hiện chức năng này');
+                return;
+            }
+
+            const invalidServices = selectedServices.filter(service => 
+                service.serviceType === 2 && (!service.startDate || !service.endDate)
+            );
+            if (invalidServices.length > 0) {
+                Alert.alert('Lỗi', 'Vui lòng chọn ngày cho các dịch vụ thuê theo ngày');
+                return;
+            }
+
+            const bookingServiceData = {
+                bookingID: bookingId,
+                bookingServicesDate: new Date().toISOString(),
+                accountID: userInfo.userId,
+                homeStayID: bookingData.homeStay.homeStayID,
+                bookingServicesDetails: selectedServices.map(service => ({
+                    quantity: service.quantity,
+                    servicesID: service.servicesID,
+                    startDate: service.serviceType === 2 ? service.startDate : null,
+                    endDate: service.serviceType === 2 ? service.endDate : null,
+                    rentHour: null
+                }))
+            };
+
+            const response = await bookingApi.createBookingServices(bookingServiceData);
+            if (response.success) {
+                const bookingServiceId = response.data?.data?.bookingServicesID;
+                if (bookingServiceId) {
+                    setIsServicesModalVisible(false);
+                    handleServicePayment(bookingServiceId);
+                } else {
+                    Alert.alert('Lỗi', 'Không nhận được mã đặt dịch vụ');
+                }
+            } else {
+                Alert.alert('Lỗi', response.message || 'Không thể thêm dịch vụ');
+            }
+        } catch (error) {
+            console.error('Error adding services:', error);
+            Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi thêm dịch vụ');
+        } finally {
+            setLoading(false);
+        }
+    }, [bookingId, handleServicePayment, bookingData]);
+
+    const handleServicePayment = useCallback(async (bookingServiceId) => {
+        if (processingPayment) return;
+        try {
+            setProcessingPayment(true);
+            const response = await bookingApi.getBookingServicePaymentUrl(bookingServiceId, true);
+            if (response.success) {
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: response.paymentUrl,
+                    bookingId: bookingServiceId,
+                    onPaymentComplete: fetchBookingDetails
+                });
+            } else {
+                Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
+            }
+        } catch (error) {
+            Alert.alert('Lỗi', 'Không thể xử lý thanh toán');
+        } finally {
+            setProcessingPayment(false);
+        }
+    }, [processingPayment, navigation, fetchBookingDetails]);
+
+    const handleCancelService = useCallback(async (bookingServiceId, isRefund = false) => {
+        if (!bookingData || !cancellationPolicy) return;
+
+        const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
+        const currentDate = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
+        const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
+        const newStatus = canRefund ? 5 : 4;
+
+        const bookingService = bookingData.bookingServices.find(service => service.bookingServicesID === bookingServiceId);
+        if (!bookingService) {
+            Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
+            return;
+        }
+
+        Alert.alert(
+            'Xác nhận hủy dịch vụ',
+            canRefund
+                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền dịch vụ vì còn ${daysUntilCheckIn} ngày trước check-in`
+                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước check-in, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xác nhận',
+                    onPress: async () => {
+                        try {
+                            setLoading(true);
+                            const result = await bookingApi.changeBookingServiceStatus(
+                                bookingId,
+                                bookingServiceId,
+                                bookingData.status,
+                                bookingData.paymentStatus,
+                                newStatus,
+                                bookingService.paymentServiceStatus
+                            );
+
+                            if (result.success) {
+                                Alert.alert(
+                                    'Thành công',
+                                    canRefund
+                                        ? 'Đã gửi yêu cầu hoàn trả thành công'
+                                        : 'Đã hủy dịch vụ thành công'
+                                );
+                                fetchBookingDetails();
+                            } else {
+                                Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái dịch vụ');
+                            }
+                        } catch (error) {
+                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái dịch vụ');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchBookingDetails();
+        setRefreshing(false);
+    }, [fetchBookingDetails]);
+
+    const processPayment = useCallback(async (bookingId, isFullPayment) => {
+        if (processingPayment) return;
+        try {
+            setProcessingPayment(true);
+            const response = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
+            if (response.success && response.paymentUrl) {
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: response.paymentUrl,
+                    bookingId: bookingId,
+                    onPaymentComplete: fetchBookingDetails
+                });
+            } else {
+                Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tạo URL thanh toán:', error);
+            Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
+        } finally {
+            setProcessingPayment(false);
+        }
+    }, [processingPayment, navigation, fetchBookingDetails]);
+
+    const handlePayNow = useCallback(async (bookingId) => {
+        if (processingPayment) return;
+        Alert.alert(
+            'Chọn phương thức thanh toán',
+            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
+            [
+                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
+                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
+                { text: 'Hủy', style: 'cancel' }
+            ]
+        );
+    }, [processingPayment, processPayment]);
+
+    const handleBookService = useCallback(() => {
+        setIsServicesModalVisible(true);
+    }, []);
 
     const renderStatus = (status, statusMapping) => {
         const statusInfo = statusMapping[status] || {
@@ -569,195 +768,6 @@ const BookingDetailScreen = () => {
             </View>
         );
     };
-
-    const handleBookService = () => {
-        setIsServicesModalVisible(true);
-    };
-
-    const handleServiceSelected = useCallback(async (selectedServices) => {
-        try {
-            if (!bookingData?.homeStay?.homeStayID) {
-                Alert.alert('Lỗi', 'Không tìm thấy thông tin homestay');
-                return;
-            }
-
-            setLoading(true);
-            const userData = await AsyncStorage.getItem('user');
-            const userInfo = userData ? JSON.parse(userData) : null;
-            if (!userInfo) {
-                Alert.alert('Lỗi', 'Vui lòng đăng nhập để thực hiện chức năng này');
-                return;
-            }
-            if (!userInfo.userId) {
-                Alert.alert('Lỗi', 'Không tìm thấy thông tin tài khoản');
-                return;
-            }
-
-            const invalidServices = selectedServices.filter(service => {
-                if (service.serviceType === 2) {
-                    return !service.startDate || !service.endDate;
-                }
-                return false;
-            });
-            if (invalidServices.length > 0) {
-                Alert.alert('Lỗi', 'Vui lòng chọn ngày cho các dịch vụ thuê theo ngày');
-                return;
-            }
-
-            const bookingServiceData = {
-                bookingID: bookingId,
-                bookingServicesDate: new Date().toISOString(),
-                accountID: userInfo.userId,
-                homeStayID: bookingData.homeStay.homeStayID,
-                bookingServicesDetails: selectedServices.map(service => ({
-                    quantity: service.quantity,
-                    servicesID: service.servicesID,
-                    startDate: service.serviceType === 2 ? service.startDate : null,
-                    endDate: service.serviceType === 2 ? service.endDate : null,
-                    rentHour: null
-                }))
-            };
-
-            const response = await bookingApi.createBookingServices(bookingServiceData);
-            if (response.success) {
-                const bookingServiceId = response.data?.data?.bookingServicesID;
-                if (bookingServiceId) {
-                    setIsServicesModalVisible(false);
-                    handleServicePayment(bookingServiceId);
-                } else {
-                    Alert.alert('Lỗi', 'Không nhận được mã đặt dịch vụ');
-                }
-            } else {
-                Alert.alert('Lỗi', response.message || 'Không thể thêm dịch vụ');
-            }
-        } catch (error) {
-            console.error('Error adding services:', error);
-            Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi thêm dịch vụ');
-        } finally {
-            setLoading(false);
-        }
-    }, [bookingId, handleServicePayment, bookingData]);
-
-    const handleServicePayment = useCallback(async (bookingServiceId) => {
-        if (processingPayment) return;
-        try {
-            setProcessingPayment(true);
-            const response = await bookingApi.getBookingServicePaymentUrl(bookingServiceId, true);
-            if (response.success) {
-                navigation.navigate('PaymentWebView', {
-                    paymentUrl: response.paymentUrl,
-                    bookingId: bookingServiceId,
-                    onPaymentComplete: () => {
-                        fetchBookingDetails();
-                    }
-                });
-            } else {
-                Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
-            }
-        } catch (error) {
-            Alert.alert('Lỗi', 'Không thể xử lý thanh toán');
-        } finally {
-            setProcessingPayment(false);
-        }
-    }, [processingPayment, navigation, fetchBookingDetails]);
-
-    const handleCancelService = useCallback(async (bookingServiceId, isRefund = false) => {
-        if (!bookingData || !cancellationPolicy) {
-            return;
-        }
-        const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
-        const currentDate = new Date();
-        const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
-
-        const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
-        const newStatus = canRefund ? 5 : 0;
-
-        const bookingService = bookingData.bookingServices.find(service => service.bookingServicesID === bookingServiceId);
-        if (!bookingService) {
-            Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
-            return;
-        }
-        Alert.alert(
-            'Xác nhận hủy dịch vụ',
-            canRefund
-                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền dịch vụ vì còn ${daysUntilCheckIn} ngày trước check-in`
-                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước check-in, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
-            [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Xác nhận',
-                    onPress: async () => {
-                        try {
-                            const result = await bookingApi.changeBookingServiceStatus(
-                                bookingId,
-                                bookingServiceId,
-                                bookingData.status,
-                                bookingData.paymentStatus,
-                                newStatus,
-                                bookingService.paymentServiceStatus
-                            );
-
-                            if (result.success) {
-                                Alert.alert(
-                                    'Thành công',
-                                    canRefund
-                                        ? 'Đã gửi yêu cầu hoàn trả thành công'
-                                        : 'Đã hủy dịch vụ thành công'
-                                );
-                                fetchBookingDetails();
-                            } else {
-                                Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái dịch vụ');
-                            }
-                        } catch (error) {
-                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái dịch vụ');
-                        }
-                    }
-                }
-            ]
-        );
-    }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
-
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
-        await fetchBookingDetails();
-        setRefreshing(false);
-    }, [fetchBookingDetails]);
-
-    const processPayment = useCallback(async (bookingId, isFullPayment) => {
-        try {
-            setProcessingPayment(true);
-            const response = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
-            if (response.success && response.paymentUrl) {
-                navigation.navigate('PaymentWebView', {
-                    paymentUrl: response.paymentUrl,
-                    bookingId: bookingId,
-                    onPaymentComplete: () => {
-                        fetchBookingDetails();
-                    }
-                });
-            } else {
-                Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
-            }
-        } catch (error) {
-            console.error('Lỗi khi tạo URL thanh toán:', error);
-            Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
-        } finally {
-            setProcessingPayment(false);
-        }
-    }, [navigation, fetchBookingDetails]);
-
-    const handlePayNow = useCallback(async (bookingId) => {
-        if (processingPayment) return;
-        Alert.alert(
-            'Chọn phương thức thanh toán',
-            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
-            [
-                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
-                { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
-                { text: 'Hủy', style: 'cancel' }
-            ]
-        );
-    }, [processingPayment, processPayment]);
 
     if (loading) {
         return (
