@@ -131,16 +131,17 @@ const BookingDetailScreen = () => {
                         try {
                             setLoading(true);
                             if (bookingData.bookingServices?.length > 0) {
-                                for (const service of bookingData.bookingServices) {
-                                    await bookingApi.changeBookingServiceStatus(
+                                const serviceStatusPromises = bookingData.bookingServices.map(service => 
+                                    bookingApi.changeBookingServiceStatus(
                                         bookingId,
                                         service.bookingServicesID,
                                         bookingData.status,
                                         bookingData.paymentStatus,
                                         4,
                                         service.paymentServiceStatus
-                                    );
-                                }
+                                    )
+                                );
+                                await Promise.all(serviceStatusPromises);
                             }
 
                             const result = await bookingApi.changeBookingStatus(bookingId, newStatus, bookingData.paymentStatus);
