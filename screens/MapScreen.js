@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, Linking, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, StatusBar, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Callout, UrlTile, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
 import { Ionicons, MaterialIcons } from 'react-native-vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import axios from 'axios';
 
-const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
+const ORS_API_KEY = '5b3ce3597851110001cf62488da097349649497fab084c37b8c4d6cc';
+const ORS_API_URL = 'https://api.openrouteservice.org/v2/directions/driving-car';
 
 export default function MapScreen() {
     const navigation = useNavigation();
@@ -26,15 +26,12 @@ export default function MapScreen() {
 
     const [userLocation, setUserLocation] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
-    const [routeSteps, setRouteSteps] = useState([]);
     const [showRoute, setShowRoute] = useState(false);
-    const [showDirections, setShowDirections] = useState(false);
     const [loadingRoute, setLoadingRoute] = useState(false);
     const [routeInfo, setRouteInfo] = useState({
         distance: '',
         duration: ''
     });
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
     const destinationCoordinate = {
         latitude: parseFloat(latitude),
@@ -49,22 +46,12 @@ export default function MapScreen() {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert(
-                    'Quyền vị trí',
-                    'Ứng dụng cần quyền truy cập vị trí của bạn để hiển thị bản đồ đầy đủ',
-                    [
-                        { text: 'Hủy', style: 'cancel' },
-                        { text: 'Cài đặt', onPress: () => Linking.openSettings() }
-                    ]
-                );
+                Alert.alert('Quyền vị trí', 'Ứng dụng cần quyền truy cập vị trí của bạn');
                 return;
             }
             const location = await Location.getCurrentPositionAsync({});
             const { latitude, longitude } = location.coords;
-            setUserLocation({
-                latitude,
-                longitude,
-            });
+            setUserLocation({ latitude, longitude });
             calculateAirDistance({ latitude, longitude }, destinationCoordinate);
         } catch (error) {
             console.error('Lỗi lấy vị trí:', error);
@@ -72,11 +59,10 @@ export default function MapScreen() {
     };
 
     const calculateAirDistance = (origin, destination) => {
-        const R = 6371; // Bán kính Trái Đất, km
+        const R = 6371;
         const dLat = (destination.latitude - origin.latitude) * Math.PI / 180;
         const dLon = (destination.longitude - origin.longitude) * Math.PI / 180;
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
             Math.cos(origin.latitude * Math.PI / 180) * Math.cos(destination.latitude * Math.PI / 180) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
@@ -90,196 +76,131 @@ export default function MapScreen() {
     const getUserLocation = async () => {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Quyền vị trí', 'Ứng dụng cần quyền truy cập vị trí của bạn');
-                return null;
-            }
+            if (status !== 'granted') return null;
             const location = await Location.getCurrentPositionAsync({});
-        return {
-            latitude: location.coords.latitude,
+            return {
+                latitude: location.coords.latitude,
                 longitude: location.coords.longitude
-        };
+            };
         } catch (error) {
             console.error('Lỗi lấy vị trí:', error);
             return null;
         }
     };
 
-    const decodePolyline = (encoded) => {
-        if (!encoded) {
-            return [];
-        }
-        const poly = [];
-        let index = 0, len = encoded.length;
-        let lat = 0, lng = 0;
-        while (index < len) {
-            let b, shift = 0, result = 0;
-            do {
-                b = encoded.charCodeAt(index++) - 63;
-                result |= (b & 0x1f) << shift;
-                shift += 5;
-            } while (b >= 0x20);
-
-            const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-            lat += dlat;
-            shift = 0;
-            result = 0;
-            do {
-                b = encoded.charCodeAt(index++) - 63;
-                result |= (b & 0x1f) << shift;
-                shift += 5;
-            } while (b >= 0x20);
-            const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-            lng += dlng;
-            const point = {
-                latitude: lat * 1e-5,
-                longitude: lng * 1e-5
-            };
-            poly.push(point);
-        }
-        return poly;
-    };
-
     const fetchRoute = async () => {
         const currentLocation = await getUserLocation();
-        if (!currentLocation) return;
+        if (!currentLocation) {
+            Alert.alert("Thông báo", "Không thể lấy vị trí hiện tại của bạn. Vui lòng kiểm tra lại quyền truy cập vị trí.");
+            return;
+        }
         setUserLocation(currentLocation);
         setShowRoute(true);
         setLoadingRoute(true);
 
-        const url = `https://mapapis.openmap.vn/v1/direction?origin=${currentLocation.latitude},${currentLocation.longitude}&destination=${destinationCoordinate.latitude},${destinationCoordinate.longitude}&vehicle=car&alternatives=true&apikey=${API_KEY}`;
         try {
-            const response = await axios.get(url);
+            const url = `${ORS_API_URL}`;
+            const requestBody = {
+                coordinates: [
+                    [currentLocation.longitude, currentLocation.latitude],
+                    [destinationCoordinate.longitude, destinationCoordinate.latitude]
+                ],
+                options: {
+                    avoid_borders: "all",
+                }
+            };
 
-            if (response.data && response.data.routes && response.data.routes.length > 0) {
-                const route = decodePolyline(response.data.routes[0].overview_polyline.points);
-                setRouteCoordinates(route);
+            const response = await axios.post(url, requestBody, {
+                headers: {
+                    'Authorization': `Bearer ${ORS_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 1500
+            });
 
-                const steps = response.data.routes[0].legs[0].steps || [];
-                const formattedSteps = steps.map(step => {
-                    let instruction = step.html_instructions ?
-                        step.html_instructions.replace(/<[^>]*>/g, '') :
-                        'Di chuyển tiếp theo';
+            if (response.data?.routes?.[0]) {
+                const route = response.data.routes[0];
+                const decodedGeometry = decodePolyline(route.geometry);
+                const routeCoords = decodedGeometry.map(coord => ({
+                    latitude: coord[1],
+                    longitude: coord[0]
+                }));
 
-                    instruction = instruction
-                        .replace(/Turn right/g, 'Rẽ phải')
-                        .replace(/Turn left/g, 'Rẽ trái')
-                        .replace(/Head north/g, 'Đi về hướng Bắc')
-                        .replace(/Head south/g, 'Đi về hướng Nam')
-                        .replace(/Head east/g, 'Đi về hướng Đông')
-                        .replace(/Head west/g, 'Đi về hướng Tây')
-                        .replace(/Continue/g, 'Tiếp tục')
-                        .replace(/straight/g, 'thẳng')
-                        .replace(/onto/g, 'vào')
-                        .replace(/Destination/g, 'Điểm đến')
-                        .replace(/will be/g, 'sẽ ở')
-                        .replace(/on the right/g, 'bên phải')
-                        .replace(/on the left/g, 'bên trái');
+                setRouteCoordinates(routeCoords);
 
-                    if (instruction.indexOf('Rẽ') === -1 &&
-                        instruction.indexOf('Đi') === -1 &&
-                        instruction.indexOf('Tiếp tục') === -1 &&
-                        instruction.indexOf('Điểm đến') === -1) {
-                        instruction = 'Tiếp tục đi thẳng';
-                    }
-                    return {
-                        instruction: instruction,
-                        distance: step.distance ? step.distance.text.replace('km', 'km').replace('m', 'm') : '',
-                        duration: step.duration ? step.duration.text.replace('mins', 'phút').replace('min', 'phút') : '',
-                        startLocation: step.start_location ? {
-                            latitude: step.start_location.lat,
-                            longitude: step.start_location.lng
-                        } : null,
-                        endLocation: step.end_location ? {
-                            latitude: step.end_location.lat,
-                            longitude: step.end_location.lng
-                        } : null,
-                        polyline: step.polyline ? decodePolyline(step.polyline.points) : []
-                    };
-                });
-                setRouteSteps(formattedSteps);
-                setCurrentStepIndex(0);
+                const totalDistance = route.summary.distance / 1000;
+                const totalDuration = Math.round(route.summary.duration / 60);
 
-                const distance = response.data.routes[0].legs[0].distance.text.replace('km', 'km').replace('m', 'm') || '';
-                const duration = response.data.routes[0].legs[0].duration.text.replace('mins', 'phút').replace('min', 'phút') || '';
                 setRouteInfo({
-                    distance,
-                    duration
+                    distance: `${totalDistance.toFixed(1)} km`,
+                    duration: `${totalDuration} phút`
                 });
 
                 if (mapRef.current) {
-                    mapRef.current.fitToCoordinates(route, {
+                    mapRef.current.fitToCoordinates(routeCoords, {
                         edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
                         animated: true,
                     });
                 }
             } else {
-                Alert.alert("Thông báo", "Không thể lấy tuyến đường từ API");
-                setShowRoute(false);
+                throw new Error("Không tìm thấy tuyến đường");
             }
         } catch (error) {
             console.error("Lỗi tải tuyến đường:", error);
-            Alert.alert("Thông báo", "Không thể tải tuyến đường");
+            if (error.response) {
+                console.error("Error response:", error.response.data);
+            }
+            Alert.alert(
+                "Thông báo",
+                error.message || "Không thể tải tuyến đường. Vui lòng thử lại sau."
+            );
+            setShowRoute(false);
         } finally {
             setLoadingRoute(false);
         }
     };
 
+    // Helper function to decode polyline
+    const decodePolyline = (encoded) => {
+        const points = [];
+        let index = 0, lat = 0, lng = 0;
+
+        while (index < encoded.length) {
+            let shift = 0, result = 0;
+            let byte;
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
+            const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
+            const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            points.push([lng * 1e-5, lat * 1e-5]);
+        }
+
+        return points;
+    };
+
     const handleCenterMap = () => {
-        if (mapRef.current) {
-            if (showRoute && routeCoordinates.length > 0) {
-                mapRef.current.fitToCoordinates(routeCoordinates, {
+        if (mapRef.current && userLocation) {
+            mapRef.current.fitToCoordinates(
+                [userLocation, destinationCoordinate],
+                {
                     edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
-                    animated: true,
-                });
-            } else if (userLocation) {
-                mapRef.current.fitToCoordinates(
-                    [userLocation, destinationCoordinate],
-                    {
-                        edgePadding: { top: 100, right: 50, bottom: 150, left: 50 },
-                        animated: true
-                    }
-                );
-            } else {
-                mapRef.current.animateToRegion({
-                    latitude: destinationCoordinate.latitude,
-                    longitude: destinationCoordinate.longitude,
-                    latitudeDelta: 0.02,
-                    longitudeDelta: 0.02,
-                }, 500);
-            }
-        }
-    };
-
-    const goToNextStep = () => {
-        if (currentStepIndex < routeSteps.length - 1) {
-            const nextIndex = currentStepIndex + 1;
-            setCurrentStepIndex(nextIndex);
-
-            if (mapRef.current && routeSteps[nextIndex].startLocation) {
-                mapRef.current.animateToRegion({
-                    latitude: routeSteps[nextIndex].startLocation.latitude,
-                    longitude: routeSteps[nextIndex].startLocation.longitude,
-                    latitudeDelta: 0.005,
-                    longitudeDelta: 0.005,
-                }, 500);
-            }
-        }
-    };
-
-    const goToPreviousStep = () => {
-        if (currentStepIndex > 0) {
-            const prevIndex = currentStepIndex - 1;
-            setCurrentStepIndex(prevIndex);
-
-            if (mapRef.current && routeSteps[prevIndex].startLocation) {
-                mapRef.current.animateToRegion({
-                    latitude: routeSteps[prevIndex].startLocation.latitude,
-                    longitude: routeSteps[prevIndex].startLocation.longitude,
-                    latitudeDelta: 0.005,
-                    longitudeDelta: 0.005,
-                }, 500);
-            }
+                    animated: true
+                }
+            );
         }
     };
 
@@ -297,7 +218,7 @@ export default function MapScreen() {
                 }}
             >
                 <UrlTile
-                    urlTemplate={`https://maptiles.openmap.vn/styles/day-v1/tiles/{z}/{x}/{y}.png?apikey=${API_KEY}`}
+                    urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     maximumZ={19}
                     flipY={false}
                 />
@@ -305,18 +226,8 @@ export default function MapScreen() {
                 {showRoute && routeCoordinates.length > 0 && (
                     <Polyline
                         coordinates={routeCoordinates}
-                        strokeWidth={3}
+                        strokeWidth={4}
                         strokeColor={colors.primary}
-                        lineDashPattern={[0]}
-                    />
-                )}
-
-                {showDirections && routeSteps.length > 0 && routeSteps[currentStepIndex].polyline?.length > 0 && (
-                    <Polyline
-                        coordinates={routeSteps[currentStepIndex].polyline}
-                        strokeWidth={6}
-                        strokeColor="#FF9800"
-                        lineDashPattern={[0]}
                     />
                 )}
 
@@ -342,14 +253,6 @@ export default function MapScreen() {
                                 <Text style={styles.calloutTitle}>Vị trí của bạn</Text>
                             </View>
                         </Callout>
-                    </Marker>
-                )}
-
-                {showDirections && routeSteps.length > 0 && routeSteps[currentStepIndex].startLocation && (
-                    <Marker coordinate={routeSteps[currentStepIndex].startLocation}>
-                        <View style={styles.stepMarker}>
-                            <MaterialIcons name="directions" size={24} color="#FF9800" />
-                        </View>
                     </Marker>
                 )}
             </MapView>
@@ -400,175 +303,63 @@ export default function MapScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Bottom Panel */}
             <Animated.View
                 entering={FadeInDown}
                 style={styles.bottomPanel}
             >
-                {!showDirections && (
-                    <>
-                        <View style={styles.locationInfoContainer}>
-                            <MaterialIcons name="place" size={22} color={colors.primary} />
-                            <View style={styles.locationTextContainer}>
-                                <Text style={styles.locationTitle} numberOfLines={1}>{title}</Text>
-                                <Text style={styles.locationAddress} numberOfLines={2}>{address}</Text>
-                            </View>
+                <View style={styles.locationInfoContainer}>
+                    <MaterialIcons name="place" size={22} color={colors.primary} />
+                    <View style={styles.locationTextContainer}>
+                        <Text style={styles.locationTitle} numberOfLines={1}>{title}</Text>
+                        <Text style={styles.locationAddress} numberOfLines={2}>{address}</Text>
+                    </View>
+                </View>
+
+                {userLocation && (
+                    <View style={styles.distanceInfoContainer}>
+                        <View style={styles.distanceItem}>
+                            <MaterialIcons name="directions-car" size={16} color="#666" />
+                            <Text style={styles.distanceText}>{routeInfo.distance}</Text>
                         </View>
-
-                        {userLocation && (
-                            <View style={styles.distanceInfoContainer}>
-                                <View style={styles.distanceItem}>
-                                    <MaterialIcons name="directions-car" size={16} color="#666" />
-                                    <Text style={styles.distanceText}>{routeInfo.distance}</Text>
-                                </View>
-                                <View style={styles.distanceItem}>
-                                    <MaterialIcons name="access-time" size={16} color="#666" />
-                                    <Text style={styles.distanceText}>{routeInfo.duration}</Text>
-                                </View>
-                            </View>
-                        )}
-
-                        <View style={styles.buttonsContainer}>
-                            <TouchableOpacity
-                                style={[styles.directionButton, showRoute && styles.activeButton]}
-                                onPress={() => {
-                                    if (loadingRoute) return;
-                                    if (showRoute) {
-                                        setShowRoute(false);
-                                    } else {
-                                        fetchRoute();
-                                    }
-                                }}
-                                activeOpacity={0.8}
-                            >
-                                {loadingRoute ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <>
-                                        <MaterialIcons
-                                            name="directions"
-                                            size={18}
-                                            color={showRoute ? "#fff" : colors.primary}
-                                        />
-                                        <Text style={[
-                                            styles.buttonText,
-                                            showRoute && styles.activeButtonText
-                                        ]}>
-                                            {showRoute ? 'Ẩn đường đi' : 'Hiển thị đường đi'}
-                                        </Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.navigateButton}
-                                onPress={() => {
-                                    if (showRoute && routeSteps.length > 0) {
-                                        setShowDirections(true);
-                                    } else {
-                                        fetchRoute().then(() => {
-                                            setShowDirections(true);
-                                        });
-                                    }
-                                }}
-                                activeOpacity={0.8}
-                                disabled={loadingRoute}
-                            >
-                                <LinearGradient
-                                    colors={[colors.primary, colors.primary + 'E6']}
-                                    style={styles.gradientButton}
-                                >
-                                    <MaterialIcons name="navigation" size={18} color="#fff" />
-                                    <Text style={styles.navigateButtonText}>Chỉ đường chi tiết</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-                    </>
-                )}
-
-                {showDirections && routeSteps.length > 0 && (
-                    <View style={styles.directionsContainer}>
-                        <View style={styles.directionsHeader}>
-                            <TouchableOpacity
-                                style={styles.closeDirectionsButton}
-                                onPress={() => setShowDirections(false)}
-                            >
-                                <Ionicons name="arrow-back" size={22} color={colors.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.directionsTitle}>Chỉ đường chi tiết</Text>
-                            <Text style={styles.stepCounter}>
-                                {currentStepIndex + 1}/{routeSteps.length}
-                            </Text>
-                        </View>
-
-                        <View style={styles.stepContainer}>
-                            <View style={styles.stepIconContainer}>
-                                <MaterialIcons name="directions" size={24} color="#FF9800" />
-                            </View>
-                            <View style={styles.stepContent}>
-                                <Text style={styles.stepInstruction}>
-                                    {routeSteps[currentStepIndex].instruction}
-                                </Text>
-                                <View style={styles.stepInfoRow}>
-                                    <Text style={styles.stepDistance}>
-                                        {routeSteps[currentStepIndex].distance}
-                                    </Text>
-                                    <Text style={styles.stepDuration}>
-                                        {routeSteps[currentStepIndex].duration}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.navigationControls}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.navButton,
-                                    currentStepIndex === 0 && styles.disabledButton
-                                ]}
-                                onPress={goToPreviousStep}
-                                disabled={currentStepIndex === 0}
-                            >
-                                <MaterialIcons
-                                    name="arrow-back"
-                                    size={22}
-                                    color={currentStepIndex === 0 ? "#aaa" : colors.primary}
-                                />
-                                <Text
-                                    style={[
-                                        styles.navButtonText,
-                                        currentStepIndex === 0 && styles.disabledButtonText
-                                    ]}
-                                >
-                                    Trước
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.navButton,
-                                    currentStepIndex === routeSteps.length - 1 && styles.disabledButton
-                                ]}
-                                onPress={goToNextStep}
-                                disabled={currentStepIndex === routeSteps.length - 1}
-                            >
-                                <Text
-                                    style={[
-                                        styles.navButtonText,
-                                        currentStepIndex === routeSteps.length - 1 && styles.disabledButtonText
-                                    ]}
-                                >
-                                    Tiếp
-                                </Text>
-                                <MaterialIcons
-                                    name="arrow-forward"
-                                    size={22}
-                                    color={currentStepIndex === routeSteps.length - 1 ? "#aaa" : colors.primary}
-                                />
-            </TouchableOpacity>
+                        <View style={styles.distanceItem}>
+                            <MaterialIcons name="access-time" size={16} color="#666" />
+                            <Text style={styles.distanceText}>{routeInfo.duration}</Text>
                         </View>
                     </View>
                 )}
+
+                <View style={styles.buttonsContainer}>
+                    <TouchableOpacity
+                        style={[styles.directionButton, showRoute && styles.activeButton]}
+                        onPress={() => {
+                            if (loadingRoute) return;
+                            if (showRoute) {
+                                setShowRoute(false);
+                            } else {
+                                fetchRoute();
+                            }
+                        }}
+                        activeOpacity={0.8}
+                    >
+                        {loadingRoute ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <MaterialIcons
+                                    name="directions"
+                                    size={18}
+                                    color={showRoute ? "#fff" : colors.primary}
+                                />
+                                <Text style={[
+                                    styles.buttonText,
+                                    showRoute && styles.activeButtonText
+                                ]}>
+                                    {showRoute ? 'Ẩn đường đi' : 'Hiển thị đường đi'}
+                                </Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
             </Animated.View>
         </View>
     );
@@ -712,33 +503,10 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         marginRight: 8,
     },
-    activeButton: {
-        backgroundColor: '#666',
-    },
     buttonText: {
         fontSize: 14,
         fontWeight: '600',
         color: colors.primary,
-        marginLeft: 5,
-    },
-    activeButtonText: {
-        color: '#fff',
-    },
-    navigateButton: {
-        flex: 1,
-        borderRadius: 10,
-        overflow: 'hidden',
-    },
-    gradientButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-    },
-    navigateButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#fff',
         marginLeft: 5,
     },
     calloutContainer: {
@@ -782,113 +550,10 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: 'white',
     },
-    stepMarker: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'white',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: '#FF9800',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 2,
-        elevation: 3,
+    activeButton: {
+        backgroundColor: colors.primary,
     },
-    directionsContainer: {
-        padding: 15,
+    activeButtonText: {
+        color: '#fff',
     },
-    directionsHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 15,
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    closeDirectionsButton: {
-        padding: 5,
-    },
-    directionsTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    stepCounter: {
-        fontSize: 14,
-        color: '#666',
-    },
-    stepContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        backgroundColor: '#f8f9fa',
-        padding: 12,
-        borderRadius: 10,
-        marginBottom: 15,
-    },
-    stepIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'white',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 1,
-        elevation: 2,
-    },
-    stepContent: {
-        flex: 1,
-    },
-    stepInstruction: {
-        fontSize: 15,
-        color: '#333',
-        lineHeight: 22,
-        marginBottom: 6,
-    },
-    stepInfoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    stepDistance: {
-        fontSize: 13,
-        color: '#666',
-    },
-    stepDuration: {
-        fontSize: 13,
-        color: '#666',
-    },
-    navigationControls: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginTop: 5,
-    },
-    navButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f0f0f0',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        borderRadius: 8,
-    },
-    navButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: colors.primary,
-        marginHorizontal: 5,
-    },
-    disabledButton: {
-        backgroundColor: '#f5f5f5',
-    },
-    disabledButtonText: {
-        color: '#aaa',
-    }
 });
