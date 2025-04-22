@@ -15,7 +15,7 @@ class SignalRService {
     this.retryCount = 0;
     this.maxRetries = 3;
     this.debug = true;
-    this.baseUrl = 'http://192.168.2.17:5139';
+    this.baseUrl = 'https://capstone-bookinghomestay.onrender.com';
   }
 
   async startConnection(accessToken) {
