@@ -10,6 +10,7 @@ import axios from "axios";
 
 const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
 const BASE_URL = "https://mapapis.openmap.vn/v1/autocomplete";
+const PLACE_DETAIL_URL = "https://mapapis.openmap.vn/v1/place";
 
 const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
     const [query, setQuery] = useState("");
@@ -93,24 +94,37 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
         }
     };
 
-    const handleSelectLocation = (location) => {
+    const handleSelectLocation = async (location) => {
+        console.log("location", location);
         if (onLocationSelected) {
             try {
-                const { label } = location.properties;
-                const [lng, lat] = location.geometry.coordinates;
-
-                onLocationSelected({
-                    description: label,
-                    latitude: lat,
-                    longitude: lng,
+                const { label, id } = location.properties;
+                const response = await axios.get(PLACE_DETAIL_URL, {
+                    params: { 
+                        format: 'osm',
+                        ids: id,
+                        apikey: API_KEY
+                    }
                 });
+
+                if (response.data && response.data.features && response.data.features.length > 0) {
+                    const [lng, lat] = response.data.features[0].geometry.coordinates;
+                    
+                    onLocationSelected({
+                        description: label,
+                        latitude: lat,
+                        longitude: lng,
+                    });
+                } else {
+                    Alert.alert("Lỗi", "Không thể lấy tọa độ cho địa chỉ này");
+                }
             } catch (error) {
                 console.error("Error processing location:", error);
                 Alert.alert("Lỗi", "Có lỗi khi lấy thông tin vị trí.");
             }
         }
         onClose();
-        setQuery("")
+        setQuery("");
     };
 
     return (

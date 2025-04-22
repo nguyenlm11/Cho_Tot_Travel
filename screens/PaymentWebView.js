@@ -192,7 +192,7 @@ export default function PaymentWebView() {
     const updatePaymentStatusOnBackend = async (params) => {
         try {
             if (!params) return;
-            const apiUrl = 'http://192.168.2.17:5139/api/booking-checkout/vnpay-return';
+            const apiUrl = 'https://capstone-bookinghomestay.onrender.com/api/booking-checkout/vnpay-return';
             const formattedParams = {};
             Object.keys(params).forEach(key => {
                 if (key.startsWith('vnp_') || key.startsWith('Vnp_')) {
