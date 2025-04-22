@@ -29,6 +29,7 @@ import ChatDetailScreen from '../screens/ChatDetailScreen';
 import PaymentWebView from '../screens/PaymentWebView';
 import BookingSuccess from '../screens/BookingSuccess';
 import BookingFailed from '../screens/BookingFailed';
+import WholeHomestayCheckout from '../screens/WholeHomestayCheckout';
 
 const Stack = createStackNavigator();
 
@@ -101,6 +102,7 @@ const MainStack = () => {
             <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
             <Stack.Screen name="Security" component={SecurityScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen name="WholeHomestayCheckout" component={WholeHomestayCheckout} />
             <Stack.Screen name="ListRoom" component={ListRoomScreen} />
             <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
             <Stack.Screen name="PaymentWebView" component={PaymentWebView} />

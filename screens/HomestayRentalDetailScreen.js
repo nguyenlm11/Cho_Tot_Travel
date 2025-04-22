@@ -16,6 +16,7 @@ export default function HomestayRentalDetailScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const { rentalId, homeStayId } = route.params;
+    console.log('homeStayId', homeStayId);
     const [rental, setRental] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -47,12 +48,26 @@ export default function HomestayRentalDetailScreen() {
     };
 
     const handleBookNow = () => {
-        navigation.navigate('Checkout', {
-            rentalId: rental.homeStayRentalID,
-            name: rental.name,
-            image: rental.imageHomeStayRentals?.[0]?.image,
-            price: defaultPricing?.rentPrice || defaultPricing?.unitPrice
-        });
+        if (!rental) return;
+
+        const bookingData = {
+            homeStayId: homeStayId,
+            homeStayTypeID: rental.id || rental.homeStayRentalID,
+            homeStayName: rental.name,
+            homeStayImage: rental.images?.[0] || rental.imageHomeStayRentals?.[0]?.image,
+            price: price || defaultPricing?.rentPrice || defaultPricing?.unitPrice || 0,
+            rentWhole: true,
+            services: rental.pricing?.map(p => ({
+                id: p.id,
+                name: p.description,
+                price: p.rentPrice || p.unitPrice || 0,
+                quantity: 1
+            })) || []
+        };
+
+        console.log('Booking data:', bookingData);
+
+        navigation.navigate('WholeHomestayCheckout', { bookingData });
     };
 
     const handleViewRoomTypes = () => {

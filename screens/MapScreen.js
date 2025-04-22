@@ -95,8 +95,8 @@ export default function MapScreen() {
             return;
         }
         setUserLocation(currentLocation);
-        setShowRoute(true);
         setLoadingRoute(true);
+        setShowRoute(true);
 
         try {
             const url = `${ORS_API_URL}`;
@@ -115,7 +115,7 @@ export default function MapScreen() {
                     'Authorization': `Bearer ${ORS_API_KEY}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 1500
+                timeout: 3000
             });
 
             if (response.data?.routes?.[0]) {
@@ -125,9 +125,7 @@ export default function MapScreen() {
                     latitude: coord[1],
                     longitude: coord[0]
                 }));
-
                 setRouteCoordinates(routeCoords);
-
                 const totalDistance = route.summary.distance / 1000;
                 const totalDuration = Math.round(route.summary.duration / 60);
 

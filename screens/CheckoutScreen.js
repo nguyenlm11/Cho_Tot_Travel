@@ -203,7 +203,6 @@ const CheckoutScreen = () => {
 
     console.log('=== SENDING BOOKING REQUEST ===');
     console.log('Booking Data being sent:', JSON.stringify(bookingData, null, 2));
-
     setLoading(true);
     try {
       const result = await bookingApi.createBooking(bookingData, 1);
