@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, StatusBar, FlatList, ActivityIndicator, Share, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, StatusBar, FlatList, ActivityIndicator, Share, Image } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, FontAwesome6 } from 'react-native-vector-icons';
+import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import MapView, { UrlTile, Marker } from 'react-native-maps';
 import homeStayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import ImageViewer from '../components/ImageViewer';
-import MapView, { Marker } from 'react-native-maps';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,7 +38,6 @@ export default function HomestayDetailScreen() {
         setError('Không tìm thấy thông tin homestay');
       }
     } catch (err) {
-      console.error('Error fetching homestay detail:', err);
       setError('Không thể tải thông tin homestay. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
@@ -49,13 +46,10 @@ export default function HomestayDetailScreen() {
 
   const handleListRoom = () => {
     navigation.navigate('HomestayRental', { homeStayId: route.params.id });
-    console.log("HomeStayDetailScreen - homeStayId", route.params.id);
-
   };
 
   const handleShare = async () => {
     if (!homestay) return;
-
     try {
       await Share.share({
         message: `Xem Homestay "${homestay.name}" tại địa chỉ: ${homestay.address}. Một địa điểm nghỉ dưỡng tuyệt vời!`,
@@ -73,28 +67,26 @@ export default function HomestayDetailScreen() {
       latitude: homestay.latitude,
       longitude: homestay.longitude,
       title: homestay.name,
-      address: homestay.address
+      address: homestay.address,
     });
   };
 
+  const isValidCoordinate = (coord) => typeof coord === 'number' && !isNaN(coord) && coord !== null;
+
   const renderServiceItem = ({ item, index }) => (
-    <Animated.View
-      entering={FadeInDown.delay(50 * index)}
-      style={styles.serviceCard}
-    >
+    <Animated.View entering={FadeInDown.delay(50 * index)} style={styles.serviceCard}>
       <LinearGradient
         colors={[colors.secondary + '20', colors.secondary + '05']}
         style={styles.serviceIconContainer}
       >
-        <Icon name="pricetag-outline" size={24} color={colors.secondary} />
+        <Ionicons name="pricetag-outline" size={24} color={colors.secondary} />
       </LinearGradient>
-
       <View style={styles.serviceContentContainer}>
         <View style={styles.serviceHeaderContainer}>
-          <Text style={styles.serviceName}>{item.servicesName}</Text>
-          <Text style={styles.servicePrice}>{item.servicesPrice.toLocaleString()}đ</Text>
+          <Text style={styles.serviceName}>{item.servicesName || 'Không có tên'}</Text>
+          <Text style={styles.servicePrice}>{item.servicesPrice?.toLocaleString() || '0'}đ</Text>
         </View>
-        <Text style={styles.serviceDescription}>{item.description}</Text>
+        <Text style={styles.serviceDescription}>{item.description || 'Không có mô tả'}</Text>
       </View>
     </Animated.View>
   );
@@ -108,7 +100,13 @@ export default function HomestayDetailScreen() {
       }}
       activeOpacity={0.9}
     >
-      <Image source={{ uri: item.uri }} style={styles.coverImage} resizeMode="cover" />
+      <Image
+        source={{ uri: item.uri }}
+        style={styles.coverImage}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        onError={() => console.log('Failed to load image:', item.uri)}
+      />
       <LinearGradient
         colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.3)']}
         style={styles.imageGradient}
@@ -116,7 +114,6 @@ export default function HomestayDetailScreen() {
     </TouchableOpacity>
   );
 
-  // Render image indicator dots
   const renderImageIndicator = (images) => (
     <View style={styles.imageIndicator}>
       {images.map((_, index) => (
@@ -125,17 +122,19 @@ export default function HomestayDetailScreen() {
           style={styles.indicatorTouchable}
           onPress={() => {
             setCurrentImageIndex(index);
-            flatListRef.current?.scrollToIndex({
-              index,
-              animated: true,
-              viewPosition: 0.5,
-            });
+            if (flatListRef.current && index >= 0 && index < images.length) {
+              flatListRef.current.scrollToIndex({
+                index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            }
           }}
         >
           <View
             style={[
               styles.indicatorDot,
-              currentImageIndex === index && styles.indicatorDotActive
+              currentImageIndex === index && styles.indicatorDotActive,
             ]}
           />
         </TouchableOpacity>
@@ -143,16 +142,13 @@ export default function HomestayDetailScreen() {
     </View>
   );
 
-  // Handle flat list scroll
   const handleViewableItemsChanged = React.useCallback(({ viewableItems }) => {
     if (viewableItems.length > 0) {
       setCurrentImageIndex(viewableItems[0].index);
     }
   }, []);
 
-  const viewabilityConfig = {
-    itemVisiblePercentThreshold: 50
-  };
+  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
   if (loading) {
     return (
@@ -166,7 +162,7 @@ export default function HomestayDetailScreen() {
   if (error) {
     return (
       <View style={styles.errorContainer}>
-        <Icon name="alert-circle-outline" size={60} color="#ff6b6b" />
+        <Ionicons name="alert-circle-outline" size={60} color="#ff6b6b" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchHomestayDetail}>
           <Text style={styles.retryButtonText}>Thử lại</Text>
@@ -175,35 +171,29 @@ export default function HomestayDetailScreen() {
     );
   }
 
-  const images = homestay.imageHomeStays.map(img => ({ uri: img.image }));
-  if (images.length === 0) {
-    images.push({ uri: 'https://res.cloudinary.com/dzjofylpf/image/upload/v1742915319/HomeStayImages/placeholder.jpg' });
-  }
+  const images = homestay?.imageHomeStays?.length > 0
+    ? homestay.imageHomeStays.map(img => ({ uri: img.image }))
+    : [{ uri: 'https://res.cloudinary.com/dzjofylpf/image/upload/v1742915319/HomeStayImages/placeholder.jpg' }];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <BlurView intensity={70} tint="dark" style={styles.blurButton}>
-            <Icon name="chevron-back" size={24} color="#fff" />
-          </BlurView>
+          <View style={[styles.blurButton, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </View>
         </TouchableOpacity>
-
         <View style={styles.rightButtons}>
           <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-            <BlurView intensity={70} tint="dark" style={styles.blurButton}>
-              <Icon name="share-social-outline" size={22} color="#fff" />
-            </BlurView>
+            <View style={[styles.blurButton, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+              <Ionicons name="share-outline" size={22} color="#fff" />
+            </View>
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-      >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.coverContainer}>
           <FlatList
             ref={flatListRef}
@@ -215,33 +205,32 @@ export default function HomestayDetailScreen() {
             showsHorizontalScrollIndicator={false}
             onViewableItemsChanged={handleViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            removeClippedSubviews={true}
+            initialNumToRender={3}
           />
           {renderImageIndicator(images)}
-
           <View style={styles.imageCountBadge}>
             <TouchableOpacity
               onPress={() => setImageViewerVisible(true)}
               style={styles.imageCountButton}
             >
-              <Icon name="images-outline" size={18} color="#fff" />
+              <Ionicons name="images-outline" size={18} color="#fff" />
               <Text style={styles.imageCountText}>{currentImageIndex + 1}/{images.length}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Content */}
         <View style={styles.contentContainer}>
           <View style={styles.titleContainer}>
             <View style={styles.titleWrapper}>
-              <Text style={styles.hotelName}>{homestay.name}</Text>
+              <Text style={styles.hotelName}>{homestay?.name || 'Không có tên'}</Text>
               <View style={styles.locationRow}>
-                <Icon name="location-outline" size={18} color="#666" />
+                <Ionicons name="location-outline" size={18} color="#666" />
                 <Text style={styles.locationText} numberOfLines={1}>
-                  {homestay.area || 'Không xác định'}
+                  {homestay?.area || 'Không xác định'}
                 </Text>
               </View>
             </View>
-
             <View style={styles.ratingContainer}>
               <Text style={styles.ratingScore}>4.8</Text>
               <View style={styles.ratingStars}>
@@ -250,7 +239,7 @@ export default function HomestayDetailScreen() {
                     key={star}
                     name="star"
                     size={14}
-                    color={star <= 5 ? "#FFD700" : "#e0e0e0"}
+                    color={star <= 5 ? '#FFD700' : '#e0e0e0'}
                   />
                 ))}
                 <Text style={styles.reviewCount}>(0 đánh giá)</Text>
@@ -258,63 +247,57 @@ export default function HomestayDetailScreen() {
             </View>
           </View>
 
-          {/* Address Section */}
-          <Animated.View
-            entering={FadeInDown.delay(200)}
-            style={styles.addressSection}
-          >
+          <Animated.View entering={FadeInDown.delay(200)} style={styles.addressSection}>
             <View style={styles.addressContainer}>
-              <Icon name="location" size={22} color={colors.primary} />
+              <Ionicons name="location" size={22} color={colors.primary} />
               <View style={styles.addressTextContainer}>
                 <Text style={styles.addressText} numberOfLines={2}>
-                  {homestay.address}
+                  {homestay?.address || 'Không có địa chỉ'}
                 </Text>
               </View>
             </View>
           </Animated.View>
 
-          {/* Map Preview */}
-          <Animated.View
-            entering={FadeInDown.delay(250)}
-            style={styles.mapContainer}
-          >
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: homestay.latitude,
-                longitude: homestay.longitude,
-                latitudeDelta: 0.005,
-                longitudeDelta: 0.005,
-              }}
-              scrollEnabled={true}
-              zoomEnabled={true}
-            >
-              <Marker
-                coordinate={{
+          {/* {homestay && isValidCoordinate(homestay.latitude) && isValidCoordinate(homestay.longitude) ? (
+            <Animated.View entering={FadeInDown.delay(250)} style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                initialRegion={{
                   latitude: homestay.latitude,
                   longitude: homestay.longitude,
+                  latitudeDelta: 0.005,
+                  longitudeDelta: 0.005,
                 }}
-                title={homestay.name}
+                scrollEnabled
+                zoomEnabled
+              >
+                <UrlTile
+                  urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  maximumZ={19}
+                  subdomains={['a', 'b', 'c']}
+                />
+                <Marker
+                  coordinate={{
+                    latitude: homestay.latitude,
+                    longitude: homestay.longitude,
+                  }}
+                  title={homestay.name || 'Homestay'}
+                />
+              </MapView>
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.9)']}
+                style={styles.mapGradient}
               />
-            </MapView>
-            <LinearGradient
-              colors={['transparent', 'rgba(255,255,255,0.9)']}
-              style={styles.mapGradient}
-            />
-            <TouchableOpacity
-              style={styles.fullMapButton}
-              onPress={handleOpenMap}
-            >
-              <Text style={styles.fullMapButtonText}>Xem bản đồ đầy đủ</Text>
-            </TouchableOpacity>
-          </Animated.View>
+              <TouchableOpacity style={styles.fullMapButton} onPress={handleOpenMap}>
+                <Text style={styles.fullMapButtonText}>Xem bản đồ đầy đủ</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            <Text style={styles.errorText}>Không thể hiển thị bản đồ do thiếu dữ liệu vị trí</Text>
+          )} */}
 
-          {/* Services Section */}
-          {homestay.services && homestay.services.length > 0 && (
-            <Animated.View
-              entering={FadeInDown.delay(300)}
-              style={styles.section}
-            >
+          {homestay?.services?.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(300)} style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleContainer}>
                   <MaterialCommunityIcons name="room-service-outline" size={24} color={colors.primary} style={styles.sectionIcon} />
@@ -325,10 +308,9 @@ export default function HomestayDetailScreen() {
                   style={styles.viewAllButton}
                 >
                   <Text style={styles.viewAllText}>Xem tất cả</Text>
-                  <FontAwesome6 name="angle-right" size={16} color={colors.primary} />
+                  <FontAwesome5 name="angle-right" size={16} color={colors.primary} />
                 </TouchableOpacity>
               </View>
-
               <View style={styles.servicesContainer}>
                 <FlatList
                   data={servicesExpanded ? homestay.services : homestay.services.slice(0, 2)}
@@ -340,11 +322,7 @@ export default function HomestayDetailScreen() {
             </Animated.View>
           )}
 
-          {/* Reviews Section */}
-          <Animated.View
-            entering={FadeInDown.delay(350)}
-            style={styles.section}
-          >
+          <Animated.View entering={FadeInDown.delay(350)} style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <MaterialIcons name="star-rate" size={24} color="#FFD700" style={styles.sectionIcon} />
@@ -355,16 +333,13 @@ export default function HomestayDetailScreen() {
                 onPress={() => navigation.navigate('ReviewScreen', { homestayId })}
               >
                 <Text style={styles.viewAllText}>Xem tất cả</Text>
-                <FontAwesome6 name="angle-right" size={16} color={colors.primary} />
+                <FontAwesome5 name="angle-right" size={16} color={colors.primary} />
               </TouchableOpacity>
             </View>
-
-            {/* If there are no reviews yet */}
             <View style={styles.noReviewContainer}>
-              <Icon name="chatbubble-ellipses-outline" size={48} color="#ddd" />
+              <Ionicons name="chatbubble-ellipses-outline" size={48} color="#ddd" />
               <Text style={styles.noReviewText}>Chưa có đánh giá nào</Text>
               <Text style={styles.noReviewSubtext}>Hãy là người đầu tiên đánh giá homestay này</Text>
-
               <TouchableOpacity
                 style={styles.writeReviewButton}
                 onPress={() => navigation.navigate('WriteReview', { homestayId })}
@@ -374,26 +349,21 @@ export default function HomestayDetailScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.delay(400)}
-            style={styles.section}
-          >
+          <Animated.View entering={FadeInDown.delay(400)} style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
                 <FontAwesome5 name="info-circle" size={22} color={colors.primary} style={styles.sectionIcon} />
                 <Text style={styles.sectionTitle}>Mô tả</Text>
               </View>
             </View>
-
             <View style={styles.descriptionContainer}>
               <Text
                 style={styles.descriptionText}
                 numberOfLines={expanded ? undefined : 4}
               >
-                {homestay.description}
+                {homestay?.description || 'Không có mô tả'}
               </Text>
-
-              {homestay.description.length > 150 && (
+              {homestay?.description?.length > 150 && (
                 <TouchableOpacity
                   style={styles.readMoreButton}
                   onPress={() => setExpanded(!expanded)}
@@ -406,27 +376,18 @@ export default function HomestayDetailScreen() {
             </View>
           </Animated.View>
 
-          {/* Spacer to ensure content isn't hidden behind booking section */}
           <View style={styles.bottomSpacer} />
         </View>
-      </ScrollView >
+      </ScrollView>
 
-      {/* Floating Booking Section */}
-      < Animated.View
-        entering={FadeIn}
-        style={styles.bookingSection}
-      >
-        <BlurView intensity={80} tint="light" style={styles.bookingBlur}>
+      <Animated.View entering={FadeIn} style={styles.bookingSection}>
+        <View style={styles.bookingBlur}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Giá từ</Text>
             <Text style={styles.price}>576.000 ₫</Text>
             <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.bookButton}
-            onPress={handleListRoom}
-          >
+          <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
               start={{ x: 0, y: 0 }}
@@ -436,18 +397,16 @@ export default function HomestayDetailScreen() {
               <Text style={styles.bookButtonText}>Xem căn</Text>
             </LinearGradient>
           </TouchableOpacity>
-        </BlurView>
-      </Animated.View >
+        </View>
+      </Animated.View>
 
-      {/* Image Viewer Modal */}
-      < ImageViewer
+      <ImageViewer
         visible={imageViewerVisible}
         images={images}
         initialIndex={currentImageIndex}
-        onClose={() => setImageViewerVisible(false)
-        }
+        onClose={() => setImageViewerVisible(false)}
       />
-    </View >
+    </View>
   );
 }
 

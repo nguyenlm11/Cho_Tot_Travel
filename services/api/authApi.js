@@ -1,6 +1,6 @@
 import apiClient, { handleAuthError } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 // Hàm tiện ích để lưu thông tin xác thực
 const saveAuthData = async (data) => {

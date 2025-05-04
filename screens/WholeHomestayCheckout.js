@@ -20,7 +20,6 @@ const WholeHomestayCheckout = () => {
     const { currentSearch } = useSearch();
     const { userData } = useUser();
     const { clearCart } = useCart();
-
     const [loading, setLoading] = useState(false);
     const [calculating, setCalculating] = useState(false);
     const [totalPrice, setTotalPrice] = useState(0);
@@ -40,15 +39,13 @@ const WholeHomestayCheckout = () => {
             navigation.goBack();
             return;
         }
-
-        console.log('Received booking data:', bookingData);
         setTotalPrice(bookingData.price || 0);
     }, [bookingData, navigation]);
 
     const calculateNumberOfNights = () => {
         if (!currentSearch?.checkInDate || !currentSearch?.checkOutDate) return 1;
-        const checkIn = new Date(currentSearch.checkInDate);
-        const checkOut = new Date(currentSearch.checkOutDate);
+        const checkIn = new Date(convertVietnameseDateToISO(currentSearch.checkInDate));
+        const checkOut = new Date(convertVietnameseDateToISO(currentSearch.checkOutDate));
         const diffTime = Math.abs(checkOut - checkIn);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays || 1;
@@ -58,16 +55,12 @@ const WholeHomestayCheckout = () => {
         return selectedServices.reduce((sum, service) => {
             const price = service.servicesPrice || 0;
             const quantity = service.quantity || 0;
-
             if (service.serviceType === 2 && service.startDate && service.endDate) {
-                // For daily rental services, calculate based on number of days
                 const start = new Date(service.startDate);
                 const end = new Date(service.endDate);
                 const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
                 return sum + (price * quantity * days);
             }
-
-            // For regular services (serviceType === 0)
             return sum + (price * quantity);
         }, 0);
     };
@@ -147,12 +140,6 @@ const WholeHomestayCheckout = () => {
                 bookingServicesDetails: bookingServicesDetails
             }
         };
-
-        console.log('=== FINAL BOOKING DATA ===');
-        console.log('Booking Details:', bookingDetails);
-        console.log('Services Details:', bookingServicesDetails);
-        console.log('Complete Booking Data:', JSON.stringify(bookingData, null, 2));
-
         return bookingData;
     };
 
@@ -160,13 +147,9 @@ const WholeHomestayCheckout = () => {
         if (!validateForm()) return;
         const bookingData = createBookingData();
         if (!bookingData) return;
-
-        console.log('=== SENDING BOOKING REQUEST ===');
-        console.log('Booking Data being sent:', JSON.stringify(bookingData, null, 2));
         setLoading(true);
         try {
             const result = await bookingApi.createBooking(bookingData, 1);
-            console.log("Create booking API response:", result);
             if (result.success) {
                 clearCart();
                 let bookingId = null;
@@ -182,7 +165,6 @@ const WholeHomestayCheckout = () => {
                 Alert.alert('Đặt phòng thất bại', result.error || 'Đã xảy ra lỗi khi đặt phòng');
             }
         } catch (error) {
-            console.error('Booking error:', error);
             Alert.alert('Đặt phòng thất bại', 'Đã xảy ra lỗi không mong muốn');
         } finally {
             setLoading(false);
@@ -192,23 +174,17 @@ const WholeHomestayCheckout = () => {
     const handlePayment = async (bookingId) => {
         setLoading(true);
         try {
-            console.log("Bắt đầu lấy URL thanh toán cho bookingId:", bookingId);
             const paymentResult = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
-            console.log("Payment result:", paymentResult);
             if (paymentResult.success && paymentResult.paymentUrl) {
-                console.log("Redirecting to payment URL:", paymentResult.paymentUrl);
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: paymentResult.paymentUrl,
                     bookingId: bookingId
                 });
             } else {
-                console.error('Payment URL error:', paymentResult.error);
-
                 if (paymentResult.nullRefError ||
                     (paymentResult.error && paymentResult.error.includes('NullReference')) ||
                     (paymentResult.data && typeof paymentResult.data === 'string' &&
                         paymentResult.data.includes('NullReference'))) {
-
                     Alert.alert(
                         'Đặt phòng thành công',
                         'Đặt phòng đã được xác nhận nhưng không thể thanh toán online vào lúc này. Bạn có thể thanh toán sau hoặc liên hệ với chủ homestay.',
@@ -430,14 +406,14 @@ const WholeHomestayCheckout = () => {
                         <View style={styles.dateItem}>
                             <Text style={styles.dateLabel}>Nhận phòng</Text>
                             <Text style={styles.dateValue}>
-                                {formatDate(currentSearch?.checkInDate)}
+                                {currentSearch?.checkInDate}
                             </Text>
                         </View>
                         <View style={styles.dateDivider} />
                         <View style={styles.dateItem}>
                             <Text style={styles.dateLabel}>Trả phòng</Text>
                             <Text style={styles.dateValue}>
-                                {formatDate(currentSearch?.checkOutDate)}
+                                {currentSearch?.checkOutDate}
                             </Text>
                         </View>
                     </View>
@@ -570,8 +546,8 @@ const WholeHomestayCheckout = () => {
                 onSelect={handleServicesChange}
                 selectedServices={selectedServices}
                 homestayId={homeStayId}
-                checkInDate={currentSearch?.checkInDate}
-                checkOutDate={currentSearch?.checkOutDate}
+                checkInDate={convertVietnameseDateToISO(currentSearch.checkInDate)}
+                checkOutDate={convertVietnameseDateToISO(currentSearch.checkOutDate)}
             />
         </ScrollView>
     );

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { View, Modal, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Image, Text, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { MaterialIcons } from 'react-native-vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { FlatList } from 'react-native-gesture-handler';
 import { colors } from '../constants/Colors';
@@ -53,7 +52,7 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
       onRequestClose={onClose}
     >
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <Animated.View 
+      <Animated.View
         entering={FadeIn}
         exiting={FadeOut}
         style={styles.container}
@@ -61,10 +60,10 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
         <View style={styles.header}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <BlurView intensity={80} tint="dark" style={styles.blurButton}>
-              <Icon name="close" size={22} color="#fff" />
+              <Ionicons name="close" size={22} color="#fff" />
             </BlurView>
           </TouchableOpacity>
-          
+
           <View style={styles.indexContainer}>
             <BlurView intensity={80} tint="dark" style={styles.indexBlur}>
               <Text style={styles.indexText}>
@@ -94,7 +93,7 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
 
         {/* Next/Prev Buttons */}
         {currentIndex > 0 && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.navButton, styles.prevButton]}
             onPress={() => {
               flatListRef.current?.scrollToIndex({
@@ -108,9 +107,9 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
             </BlurView>
           </TouchableOpacity>
         )}
-        
+
         {currentIndex < images.length - 1 && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.navButton, styles.nextButton]}
             onPress={() => {
               flatListRef.current?.scrollToIndex({
@@ -133,7 +132,7 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
               horizontal
               showsHorizontalScrollIndicator={false}
               renderItem={({ item, index }) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.thumbnail,
                     currentIndex === index && styles.activeThumbnail
