@@ -1,9 +1,5 @@
 {
   "expo": {
-    "permissions": [
-      "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION"
-    ],
     "name": "cho_tot_travel",
     "slug": "cho_tot_travel",
     "version": "1.0.0",
@@ -15,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#fff"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "bundleIdentifier": "com.yourcompany.chotottravel",
@@ -37,6 +33,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "080512e3-42b0-4bf0-9252-e1f8aaa60bbf"
+      }
     }
   }
 }
