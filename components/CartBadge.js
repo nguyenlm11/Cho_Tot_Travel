@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { useCart } from '../contexts/CartContext';
 import { colors } from '../constants/Colors';
-import Animated, { FadeIn, SlideInRight, FadeInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { SlideInRight, FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function CartBadge({ params = {} }) {
@@ -15,7 +15,7 @@ export default function CartBadge({ params = {} }) {
     const [loading, setLoading] = useState(false);
     const [totalPrice, setTotalPrice] = useState(0);
     const [roomPrices, setRoomPrices] = useState({});
-    
+
     const safeParams = params || {};
     const cartCount = getCartCount(safeParams);
     const selectedRooms = getRoomsByParams(safeParams);
@@ -27,16 +27,16 @@ export default function CartBadge({ params = {} }) {
                 setTotalPrice(0);
                 return;
             }
-            
+
             setLoading(true);
             try {
                 // Lấy giá từng phòng đồng thời bằng Promise.all
                 const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
                 const prices = await Promise.all(pricePromises);
-                
+
                 const newRoomPrices = {};
                 let total = 0;
-                
+
                 selectedRooms.forEach((room, index) => {
                     const price = prices[index];
                     if (price) {
@@ -48,7 +48,7 @@ export default function CartBadge({ params = {} }) {
                         total += room.price || 0;
                     }
                 });
-                
+
                 setRoomPrices(newRoomPrices);
                 setTotalPrice(total);
             } catch (error) {
@@ -57,13 +57,13 @@ export default function CartBadge({ params = {} }) {
                 setLoading(false);
             }
         };
-        
+
         fetchPrices();
         // Chỉ gọi lại khi selectedRooms thay đổi ID
     }, [selectedRooms.map(room => room.roomID).join(','), fetchRoomPrice]);
 
     if (cartCount === 0) return null;
-    
+
     const handleViewCart = () => {
         setModalVisible(true);
     };
@@ -232,6 +232,7 @@ const styles = StyleSheet.create({
     blurContainer: {
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: '#333',
     },
     contentContainer: {
         flexDirection: 'row',
