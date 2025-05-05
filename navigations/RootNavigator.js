@@ -30,6 +30,7 @@ import PaymentWebView from '../screens/PaymentWebView';
 import BookingSuccess from '../screens/BookingSuccess';
 import BookingFailed from '../screens/BookingFailed';
 import WholeHomestayCheckout from '../screens/WholeHomestayCheckout';
+import WriteReviewScreen from '../screens/WriteReviewScreen';
 
 const Stack = createStackNavigator();
 
@@ -108,6 +109,7 @@ const MainStack = () => {
             <Stack.Screen name="PaymentWebView" component={PaymentWebView} />
             <Stack.Screen name="BookingSuccess" component={BookingSuccess} />
             <Stack.Screen name="BookingFailed" component={BookingFailed} />
+            <Stack.Screen name="Review" component={WriteReviewScreen} />
             {/* Modal Screens */}
             <Stack.Group screenOptions={modalScreenOptions}>
                 <Stack.Screen

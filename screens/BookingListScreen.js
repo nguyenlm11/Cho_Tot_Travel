@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, RefreshControl } from 'react-native';
-import { FontAwesome6, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useUser } from '../contexts/UserContext';
 import bookingApi from '../services/api/bookingApi';
 import moment from 'moment';
@@ -22,126 +22,138 @@ const STATUS_MAPPING = {
     6: { text: 'Yêu cầu hoàn trả', color: '#FF9800', icon: 'cash-outline' }
 };
 
-// Tách component BookingItem để tối ưu render
-const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => (
-    <Animated.View
-        entering={FadeInDown.delay(Math.min(index * 50, 500)).springify()}
-        style={[
-            styles.bookingCard,
-            { borderTopWidth: 15, borderTopColor: STATUS_MAPPING[item.status]?.color || '#999' }
-        ]}
-    >
-        <TouchableOpacity
-            onPress={() => onQRPress(item.bookingID)}
-            style={styles.bookingContent}
-            activeOpacity={0.8}
+const CACHE_DURATION = 5 * 60 * 1000;
+
+const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => {
+    const navigation = useNavigation();
+    const formattedDate = useMemo(() =>
+        moment(item.bookingDate).isValid()
+            ? moment(item.bookingDate).format('DD/MM/YYYY')
+            : 'Không xác định'
+        , [item.bookingDate]);
+
+    const formattedTotal = useMemo(() =>
+        typeof item.total === 'number'
+            ? item.total.toLocaleString('vi-VN')
+            : '0'
+        , [item.total]);
+
+    return (
+        <Animated.View
+            entering={FadeInDown.delay(Math.min(index * 50, 500)).springify()}
+            style={[
+                styles.bookingCard,
+                { borderTopWidth: 15, borderTopColor: STATUS_MAPPING[item.status]?.color }
+            ]}
         >
-            <View style={styles.cardHeaderSection}>
-                <TouchableOpacity
-                    style={styles.hotelInfoContainer}
-                    onPress={() => onPress(item.bookingID)}
-                >
-                    <Ionicons name="bed" size={22} color={colors.primary} style={styles.hotelIcon} />
-                    <Text style={styles.hotelName} numberOfLines={1}>
-                        {item.homeStay?.name || 'Không có tên'}
-                    </Text>
-                </TouchableOpacity>
-
-                <View style={styles.statusContainer}>
-                    <LinearGradient
-                        colors={[STATUS_MAPPING[item.status]?.color || '#999', shadeColor(STATUS_MAPPING[item.status]?.color || '#999', -20)]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.statusBadge}
-                    >
-                        <Ionicons
-                            name={STATUS_MAPPING[item.status]?.icon || 'information-circle'}
-                            size={16}
-                            color="#fff"
-                        />
-                        <Text style={styles.statusText}>
-                            {STATUS_MAPPING[item.status]?.text || 'Không xác định'}
-                        </Text>
-                    </LinearGradient>
-                </View>
-            </View>
-
-            {/* Card Body Section */}
-            <View style={styles.cardBodySection}>
-                <View style={styles.bookingInfoRow}>
-                    <View style={styles.bookingInfoItem}>
-                        <Text style={styles.bookingInfoLabel}>Mã đặt phòng</Text>
-                        <Text style={styles.bookingInfoValue}>
-                            #{item.bookingID || 'N/A'}
-                        </Text>
-                    </View>
-
-                    <View style={styles.bookingInfoItem}>
-                        <Text style={styles.bookingInfoLabel}>Ngày đặt</Text>
-                        <Text style={styles.bookingInfoValue}>
-                            {moment(item.bookingDate).isValid()
-                                ? moment(item.bookingDate).format('DD/MM/YYYY')
-                                : 'Không xác định'
-                            }
-                        </Text>
-                    </View>
-                </View>
-
-                {item.bookingDetails && item.bookingDetails[0] && (
-                    <View style={styles.bookingDatesContainer}>
-                        <View style={styles.dateBox}>
-                            <Text style={styles.dateBoxLabel}>Nhận phòng</Text>
-                            <Text style={styles.dateBoxValue}>
-                                {moment(item.bookingDetails[0].checkInDate).format('DD/MM/YYYY')}
-                            </Text>
-                        </View>
-
-                        <Ionicons name="arrow-forward" size={16} color="#999" style={styles.dateArrow} />
-
-                        <View style={styles.dateBox}>
-                            <Text style={styles.dateBoxLabel}>Trả phòng</Text>
-                            <Text style={styles.dateBoxValue}>
-                                {moment(item.bookingDetails[0].checkOutDate).format('DD/MM/YYYY')}
-                            </Text>
-                        </View>
-                    </View>
-                )}
-
-                <View style={styles.guestInfoContainer}>
-                    <Text style={styles.guestInfoLabel}>
-                        <Ionicons name="people-outline" size={14} color="#666" /> {item.numberOfAdults || 0} người lớn
-                    </Text>
-                    {item.numberOfChildren > 0 && (
-                        <Text style={styles.guestInfoLabel}>
-                            <Ionicons name="person-outline" size={14} color="#666" /> {item.numberOfChildren} trẻ em
-                        </Text>
-                    )}
-                </View>
-            </View>
-
-            <View style={styles.cardFooterSection}>
-                <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>Tổng thanh toán</Text>
-                    <Text style={styles.totalPrice}>
-                        {typeof item.total === 'number'
-                            ? item.total.toLocaleString('vi-VN')
-                            : '0'
-                        }₫
-                    </Text>
-                </View>
-
-                <View style={styles.actionsContainer}>
+            <TouchableOpacity
+                onPress={() => onQRPress(item.bookingID)}
+                style={styles.bookingContent}
+                activeOpacity={0.8}
+            >
+                <View style={styles.cardHeaderSection}>
                     <TouchableOpacity
-                        style={styles.payNowBtn}
+                        style={styles.hotelInfoContainer}
                         onPress={() => onPress(item.bookingID)}
                     >
-                        <Text style={styles.payNowText}>Xem chi tiết</Text>
+                        <Ionicons name="bed" size={22} color={colors.primary} style={styles.hotelIcon} />
+                        <Text style={styles.hotelName} numberOfLines={1}>
+                            {item.homeStay?.name || 'Không có tên'}
+                        </Text>
                     </TouchableOpacity>
+
+                    <View style={styles.statusContainer}>
+                        <LinearGradient
+                            colors={[STATUS_MAPPING[item.status]?.color, shadeColor(STATUS_MAPPING[item.status]?.color, -20)]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.statusBadge}
+                        >
+                            <Ionicons name={STATUS_MAPPING[item.status]?.icon} size={16} color="#fff" />
+                            <Text style={styles.statusText}>{STATUS_MAPPING[item.status]?.text}</Text>
+                        </LinearGradient>
+                    </View>
                 </View>
-            </View>
-        </TouchableOpacity>
-    </Animated.View>
-));
+
+                <View style={styles.cardBodySection}>
+                    <View style={styles.bookingInfoRow}>
+                        <View style={styles.bookingInfoItem}>
+                            <Text style={styles.bookingInfoLabel}>Mã đặt phòng</Text>
+                            <Text style={styles.bookingInfoValue}>#{item.bookingID || 'N/A'}</Text>
+                        </View>
+
+                        <View style={styles.bookingInfoItem}>
+                            <Text style={styles.bookingInfoLabel}>Ngày đặt</Text>
+                            <Text style={styles.bookingInfoValue}>{formattedDate}</Text>
+                        </View>
+                    </View>
+
+                    {item.bookingDetails?.[0] && (
+                        <View style={styles.bookingDatesContainer}>
+                            <View style={styles.dateBox}>
+                                <Text style={styles.dateBoxLabel}>Nhận phòng</Text>
+                                <Text style={styles.dateBoxValue}>
+                                    {moment(item.bookingDetails[0].checkInDate).format('DD/MM/YYYY')}
+                                </Text>
+                            </View>
+
+                            <Ionicons name="arrow-forward" size={16} color="#999" style={styles.dateArrow} />
+
+                            <View style={styles.dateBox}>
+                                <Text style={styles.dateBoxLabel}>Trả phòng</Text>
+                                <Text style={styles.dateBoxValue}>
+                                    {moment(item.bookingDetails[0].checkOutDate).format('DD/MM/YYYY')}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={styles.guestInfoContainer}>
+                        <Text style={styles.guestInfoLabel}>
+                            <Ionicons name="people-outline" size={14} color="#666" /> {item.numberOfAdults || 0} người lớn
+                        </Text>
+                        {item.numberOfChildren > 0 && (
+                            <Text style={styles.guestInfoLabel}>
+                                <Ionicons name="person-outline" size={14} color="#666" /> {item.numberOfChildren} trẻ em
+                            </Text>
+                        )}
+                    </View>
+                </View>
+
+                <View style={styles.cardFooterSection}>
+                    <View style={styles.priceContainer}>
+                        <Text style={styles.priceLabel}>Tổng thanh toán</Text>
+                        <Text style={styles.totalPrice}>{formattedTotal}₫</Text>
+                    </View>
+
+                    <View style={styles.actionsContainer}>
+                        {item.status === 3 && (
+                            <TouchableOpacity
+                                style={[styles.actionButton, styles.reviewButton]}
+                                onPress={() => navigation.navigate('Review', { bookingId: item.bookingID, homeStayID: item.homeStayID })}
+                            >
+                                <Ionicons name="star-outline" size={16} color="#fff" />
+                                <Text style={styles.actionButtonText}>Đánh giá</Text>
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.detailButton]}
+                            onPress={() => onPress(item.bookingID)}
+                        >
+                            <Text style={styles.actionButtonText}>Xem chi tiết</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+}, (prevProps, nextProps) => {
+    return (
+        prevProps.item.bookingID === nextProps.item.bookingID &&
+        prevProps.item.status === nextProps.item.status &&
+        prevProps.item.total === nextProps.item.total
+    );
+});
 
 // Tách component FilterTab để tối ưu render
 const FilterTab = React.memo(({ status, value, onPress, isActive }) => (
@@ -167,17 +179,95 @@ export default function BookingListScreen() {
     const { userData } = useUser();
     const [filterStatus, setFilterStatus] = useState(null);
     const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filterLoading, setFilterLoading] = useState(false);
+    const [loading, setLoading] = useState({
+        initial: true,
+        refresh: false,
+        filter: false
+    });
     const [error, setError] = useState(null);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [lastFetchTime, setLastFetchTime] = useState(0);
 
-    // Sử dụng useMemo để tối ưu việc xử lý dữ liệu
+    const fetchBookings = useCallback(async (forceRefresh = false) => {
+        if (!userData?.userID) {
+            setLoading(prev => ({ ...prev, initial: false }));
+            setBookings([]);
+            return;
+        }
+
+        try {
+            setLoading(prev => ({ ...prev, initial: true }));
+
+            // Kiểm tra thời gian từ lần fetch cuối cùng
+            const now = Date.now();
+            const timeSinceLastFetch = now - lastFetchTime;
+            const shouldUseCache = !forceRefresh && timeSinceLastFetch < CACHE_DURATION;
+
+            if (shouldUseCache) {
+                const cached = await AsyncStorage.getItem(`bookings_${userData.userID}`);
+                if (cached) {
+                    const { data, timestamp } = JSON.parse(cached);
+                    if (now - timestamp < CACHE_DURATION) {
+                        setBookings(data);
+                        setLoading(prev => ({ ...prev, initial: false }));
+                        return;
+                    }
+                }
+            }
+
+            const result = await bookingApi.getBookingsByAccountID(userData.userID);
+            if (result?.success && Array.isArray(result.data)) {
+                const sortedBookings = result.data.sort((a, b) =>
+                    new Date(b.bookingDate) - new Date(a.bookingDate)
+                );
+
+                setBookings(prevBookings => {
+                    const newBookings = [...sortedBookings];
+                    AsyncStorage.setItem(`bookings_${userData.userID}`, JSON.stringify({
+                        data: newBookings,
+                        timestamp: now
+                    })).catch(console.error);
+                    return newBookings;
+                });
+                setLastFetchTime(now);
+            } else {
+                setBookings([]);
+                setError('Dữ liệu đặt phòng không hợp lệ');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tải danh sách đặt phòng:', error);
+            setError('Không thể tải danh sách đặt phòng');
+        } finally {
+            setLoading(prev => ({ ...prev, initial: false }));
+        }
+    }, [userData?.userID, lastFetchTime]);
+
+    // Thêm useEffect để fetch data khi component mount
+    useEffect(() => {
+        fetchBookings(true);
+    }, []);
+
+    // Thêm useEffect để fetch data khi screen được focus
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            // Kiểm tra thời gian từ lần fetch cuối cùng
+            const now = Date.now();
+            const timeSinceLastFetch = now - lastFetchTime;
+
+            // Nếu đã quá 30 giây kể từ lần fetch cuối cùng, fetch lại data
+            if (timeSinceLastFetch > 30000) {
+                fetchBookings(true);
+            }
+        });
+
+        return unsubscribe;
+    }, [navigation, fetchBookings, lastFetchTime]);
+
     const groupedBookingsList = useMemo(() => {
         if (!Array.isArray(bookings)) return [];
-        
+
         const filtered = filterStatus !== null
             ? bookings.filter(booking => booking.status === parseInt(filterStatus))
             : bookings;
@@ -202,68 +292,7 @@ export default function BookingListScreen() {
             });
     }, [bookings, filterStatus]);
 
-    // Tối ưu hàm fetchBookings với caching
-    const fetchBookings = useCallback(async (forceRefresh = false) => {
-        if (!userData?.userID) {
-            setLoading(false);
-            setBookings([]);
-            return;
-        }
-
-        try {
-            setLoading(true);
-            
-            // Kiểm tra cache nếu không phải refresh
-            if (!forceRefresh) {
-                const cached = await AsyncStorage.getItem(`bookings_${userData.userID}`);
-                if (cached) {
-                    const { data, timestamp } = JSON.parse(cached);
-                    // Cache valid trong 5 phút
-                    if (Date.now() - timestamp < 5 * 60 * 1000) {
-                        setBookings(data);
-                        setLoading(false);
-                        return;
-                    }
-                }
-            }
-
-            const result = await bookingApi.getBookingsByAccountID(userData.userID);
-            if (result && result.success) {
-                if (Array.isArray(result.data)) {
-                    const sortedBookings = result.data.sort((a, b) => {
-                        const dateA = new Date(a.bookingDate);
-                        const dateB = new Date(b.bookingDate);
-                        return dateB - dateA;
-                    });
-                    setBookings(sortedBookings);
-                    
-                    // Lưu cache
-                    await AsyncStorage.setItem(`bookings_${userData.userID}`, JSON.stringify({
-                        data: sortedBookings,
-                        timestamp: Date.now()
-                    }));
-                } else {
-                    setBookings([]);
-                    setError('Dữ liệu đặt phòng không hợp lệ');
-                }
-            } else {
-                setBookings([]);
-                setError(result?.error || 'Không nhận được dữ liệu hợp lệ');
-            }
-        } catch (err) {
-            console.error('Error fetching bookings:', err);
-            setBookings([]);
-            setError('Đã xảy ra lỗi khi tải danh sách đặt phòng');
-        } finally {
-            setLoading(false);
-        }
-    }, [userData?.userID]);
-
-    useEffect(() => {
-        fetchBookings();
-    }, [fetchBookings]);
-
-    const onRefresh = useCallback(() => {
+    const handleRefresh = useCallback(() => {
         setRefreshing(true);
         fetchBookings(true).finally(() => setRefreshing(false));
     }, [fetchBookings]);
@@ -277,93 +306,66 @@ export default function BookingListScreen() {
         setModalVisible(true);
     }, []);
 
-    const renderHeader = useCallback(() => (
-        <LinearGradient
-            colors={[colors.primary, colors.secondary]}
-            style={styles.header}
-        >
-            <View style={styles.headerContent}>
-                <Text style={styles.headerTitle}>Đặt phòng của tôi</Text>
-                <Text style={styles.headerSubtitle}>Quản lý tất cả các đặt phòng của bạn</Text>
-            </View>
-        </LinearGradient>
-    ), []);
-
-    const renderFilterTabs = useCallback(() => (
-        <View style={styles.filterTabsContainer}>
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.tabScrollContainer}
-            >
-                <FilterTab
-                    status={null}
-                    value={{ text: 'Tất cả', icon: 'apps-outline' }}
-                    onPress={() => setFilterStatus(null)}
-                    isActive={filterStatus === null}
-                />
-                {Object.entries(STATUS_MAPPING).map(([key, value]) => (
-                    <FilterTab
-                        key={key}
-                        status={parseInt(key)}
-                        value={value}
-                        onPress={() => setFilterStatus(parseInt(key))}
-                        isActive={filterStatus === parseInt(key)}
-                    />
-                ))}
-            </ScrollView>
-        </View>
-    ), [filterStatus]);
-
-    const renderBookingItem = useCallback(({ item, index }) => (
-        <BookingItem
-            item={item}
-            index={index}
-            onPress={handleBookingPress}
-            onQRPress={handleQRPress}
-        />
-    ), [handleBookingPress, handleQRPress]);
-
-    const renderEmptyList = useCallback(() => (
-        <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>Chưa có đặt phòng nào</Text>
-            <TouchableOpacity
-                style={styles.exploreButton}
-                onPress={() => navigation.navigate('Home')}
-            >
-                <Text style={styles.exploreButtonText}>Khám phá ngay</Text>
-            </TouchableOpacity>
-        </View>
-    ), [navigation]);
-
-    if (loading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-                {renderHeader()}
-                <View style={styles.loadingContent}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={styles.loadingText}>Đang tải danh sách đặt phòng...</Text>
-                </View>
-            </View>
-        );
-    }
+    const handleFilterPress = useCallback((status) => {
+        setFilterStatus(status);
+        setLoading(prev => ({ ...prev, filter: true }));
+        setTimeout(() => {
+            setLoading(prev => ({ ...prev, filter: false }));
+        }, 300);
+    }, []);
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-            {renderHeader()}
-            {renderFilterTabs()}
-            
+            <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                style={styles.header}
+            >
+                <View style={styles.headerContent}>
+                    <Text style={styles.headerTitle}>Đặt phòng của tôi</Text>
+                    <Text style={styles.headerSubtitle}>Quản lý tất cả các đặt phòng của bạn</Text>
+                </View>
+            </LinearGradient>
+
+            <View style={styles.filterTabsContainer}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tabScrollContainer}
+                >
+                    <FilterTab
+                        status={null}
+                        value={{ text: 'Tất cả', icon: 'apps-outline' }}
+                        onPress={() => handleFilterPress(null)}
+                        isActive={filterStatus === null}
+                    />
+                    {Object.entries(STATUS_MAPPING).map(([key, value]) => (
+                        <FilterTab
+                            key={key}
+                            status={parseInt(key)}
+                            value={value}
+                            onPress={() => handleFilterPress(parseInt(key))}
+                            isActive={filterStatus === parseInt(key)}
+                        />
+                    ))}
+                </ScrollView>
+            </View>
+
             <FlatList
                 data={groupedBookingsList}
                 keyExtractor={(item) => item.month}
                 renderItem={({ item: group }) => (
                     <View style={styles.monthGroup}>
-                        <Text style={styles.monthHeader}>
-                            {formatMonthYear(group.month)}
-                        </Text>
+                        <View style={styles.monthHeaderContainer}>
+                            <Text style={styles.monthHeader}>
+                                {formatMonthYear(group.month)}
+                            </Text>
+                            <View style={styles.bookingCount}>
+                                <Text style={styles.bookingCountText}>
+                                    {group.bookings.length} đặt phòng
+                                </Text>
+                            </View>
+                        </View>
                         {group.bookings.map((booking, index) => (
                             <BookingItem
                                 key={booking.bookingID}
@@ -378,19 +380,45 @@ export default function BookingListScreen() {
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
-                        onRefresh={onRefresh}
+                        onRefresh={handleRefresh}
                         colors={[colors.primary]}
                         tintColor={colors.primary}
                     />
                 }
-                ListEmptyComponent={renderEmptyList}
                 contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                    !loading.initial && (
+                        <View style={styles.emptyContainer}>
+                            <Ionicons name="calendar-outline" size={64} color={colors.textSecondary} />
+                            <Text style={styles.emptyTitle}>Chưa có đặt phòng nào</Text>
+                            <Text style={styles.emptyText}>
+                                {error || 'Bạn chưa có đặt phòng nào. Hãy bắt đầu đặt phòng ngay!'}
+                            </Text>
+                            <TouchableOpacity
+                                style={styles.exploreButton}
+                                onPress={() => navigation.navigate('Home')}
+                            >
+                                <Text style={styles.exploreButtonText}>Khám phá ngay</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )
+                }
+                ListFooterComponent={
+                    (loading.initial || loading.filter) && (
+                        <View style={styles.loadingContent}>
+                            <ActivityIndicator size="large" color={colors.primary} />
+                            <Text style={styles.loadingText}>
+                                {loading.filter ? 'Đang lọc...' : 'Đang tải danh sách đặt phòng...'}
+                            </Text>
+                        </View>
+                    )
+                }
             />
 
             <QRCodeModal
                 visible={modalVisible}
-                bookingId={selectedBookingId}
                 onClose={() => setModalVisible(false)}
+                bookingId={selectedBookingId}
             />
         </View>
     );
@@ -398,22 +426,30 @@ export default function BookingListScreen() {
 
 function formatMonthYear(monthYear) {
     const [month, year] = monthYear.split('/');
-    return `Tháng ${month}, ${year}`;
+    return `Tháng ${month} năm ${year}`;
 }
 
 function shadeColor(color, percent) {
     let R = parseInt(color.substring(1, 3), 16);
     let G = parseInt(color.substring(3, 5), 16);
     let B = parseInt(color.substring(5, 7), 16);
-    R = Math.floor(R * (100 + percent) / 100);
-    G = Math.floor(G * (100 + percent) / 100);
-    B = Math.floor(B * (100 + percent) / 100);
+
+    R = parseInt(R * (100 + percent) / 100);
+    G = parseInt(G * (100 + percent) / 100);
+    B = parseInt(B * (100 + percent) / 100);
+
     R = (R < 255) ? R : 255;
     G = (G < 255) ? G : 255;
     B = (B < 255) ? B : 255;
+
+    R = (R > 0) ? R : 0;
+    G = (G > 0) ? G : 0;
+    B = (B > 0) ? B : 0;
+
     const RR = ((R.toString(16).length === 1) ? "0" + R.toString(16) : R.toString(16));
     const GG = ((G.toString(16).length === 1) ? "0" + G.toString(16) : G.toString(16));
     const BB = ((B.toString(16).length === 1) ? "0" + B.toString(16) : B.toString(16));
+
     return "#" + RR + GG + BB;
 }
 
@@ -637,22 +673,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
     },
-    payNowBtn: {
+    actionButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.secondary,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 12,
-        gap: 6,
-        shadowColor: colors.secondary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 3,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        gap: 4,
     },
-    payNowText: {
+    reviewButton: {
+        backgroundColor: '#FFC107',
+    },
+    detailButton: {
+        backgroundColor: colors.secondary,
+    },
+    actionButtonText: {
         color: '#fff',
         fontSize: 14,
         fontWeight: '600',
@@ -770,15 +806,6 @@ const styles = StyleSheet.create({
         paddingTop: 10,
         paddingHorizontal: 16,
         paddingBottom: 20,
-    },
-    monthGroup: {
-        marginBottom: 20,
-    },
-    monthHeader: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#555',
-        marginBottom: 12,
     },
     exploreButton: {
         backgroundColor: colors.primary,
