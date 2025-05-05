@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Dimensions } from 'react-native';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { FontAwesome, MaterialIcons } from 'react-native-vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Dimensions, SafeAreaView } from 'react-native';
+import { FontAwesome, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -90,7 +89,6 @@ const EditSearchModal = ({ visible, onClose }) => {
         setFilterModalVisible(false);
     };
 
-    // Handler for search submission
     const handleSubmitSearch = async () => {
         if (!localSearch) {
             Alert.alert("Lỗi", "Không có dữ liệu tìm kiếm");
@@ -140,197 +138,200 @@ const EditSearchModal = ({ visible, onClose }) => {
         }
     };
 
+    const renderBackground = () => {
+        if (Platform.OS === 'ios') {
+            return <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />;
+        }
+        return <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />;
+    };
+
+    const renderModalContent = () => (
+        <Animated.View
+            entering={Platform.OS === 'ios' ? FadeInDown : undefined}
+            exiting={Platform.OS === 'ios' ? SlideOutDown : undefined}
+            style={styles.modalContainer}
+        >
+            <LinearGradient
+                colors={[colors.primary, colors.primary + 'E6']}
+                style={styles.header}
+            >
+                <View style={styles.headerTitleContainer}>
+                    <Text style={styles.modalTitle}>Chỉnh sửa tìm kiếm</Text>
+                    <Text style={styles.modalSubtitle}>Điều chỉnh thông tin để tìm phòng phù hợp</Text>
+                </View>
+                <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                    <View style={styles.closeButtonContainer}>
+                        <FontAwesome name="close" size={20} color="#fff" />
+                    </View>
+                </TouchableOpacity>
+            </LinearGradient>
+
+            <ScrollView
+                style={styles.scrollView}
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={styles.content}>
+                    <Text style={styles.sectionTitle}>Thông tin tìm kiếm</Text>
+
+                    <TouchableOpacity
+                        style={styles.searchCard}
+                        onPress={() => setLocationModalVisible(true)}
+                    >
+                        <View style={styles.searchIconContainer}>
+                            <Ionicons name="location-outline" size={22} color="#fff" />
+                        </View>
+                        <View style={styles.searchContent}>
+                            <Text style={styles.searchLabel}>Địa điểm</Text>
+                            <Text style={styles.searchText} numberOfLines={1}>
+                                {localSearch?.location || "Chọn địa điểm"}
+                            </Text>
+                        </View>
+                        <View style={styles.editIconContainer}>
+                            <MaterialIcons name="edit" size={18} color={colors.primary} />
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.searchCard}
+                        onPress={() => setCalendarVisible(true)}
+                    >
+                        <View style={styles.searchIconContainer}>
+                            <Ionicons name="calendar-outline" size={22} color="#fff" />
+                        </View>
+                        <View style={styles.searchContent}>
+                            <Text style={styles.searchLabel}>Ngày</Text>
+                            <Text style={styles.searchText}>
+                                {localSearch?.checkInDate && localSearch?.checkOutDate ? (
+                                    <Text>
+                                        <Text style={styles.highlightText}>{localSearch.checkInDate.split(', ')[1]}</Text> - <Text style={styles.highlightText}>{localSearch.checkOutDate.split(', ')[1]}</Text>
+                                    </Text>
+                                ) : (
+                                    "Chọn ngày"
+                                )}
+                            </Text>
+                            {localSearch?.numberOfNights > 0 && (
+                                <Text style={styles.nightsText}>{localSearch.numberOfNights} đêm</Text>
+                            )}
+                        </View>
+                        <View style={styles.editIconContainer}>
+                            <MaterialIcons name="edit" size={18} color={colors.primary} />
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.searchCard}
+                        onPress={() => setGuestModalVisible(true)}
+                    >
+                        <View style={styles.searchIconContainer}>
+                            <Ionicons name="people-outline" size={22} color="#fff" />
+                        </View>
+                        <View style={styles.searchContent}>
+                            <Text style={styles.searchLabel}>Khách</Text>
+                            <Text style={styles.searchText}>
+                                {localSearch?.adults ? (
+                                    <Text>
+                                        <Text style={styles.highlightText}>{localSearch.adults}</Text> người lớn
+                                        {localSearch.children > 0 ?
+                                            <Text>, <Text style={styles.highlightText}>{localSearch.children}</Text> trẻ em</Text> :
+                                            ''}
+                                    </Text>
+                                ) : (
+                                    "Số lượng khách"
+                                )}
+                            </Text>
+                        </View>
+                        <View style={styles.editIconContainer}>
+                            <MaterialIcons name="edit" size={18} color={colors.primary} />
+                        </View>
+                    </TouchableOpacity>
+
+                    <Text style={[styles.sectionTitle, { marginTop: 25 }]}>Tùy chọn bộ lọc</Text>
+
+                    <TouchableOpacity
+                        style={styles.searchCard}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <View style={styles.searchIconContainer}>
+                            <Ionicons name="filter-outline" size={22} color="#fff" />
+                        </View>
+                        <View style={styles.searchContent}>
+                            <Text style={styles.searchLabel}>Bộ lọc</Text>
+                            {!localSearch?.priceFrom && !localSearch?.priceTo && !localSearch?.selectedStar ? (
+                                <Text style={styles.searchText}>Tất cả</Text>
+                            ) : (
+                                <>
+                                    {(localSearch?.priceFrom || localSearch?.priceTo) && (
+                                        <View style={styles.filterItem}>
+                                            <Ionicons name="cash-outline" size={14} color={colors.textSecondary} />
+                                            <Text style={styles.filterText}>
+                                                {`${localSearch?.priceFrom?.toLocaleString() || 0}đ - ${localSearch?.priceTo?.toLocaleString() || 'Max'}đ`}
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {localSearch?.selectedStar && (
+                                        <View style={styles.filterItem}>
+                                            <Ionicons name="star" size={14} color={colors.textSecondary} />
+                                            <Text style={styles.filterText}>
+                                                {`${localSearch.selectedStar} sao`}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </>
+                            )}
+                        </View>
+                        <View style={styles.editIconContainer}>
+                            <MaterialIcons name="edit" size={18} color={colors.primary} />
+                        </View>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+
+            <View style={styles.footer}>
+                <TouchableOpacity
+                    style={styles.searchButton}
+                    onPress={handleSubmitSearch}
+                    disabled={isLoading}
+                >
+                    <LinearGradient
+                        colors={[colors.primary, colors.secondary]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.searchButtonGradient}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name="search" size={20} color="#fff" />
+                                <Text style={styles.searchButtonText}>Tìm kiếm</Text>
+                            </>
+                        )}
+                    </LinearGradient>
+                </TouchableOpacity>
+            </View>
+        </Animated.View>
+    );
+
     return (
         <Modal
             visible={visible}
             animationType="slide"
             transparent={true}
             onRequestClose={onClose}
+            statusBarTranslucent={true}
+            hardwareAccelerated={true}
         >
-            <Animated.View
-                entering={FadeInDown}
-                style={styles.modalBackground}
-            >
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-
+            <SafeAreaView style={{ flex: 1 }}>
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={styles.keyboardView}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
                 >
-                    <Animated.View
-                        entering={FadeInDown}
-                        exiting={SlideOutDown}
-                        style={styles.modalContainer}
-                    >
-                        <LinearGradient
-                            colors={[colors.primary, colors.primary + 'E6']}
-                            style={styles.header}
-                        >
-                            <View style={styles.headerTitleContainer}>
-                                <Text style={styles.modalTitle}>Chỉnh sửa tìm kiếm</Text>
-                                <Text style={styles.modalSubtitle}>Điều chỉnh thông tin để tìm phòng phù hợp</Text>
-                            </View>
-                            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                                <BlurView intensity={80} tint="dark" style={styles.blurButton}>
-                                    <FontAwesome name="close" size={20} color="#fff" />
-                                </BlurView>
-                            </TouchableOpacity>
-                        </LinearGradient>
-
-                        <ScrollView
-                            style={styles.scrollView}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <View style={styles.content}>
-                                {/* Section title */}
-                                <Text style={styles.sectionTitle}>Thông tin tìm kiếm</Text>
-
-                                {/* Location Selection */}
-                                <TouchableOpacity
-                                    style={styles.searchCard}
-                                    onPress={() => setLocationModalVisible(true)}
-                                >
-                                    <View style={styles.searchIconContainer}>
-                                        <Icon name="location-outline" size={22} color="#fff" />
-                                    </View>
-                                    <View style={styles.searchContent}>
-                                        <Text style={styles.searchLabel}>Địa điểm</Text>
-                                        <Text style={styles.searchText} numberOfLines={1}>
-                                            {localSearch?.location || "Chọn địa điểm"}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.editIconContainer}>
-                                        <MaterialIcons name="edit" size={18} color={colors.primary} />
-                                    </View>
-                                </TouchableOpacity>
-
-                                {/* Date Selection */}
-                                <TouchableOpacity
-                                    style={styles.searchCard}
-                                    onPress={() => setCalendarVisible(true)}
-                                >
-                                    <View style={styles.searchIconContainer}>
-                                        <Icon name="calendar-outline" size={22} color="#fff" />
-                                    </View>
-                                    <View style={styles.searchContent}>
-                                        <Text style={styles.searchLabel}>Ngày</Text>
-                                        <Text style={styles.searchText}>
-                                            {localSearch?.checkInDate && localSearch?.checkOutDate ? (
-                                                <Text>
-                                                    <Text style={styles.highlightText}>{localSearch.checkInDate.split(', ')[1]}</Text> - <Text style={styles.highlightText}>{localSearch.checkOutDate.split(', ')[1]}</Text>
-                                                </Text>
-                                            ) : (
-                                                "Chọn ngày"
-                                            )}
-                                        </Text>
-                                        {localSearch?.numberOfNights > 0 && (
-                                            <Text style={styles.nightsText}>{localSearch.numberOfNights} đêm</Text>
-                                        )}
-                                    </View>
-                                    <View style={styles.editIconContainer}>
-                                        <MaterialIcons name="edit" size={18} color={colors.primary} />
-                                    </View>
-                                </TouchableOpacity>
-
-                                {/* Guest Selection */}
-                                <TouchableOpacity
-                                    style={styles.searchCard}
-                                    onPress={() => setGuestModalVisible(true)}
-                                >
-                                    <View style={styles.searchIconContainer}>
-                                        <Icon name="people-outline" size={22} color="#fff" />
-                                    </View>
-                                    <View style={styles.searchContent}>
-                                        <Text style={styles.searchLabel}>Khách</Text>
-                                        <Text style={styles.searchText}>
-                                            {localSearch?.adults ? (
-                                                <Text>
-                                                    <Text style={styles.highlightText}>{localSearch.adults}</Text> người lớn
-                                                    {localSearch.children > 0 ?
-                                                        <Text>, <Text style={styles.highlightText}>{localSearch.children}</Text> trẻ em</Text> :
-                                                        ''}
-                                                </Text>
-                                            ) : (
-                                                "Số lượng khách"
-                                            )}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.editIconContainer}>
-                                        <MaterialIcons name="edit" size={18} color={colors.primary} />
-                                    </View>
-                                </TouchableOpacity>
-
-                                {/* Section title for filters */}
-                                <Text style={[styles.sectionTitle, { marginTop: 25 }]}>Tùy chọn bộ lọc</Text>
-
-                                {/* Filter Selection */}
-                                <TouchableOpacity
-                                    style={styles.searchCard}
-                                    onPress={() => setFilterModalVisible(true)}
-                                >
-                                    <View style={styles.searchIconContainer}>
-                                        <Icon name="filter-outline" size={22} color="#fff" />
-                                    </View>
-                                    <View style={styles.searchContent}>
-                                        <Text style={styles.searchLabel}>Bộ lọc</Text>
-                                        {!localSearch?.priceFrom && !localSearch?.priceTo && !localSearch?.selectedStar ? (
-                                            <Text style={styles.searchText}>Tất cả</Text>
-                                        ) : (
-                                            <>
-                                                {(localSearch?.priceFrom || localSearch?.priceTo) && (
-                                                    <View style={styles.filterItem}>
-                                                        <Icon name="cash-outline" size={14} color={colors.textSecondary} />
-                                                        <Text style={styles.filterText}>
-                                                            {`${localSearch?.priceFrom?.toLocaleString() || 0}đ - ${localSearch?.priceTo?.toLocaleString() || 'Max'}đ`}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                                {localSearch?.selectedStar && (
-                                                    <View style={styles.filterItem}>
-                                                        <Icon name="star" size={14} color={colors.textSecondary} />
-                                                        <Text style={styles.filterText}>
-                                                            {`${localSearch.selectedStar} sao`}
-                                                        </Text>
-                                                    </View>
-                                                )}
-                                            </>
-                                        )}
-                                    </View>
-                                    <View style={styles.editIconContainer}>
-                                        <MaterialIcons name="edit" size={18} color={colors.primary} />
-                                    </View>
-                                </TouchableOpacity>
-                            </View>
-                        </ScrollView>
-
-                        <View style={styles.footer}>
-                            <TouchableOpacity
-                                style={styles.searchButton}
-                                onPress={handleSubmitSearch}
-                                disabled={isLoading}
-                            >
-                                <LinearGradient
-                                    colors={[colors.primary, colors.secondary]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.searchButtonGradient}
-                                >
-                                    {isLoading ? (
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    ) : (
-                                        <>
-                                            <Icon name="search" size={20} color="#fff" />
-                                            <Text style={styles.searchButtonText}>Tìm kiếm</Text>
-                                        </>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-                    </Animated.View>
+                    {renderBackground()}
+                    {renderModalContent()}
                 </KeyboardAvoidingView>
-            </Animated.View>
+            </SafeAreaView>
 
-            {/* Modals */}
             <LocationSearchModal
                 visible={isLocationModalVisible}
                 onClose={() => setLocationModalVisible(false)}
@@ -371,6 +372,7 @@ const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
         justifyContent: 'flex-end',
+        backgroundColor: Platform.OS === 'android' ? 'rgba(0,0,0,0.5)' : 'transparent',
     },
     keyboardView: {
         flex: 1,
@@ -380,8 +382,19 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        height: height * 0.8,
+        height: Platform.OS === 'android' ? '80%' : height * 0.8,
         overflow: 'hidden',
+        ...Platform.select({
+            android: {
+                elevation: 5,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 4,
+            },
+        }),
     },
     header: {
         paddingTop: 25,
@@ -392,9 +405,7 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     headerTitleContainer: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#fff',
+        alignItems: 'center',
     },
     modalTitle: {
         fontSize: 20,
@@ -414,13 +425,13 @@ const styles = StyleSheet.create({
         right: 20,
         zIndex: 1,
     },
-    blurButton: {
+    closeButtonContainer: {
         width: 36,
         height: 36,
         borderRadius: 18,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
-        overflow: 'hidden',
     },
     scrollView: {
         flex: 1,
@@ -442,11 +453,17 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 3,
+        ...Platform.select({
+            android: {
+                elevation: 2,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 4,
+            },
+        }),
     },
     searchIconContainer: {
         width: 44,

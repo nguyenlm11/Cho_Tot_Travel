@@ -24,13 +24,9 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
         scale.value = withSpring(1, { damping: 15 });
     }, [scale]);
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }]
-    }));
-
     return (
         <Animated.View
-            style={[styles.itemContainer, animatedStyle]}
+            style={styles.itemContainer}
             entering={FadeInDown.delay(index * 80).springify()}
         >
             <TouchableOpacity
