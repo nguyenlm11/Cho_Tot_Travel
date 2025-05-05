@@ -16,9 +16,9 @@ const STATUS_MAPPING = {
     0: { text: 'Chưa thanh toán', color: '#FAD961', icon: 'time-outline' },
     1: { text: 'Đã thanh toán', color: '#4CAF50', icon: 'checkmark-circle' },
     2: { text: 'Đang phục vụ', color: '#29B6F6', icon: 'sync-outline' },
-    3: { text: 'Hoàn thành', color: '#8BC34A', icon: 'checkmark-done-circle' },
+    3: { text: 'Đã trả phòng', color: '#8BC34A', icon: 'checkmark-done-circle' },
     4: { text: 'Đã hủy', color: '#F44336', icon: 'close-circle' },
-    5: { text: 'Không đến', color: '#9E9E9E', icon: 'remove-circle' },
+    // 5: { text: 'Không đến', color: '#9E9E9E', icon: 'remove-circle' },
     6: { text: 'Yêu cầu hoàn trả', color: '#FF9800', icon: 'cash-outline' }
 };
 
@@ -155,7 +155,6 @@ const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => {
     );
 });
 
-// Tách component FilterTab để tối ưu render
 const FilterTab = React.memo(({ status, value, onPress, isActive }) => (
     <TouchableOpacity
         style={[styles.tabItem, isActive && styles.activeTab]}
@@ -200,11 +199,9 @@ export default function BookingListScreen() {
         try {
             setLoading(prev => ({ ...prev, initial: true }));
 
-            // Kiểm tra thời gian từ lần fetch cuối cùng
             const now = Date.now();
             const timeSinceLastFetch = now - lastFetchTime;
             const shouldUseCache = !forceRefresh && timeSinceLastFetch < CACHE_DURATION;
-
             if (shouldUseCache) {
                 const cached = await AsyncStorage.getItem(`bookings_${userData.userID}`);
                 if (cached) {
@@ -218,6 +215,7 @@ export default function BookingListScreen() {
             }
 
             const result = await bookingApi.getBookingsByAccountID(userData.userID);
+            // console.log(result);
             if (result?.success && Array.isArray(result.data)) {
                 const sortedBookings = result.data.sort((a, b) =>
                     new Date(b.bookingDate) - new Date(a.bookingDate)
