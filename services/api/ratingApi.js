@@ -2,6 +2,31 @@ import apiClient, { handleError } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ratingApi = {
+    getRatingsByHomeStay: async (homestayId) => {
+        try {
+            const response = await apiClient.get(`/api/rating/GetByHomeStay/${homestayId}`);
+            if (response.data?.data) {
+                return {
+                    success: true,
+                    data: {
+                        reviews: response.data.data.item1,
+                        totalReviews: response.data.data.item2
+                    }
+                };
+            }
+            return {
+                success: false,
+                error: 'Không có dữ liệu đánh giá'
+            };
+        } catch (error) {
+            console.error('Error fetching ratings:', error);
+            return {
+                success: false,
+                error: 'Không thể tải đánh giá. Vui lòng thử lại sau.'
+            };
+        }
+    },
+
     createRating: async (formData) => {
         try {
             const userString = await AsyncStorage.getItem('user');
@@ -13,7 +38,7 @@ const ratingApi = {
             if (!userId) {
                 throw new Error('Không tìm thấy ID người dùng');
             }
-            const response = await apiClient.post('/api/rating/CreateRating', formData, {
+            const response = await apiClient.post('/api/rating', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },

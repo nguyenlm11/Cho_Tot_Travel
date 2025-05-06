@@ -1,60 +1,173 @@
-import React from 'react';
-import { View, Text, Image, FlatList, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, FlatList, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-
-const reviews = [
-    { id: '1', name: 'N***n', rating: 8.8, comment: 'Nhân viên nhiệt tình và thân thiện', likes: 2, date: 'Đánh giá tháng 9 2024' },
-    { id: '2', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
-    { id: '3', name: 'Nhu P.', rating: 8.4, comment: '', likes: 0, date: 'Đánh giá tháng 8 2024' },
-    { id: '4', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
-    { id: '5', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
-    { id: '6', name: 'P***n', rating: 8.7, comment: 'Máy lạnh hơi cũ, phòng có mùi hơi ẩm', likes: 1, date: 'Đánh giá tháng 9 2024' },
-];
+import ratingApi from '../services/api/ratingApi';
 
 export default function ReviewScreen() {
     const navigation = useNavigation();
+    const route = useRoute();
+    const { homestayId } = route.params;
+    const [reviews, setReviews] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [averageRating, setAverageRating] = useState(0);
+    const [totalReviews, setTotalReviews] = useState(0);
+
+    useEffect(() => {
+        fetchReviews();
+    }, [homestayId]);
+
+    const fetchReviews = async () => {
+        try {
+            setLoading(true);
+            const response = await ratingApi.getRatingsByHomeStay(homestayId);
+            if (response.success) {
+                setReviews(response.data.reviews);
+                setTotalReviews(response.data.totalReviews);
+                const total = response.data.reviews.reduce((sum, review) => sum + review.sumRate, 0);
+                setAverageRating(total / response.data.reviews.length);
+            } else {
+                setError(response.error);
+            }
+        } catch (err) {
+            setError('Không thể tải đánh giá. Vui lòng thử lại sau.');
+            console.error('Error fetching reviews:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const renderRatingBar = ({ label, score }) => (
         <View style={styles.ratingItem}>
             <Text style={styles.ratingLabel}>
-                {label}: <Text style={styles.boldText}>{score}</Text>
+                {label}: <Text style={styles.boldText}>{score.toFixed(1)}</Text>
             </Text>
             <LinearGradient
                 colors={[colors.primary, colors.primary + '80']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={[styles.ratingBar, { width: `${score * 10}%` }]}
+                style={[styles.ratingBar, { width: `${score * 20}%` }]}
             />
             <View style={styles.ratingBarBackground} />
         </View>
     );
 
+    const calculateAverage = (reviews, field) => {
+        if (!reviews.length) return 0;
+        const total = reviews.reduce((sum, review) => sum + review[field], 0);
+        return total / reviews.length;
+    };
+
+    const formatDateTime = (dateString) => {
+        const date = new Date(dateString);
+        // Adjust to Vietnam timezone (UTC+7)
+        const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+
+        return `${vietnamDate.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        })}, ${vietnamDate.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        })}`;
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchReviews}>
+                    <Text style={styles.retryText}>Thử lại</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (reviews.length === 0) {
+        return (
+            <View style={styles.container}>
+                <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+                <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    style={styles.header}
+                >
+                    <View style={styles.headerContent}>
+                        <View style={styles.headerTop}>
+                            <TouchableOpacity
+                                style={styles.backButton}
+                                onPress={() => navigation.goBack()}
+                            >
+                                <Ionicons name="chevron-back" size={28} color="#fff" />
+                            </TouchableOpacity>
+                            <View style={styles.headerTitleContainer}>
+                                <Text style={styles.headerTitle}>Xếp hạng & đánh giá</Text>
+                                <Text style={styles.headerSubtitle}>Đánh giá từ khách hàng</Text>
+                            </View>
+                            <View style={styles.rightHeader} />
+                        </View>
+                    </View>
+                </LinearGradient>
+
+                <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconContainer}>
+                        <LinearGradient
+                            colors={[colors.primary + '20', colors.primary + '10']}
+                            style={styles.emptyIconGradient}
+                        >
+                            <Ionicons name="star-outline" size={60} color={colors.primary} />
+                        </LinearGradient>
+                    </View>
+                    <Text style={styles.emptyTitle}>Chưa có đánh giá nào</Text>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <LinearGradient
-                colors={[colors.primary, colors.primary + 'E6']}
+                colors={[colors.primary, colors.secondary]}
                 style={styles.header}
             >
-                <TouchableOpacity 
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="chevron-back" size={28} color="#fff" />
-                </TouchableOpacity>
-                <Text style={styles.headerText}>Xếp hạng & đánh giá</Text>
+                <View style={styles.headerContent}>
+                    <View style={styles.headerTop}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <Ionicons name="chevron-back" size={28} color="#fff" />
+                        </TouchableOpacity>
+                        <View style={styles.headerTitleContainer}>
+                            <Text style={styles.headerTitle}>Xếp hạng & đánh giá</Text>
+                            <Text style={styles.headerSubtitle}>Đánh giá từ khách hàng</Text>
+                        </View>
+                        <View style={styles.rightHeader} />
+                    </View>
+                </View>
             </LinearGradient>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                 <View style={styles.travelokaSection}>
                     <View style={styles.scoreContainer}>
-                        <Text style={styles.totalReviews}>24 đánh giá</Text>
+                        <Text style={styles.totalReviews}>{totalReviews} đánh giá</Text>
                         <View style={styles.scoreBox}>
-                            <Text style={styles.score}>8.7</Text>
-                            <Text style={styles.maxScore}>/10</Text>
+                            <Text style={styles.score}>{averageRating.toFixed(1)}</Text>
+                            <Text style={styles.maxScore}>/5</Text>
                         </View>
                     </View>
                 </View>
@@ -62,8 +175,8 @@ export default function ReviewScreen() {
                 <View style={styles.ratingsContainer}>
                     <View style={styles.column}>
                         {[
-                            { label: 'Vệ sinh', score: 8.6 },
-                            { label: 'Đồ ăn', score: 9.0 },
+                            { label: 'Vệ sinh', score: calculateAverage(reviews, 'cleaningRate') },
+                            { label: 'Dịch vụ', score: calculateAverage(reviews, 'serviceRate') },
                         ].map((item, index) => (
                             <View key={`rating-1-${index}`}>
                                 {renderRatingBar(item)}
@@ -73,8 +186,8 @@ export default function ReviewScreen() {
 
                     <View style={styles.column}>
                         {[
-                            { label: 'Tiện nghi phòng', score: 8.4 },
-                            { label: 'Dịch vụ và Tiện ích', score: 8.5 },
+                            { label: 'Tiện nghi', score: calculateAverage(reviews, 'facilityRate') },
+                            { label: 'Tổng thể', score: averageRating },
                         ].map((item, index) => (
                             <View key={`rating-2-${index}`}>
                                 {renderRatingBar(item)}
@@ -87,42 +200,45 @@ export default function ReviewScreen() {
                     <Text style={styles.sectionTitle}>Đánh giá của khách hàng</Text>
                     <FlatList
                         data={reviews}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item) => item.ratingID.toString()}
                         scrollEnabled={false}
                         renderItem={({ item, index }) => (
-                            <Animated.View 
+                            <Animated.View
                                 entering={FadeInDown.delay(index * 100)}
                                 style={styles.reviewCard}
                             >
                                 <View style={styles.reviewHeader}>
-                                    <Image 
-                                        source={{ uri: 'https://th.bing.com/th/id/OIP.F977i9e7dMrznvOT8q8azgHaEf?w=1920&h=1164&rs=1&pid=ImgDetMain' }} 
-                                        style={styles.avatar} 
+                                    <Image
+                                        source={{ uri: 'https://th.bing.com/th/id/OIP.F977i9e7dMrznvOT8q8azgHaEf?w=1920&h=1164&rs=1&pid=ImgDetMain' }}
+                                        style={styles.avatar}
                                     />
                                     <View style={styles.reviewInfo}>
                                         <View style={styles.nameContainer}>
-                                            <Text style={styles.userName}>{item.name}</Text>
-                                            <Text style={styles.reviewDate}>{item.date}</Text>
+                                            <Text style={styles.userName}>{item.username}</Text>
+                                            <Text style={styles.reviewDate}>
+                                                {formatDateTime(item.createdAt)}
+                                            </Text>
                                         </View>
                                         <View style={styles.ratingContainer}>
-                                            <Text style={styles.ratingScore}>{item.rating}</Text>
-                                            <Text style={styles.ratingMax}>/10</Text>
+                                            <Text style={styles.ratingScore}>{item.sumRate.toFixed(1)}</Text>
+                                            <Text style={styles.ratingMax}>/5</Text>
                                         </View>
                                     </View>
                                 </View>
-                                {item.comment && (
-                                    <Text style={styles.commentText}>{item.comment}</Text>
+                                {item.content && (
+                                    <Text style={styles.commentText}>{item.content}</Text>
                                 )}
-                                <View style={styles.reviewActions}>
-                                    <TouchableOpacity style={styles.likeButton}>
-                                        <Ionicons name="heart-outline" size={20} color={colors.primary} />
-                                        <Text style={styles.likeCount}>{item.likes}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.replyButton}>
-                                        <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
-                                        <Text style={styles.replyText}>Trả lời</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                {item.imageRatings && item.imageRatings.length > 0 && (
+                                    <View style={styles.imageContainer}>
+                                        {item.imageRatings.map((img) => (
+                                            <Image
+                                                key={img.imageRatingID}
+                                                source={{ uri: img.image }}
+                                                style={styles.reviewImage}
+                                            />
+                                        ))}
+                                    </View>
+                                )}
                             </Animated.View>
                         )}
                     />
@@ -130,19 +246,8 @@ export default function ReviewScreen() {
             </ScrollView>
 
             <View style={styles.footer}>
-                <View style={styles.filterContainer}>
-                    <TouchableOpacity style={styles.filterButton}>
-                        <FontAwesome name="sort" size={16} color={colors.primary} />
-                        <Text style={styles.filterText}>Gần đây nhất</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.filterButton}>
-                        <FontAwesome name="filter" size={16} color={colors.primary} />
-                        <Text style={styles.filterText}>Lọc</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity 
-                    style={styles.footerButton} 
+                <TouchableOpacity
+                    style={styles.footerButton}
                     onPress={() => navigation.goBack()}
                 >
                     <LinearGradient
@@ -150,7 +255,7 @@ export default function ReviewScreen() {
                         style={styles.gradientButton}
                     >
                         <Text style={styles.footerButtonText}>
-                            Xem Thông tin khách sạn
+                            Xem Thông tin homestay
                         </Text>
                     </LinearGradient>
                 </TouchableOpacity>
@@ -162,26 +267,58 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#f8f9fa',
     },
     header: {
+        paddingTop: 60,
+        paddingBottom: 30,
+        paddingHorizontal: 20,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    headerContent: {
+        width: '100%',
+        alignItems: 'center'
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingTop: 60,
-        paddingBottom: 20,
-        paddingHorizontal: 20,
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: 20,
     },
-    backButton: {
-        marginRight: 15,
+    backButton: { padding: 5 },
+    headerTitleContainer: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    rightHeader: { width: 28 },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+        textAlign: 'center',
     },
     headerText: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#fff',
+        color: colors.textPrimary,
     },
-    content: {
-        flex: 1,
-    },
+    content: { flex: 1 },
     travelokaSection: {
         backgroundColor: '#E1F3D8',
         padding: 20,
@@ -226,9 +363,7 @@ const styles = StyleSheet.create({
         flex: 1,
         marginHorizontal: 8,
     },
-    ratingItem: {
-        marginBottom: 15,
-    },
+    ratingItem: { marginBottom: 15 },
     ratingLabel: {
         fontSize: 14,
         color: colors.textSecondary,
@@ -255,9 +390,7 @@ const styles = StyleSheet.create({
         borderRadius: 3,
         zIndex: -1,
     },
-    reviewsSection: {
-        padding: 15,
-    },
+    reviewsSection: { padding: 15 },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
@@ -321,31 +454,15 @@ const styles = StyleSheet.create({
         marginTop: 12,
         lineHeight: 22,
     },
-    reviewActions: {
+    imageContainer: {
         flexDirection: 'row',
         marginTop: 12,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
     },
-    likeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: 20,
-    },
-    likeCount: {
-        marginLeft: 6,
-        color: colors.primary,
-        fontSize: 14,
-    },
-    replyButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    replyText: {
-        marginLeft: 6,
-        color: colors.primary,
-        fontSize: 14,
+    reviewImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 5,
+        marginRight: 8,
     },
     footer: {
         backgroundColor: '#fff',
@@ -353,27 +470,6 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
-    },
-    filterContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 15,
-        marginBottom: 15,
-    },
-    filterButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 15,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: colors.primary,
-    },
-    filterText: {
-        marginLeft: 8,
-        color: colors.primary,
-        fontSize: 14,
-        fontWeight: '500',
     },
     footerButton: {
         marginHorizontal: 15,
@@ -389,6 +485,57 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    errorText: {
+        color: colors.textPrimary,
+        marginBottom: 20,
+    },
+    retryButton: {
+        padding: 15,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.primary,
+    },
+    retryText: {
+        color: colors.primary,
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#f8f9fa',
+    },
+    emptyIconContainer: { marginBottom: 20 },
+    emptyIconGradient: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+        marginBottom: 10,
+        textAlign: 'center',
+    }
 });
-
-
