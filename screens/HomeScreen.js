@@ -60,7 +60,7 @@ export default function HomeScreen() {
     const navigation = useNavigation();
     const { userData, refreshUserData } = useUser();
     const [isLoading, setIsLoading] = useState(false);
-    const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory, updateSearchResults } = useSearch();
+    const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory, updateSearchResults, loadHistoryResults } = useSearch();
     const [error, setError] = useState('');
 
     const handleSearch = async () => {
@@ -90,7 +90,6 @@ export default function HomeScreen() {
             console.log("HomeScreen - Search data:", searchData);
 
             updateCurrentSearch(searchData);
-            addToSearchHistory(searchData);
 
             const filterParams = {
                 CheckInDate: formattedCheckIn,
@@ -103,6 +102,7 @@ export default function HomeScreen() {
             };
             const results = await homeStayApi.filterHomeStays(filterParams);
             updateSearchResults(results);
+            addToSearchHistory(searchData, results);
             navigation.navigate("Results");
         } catch (error) {
             console.error('Search error:', error);
@@ -180,24 +180,29 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                 )}
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.historyScrollContent}
+            >
                 {searchHistory.map((item, index) => (
                     <TouchableOpacity
                         key={index}
                         style={styles.recentItem}
                         onPress={() => {
-                            updateCurrentSearch(item);
-                            navigation.navigate("Results", item);
+                            loadHistoryResults(item);
+                            navigation.navigate("Results");
                         }}
                     >
                         <Icon name="location-outline" size={20} color="#4A4A4A" />
-                        <View>
+                        <View style={styles.recentItemContent}>
                             <Text style={styles.itemTitle} numberOfLines={2}>{item.location}</Text>
                             <Text style={styles.itemDetails}>
                                 {item.checkInDate} - {item.checkOutDate}
                             </Text>
                             <Text style={styles.itemDetails}>
-                                {item.rooms} phòng, {item.adults} người lớn
+                                {item.adults} người lớn
                                 {item.children > 0 ? `, ${item.children} trẻ em` : ''}
                             </Text>
                         </View>
@@ -633,7 +638,7 @@ const styles = StyleSheet.create({
     },
     recentSearch: {
         paddingHorizontal: 20,
-        marginBottom: 10,
+        marginBottom: 20,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -650,9 +655,8 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.primary,
     },
-    viewAllText: {
-        fontSize: 14,
-        color: colors.primary,
+    historyScrollContent: {
+        paddingRight: 20,
     },
     recentItem: {
         flexDirection: 'row',
@@ -661,7 +665,6 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         padding: 15,
         marginRight: 15,
-        marginBottom: 15,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -669,18 +672,20 @@ const styles = StyleSheet.create({
         elevation: 2,
         width: width * 0.7,
     },
+    recentItemContent: {
+        flex: 1,
+        marginLeft: 10,
+    },
     itemTitle: {
         fontSize: 16,
         fontWeight: '600',
         color: '#4A4A4A',
-        marginLeft: 10,
         marginBottom: 5,
     },
     itemDetails: {
         fontSize: 14,
         color: '#4A4A4A',
         opacity: 0.7,
-        marginLeft: 10,
     },
     trendingSection: {
         paddingHorizontal: 20,
@@ -794,5 +799,9 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 100,
         resizeMode: 'contain',
+    },
+    viewAllText: {
+        fontSize: 14,
+        color: colors.primary,
     },
 });
