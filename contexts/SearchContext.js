@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from './UserContext';
 
 const SearchContext = createContext();
 
@@ -8,11 +9,18 @@ export const SearchProvider = ({ children }) => {
     const [searchHistory, setSearchHistory] = useState([]);
     const [searchResults, setSearchResults] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { userData } = useUser();
 
     useEffect(() => {
         const loadSearchHistory = async () => {
             try {
-                const savedHistory = await AsyncStorage.getItem('searchHistory');
+                if (!userData?.userID) {
+                    setSearchHistory([]);
+                    setLoading(false);
+                    return;
+                }
+
+                const savedHistory = await AsyncStorage.getItem(`searchHistory_${userData.userID}`);
                 if (savedHistory) {
                     setSearchHistory(JSON.parse(savedHistory));
                 }
@@ -24,7 +32,7 @@ export const SearchProvider = ({ children }) => {
         };
 
         loadSearchHistory();
-    }, []);
+    }, [userData?.userID]);
 
     const updateCurrentSearch = (searchData) => {
         // console.log("SearchContext - Updating currentSearch:", searchData);
@@ -36,8 +44,10 @@ export const SearchProvider = ({ children }) => {
         setSearchResults(results);
     };
 
-    const addToSearchHistory = async (searchData) => {
+    const addToSearchHistory = async (searchData, results) => {
         try {
+            if (!userData?.userID) return;
+
             const existingIndex = searchHistory.findIndex(
                 item =>
                     item.location === searchData.location &&
@@ -53,14 +63,20 @@ export const SearchProvider = ({ children }) => {
                 newHistory.splice(existingIndex, 1);
             }
 
-            newHistory = [searchData, ...newHistory];
+            // Thêm kết quả tìm kiếm vào dữ liệu lịch sử
+            const historyItem = {
+                ...searchData,
+                results: results || []
+            };
+
+            newHistory = [historyItem, ...newHistory];
 
             if (newHistory.length > 5) {
                 newHistory = newHistory.slice(0, 5);
             }
 
             setSearchHistory(newHistory);
-            await AsyncStorage.setItem('searchHistory', JSON.stringify(newHistory));
+            await AsyncStorage.setItem(`searchHistory_${userData.userID}`, JSON.stringify(newHistory));
         } catch (err) {
             console.error('Error adding to search history:', err);
         }
@@ -68,11 +84,18 @@ export const SearchProvider = ({ children }) => {
 
     const clearSearchHistory = async () => {
         try {
+            if (!userData?.userID) return;
+
             setSearchHistory([]);
-            await AsyncStorage.removeItem('searchHistory');
+            await AsyncStorage.removeItem(`searchHistory_${userData.userID}`);
         } catch (err) {
             console.error('Error clearing search history:', err);
         }
+    };
+
+    const loadHistoryResults = (historyItem) => {
+        setCurrentSearch(historyItem);
+        setSearchResults(historyItem.results || []);
     };
 
     const value = {
@@ -84,6 +107,7 @@ export const SearchProvider = ({ children }) => {
         updateSearchResults,
         addToSearchHistory,
         clearSearchHistory,
+        loadHistoryResults
     };
 
     return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>;
