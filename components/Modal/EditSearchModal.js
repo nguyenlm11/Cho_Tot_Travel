@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Dimensions, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, Dimensions, SafeAreaView, TextInput } from 'react-native';
 import { FontAwesome, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,7 @@ import GuestModal from './GuestModal';
 import FilterModal from './FilterModal';
 import homeStayApi from '../../services/api/homeStayApi';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const EditSearchModal = ({ visible, onClose }) => {
     const { currentSearch, updateCurrentSearch, updateSearchResults } = useSearch();
@@ -245,7 +245,7 @@ const EditSearchModal = ({ visible, onClose }) => {
                         </View>
                     </TouchableOpacity>
 
-                    <Text style={[styles.sectionTitle, { marginTop: 25 }]}>Tùy chọn bộ lọc</Text>
+                    <Text style={styles.sectionTitle}>Tùy chọn bộ lọc</Text>
 
                     <TouchableOpacity
                         style={styles.searchCard}
@@ -321,16 +321,19 @@ const EditSearchModal = ({ visible, onClose }) => {
             statusBarTranslucent={true}
             hardwareAccelerated={true}
         >
-            <SafeAreaView style={{ flex: 1 }}>
+            <Animated.View
+                entering={FadeInDown}
+                style={styles.modalBackground}
+            >
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    behavior={Platform.OS === 'ios' ? 'padding' : "height"}
                     style={styles.keyboardView}
                     keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
                 >
                     {renderBackground()}
                     {renderModalContent()}
                 </KeyboardAvoidingView>
-            </SafeAreaView>
+            </Animated.View>
 
             <LocationSearchModal
                 visible={isLocationModalVisible}
@@ -371,8 +374,8 @@ const EditSearchModal = ({ visible, onClose }) => {
 const styles = StyleSheet.create({
     modalBackground: {
         flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'flex-end',
-        backgroundColor: Platform.OS === 'android' ? 'rgba(0,0,0,0.5)' : 'transparent',
     },
     keyboardView: {
         flex: 1,
@@ -382,7 +385,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        height: Platform.OS === 'android' ? '80%' : height * 0.8,
+        height: Platform.OS === 'android' ? '70%' : height * 0.7,
         overflow: 'hidden',
         ...Platform.select({
             android: {

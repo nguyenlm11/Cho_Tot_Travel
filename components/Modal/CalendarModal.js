@@ -173,7 +173,7 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                             </BlurView>
                         </TouchableOpacity>
                         <Text style={styles.modalTitle}>
-                            {step === 1 ? 'Chọn ngày nhận phòng' : 'Chọn ngày trả phòng'}
+                            {step === 1 ? 'Chọn bắt đầu' : 'Chọn kết thúc'}
                         </Text>
                         {renderStepIndicator()}
                     </LinearGradient>
