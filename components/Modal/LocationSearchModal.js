@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Alert, Modal, Platform, KeyboardAvoidingView, Linking } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, FlatList, TextInput, StyleSheet, Alert, Modal, Platform, Keyboard, KeyboardAvoidingView, Linking, Dimensions } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons, FontAwesome } from "react-native-vector-icons";
 import { colors } from '../../constants/Colors';
@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import axios from "axios";
+import { useSearch } from '../../contexts/SearchContext';
 
+const { width, height } = Dimensions.get('window');
 const API_KEY = "MdlDIjhDKvUnozmB9NJjiW4L5Pu5ogxX";
 const BASE_URL = "https://mapapis.openmap.vn/v1/autocomplete";
 const PLACE_DETAIL_URL = "https://mapapis.openmap.vn/v1/place";
@@ -15,14 +17,9 @@ const PLACE_DETAIL_URL = "https://mapapis.openmap.vn/v1/place";
 const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState([]);
-    const [recentSearches, setRecentSearches] = useState([
-        "Hà Nội, Việt Nam",
-        "InterContinental Danang Sun Peninsula, Đà Nẵng",
-        "Khách sạn Pullman, Vũng Tàu",
-    ]);
-
+    const { searchHistory, clearSearchHistory } = useSearch();
     const handleClearRecentSearches = () => {
-        setRecentSearches([]);
+        clearSearchHistory();
     };
 
     const handleClear = () => {
@@ -64,11 +61,11 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
             }
             onClose();
         } catch (error) {
-            Alert.alert(
-                "Lỗi lấy vị trí",
-                "Đã xảy ra lỗi khi lấy vị trí. Vui lòng thử lại."
-            );
             console.error("Error getting location:", error);
+            Alert.alert(
+                "Lỗi",
+                "Không thể lấy vị trí hiện tại. Vui lòng thử lại sau."
+            );
         }
     };
 
@@ -84,12 +81,11 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                 params: {
                     text: text,
                     apikey: API_KEY,
-                    size: 6,
+                    size: 5,
                 },
             });
             setResults(response.data.features || []);
         } catch (error) {
-            // console.error("Error fetching places:", error.response || error.message);
             // Alert.alert("Lỗi", "Có lỗi khi lấy vị trí.");
         }
     };
@@ -100,7 +96,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
             try {
                 const { label, id } = location.properties;
                 const response = await axios.get(PLACE_DETAIL_URL, {
-                    params: { 
+                    params: {
                         format: 'osm',
                         ids: id,
                         apikey: API_KEY
@@ -109,7 +105,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
 
                 if (response.data && response.data.features && response.data.features.length > 0) {
                     const [lng, lat] = response.data.features[0].geometry.coordinates;
-                    
+
                     onLocationSelected({
                         description: label,
                         latitude: lat,
@@ -134,15 +130,9 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
             transparent
             onRequestClose={onClose}
         >
-            <Animated.View
-                entering={FadeInDown}
-                style={styles.modalBackground}
-            >
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-
+            <View style={styles.modalBackground}>
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
                 >
                     <Animated.View
@@ -221,7 +211,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                                     <View style={styles.recentSection}>
                                         <View style={styles.recentHeader}>
                                             <Text style={styles.sectionTitle}>Tìm kiếm gần đây</Text>
-                                            {recentSearches.length > 0 && (
+                                            {searchHistory.length > 0 && (
                                                 <TouchableOpacity onPress={handleClearRecentSearches}>
                                                     <Text style={styles.clearText}>Xóa tất cả</Text>
                                                 </TouchableOpacity>
@@ -229,16 +219,26 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                                         </View>
 
                                         <FlatList
-                                            data={recentSearches}
+                                            data={searchHistory.filter(item => item.location !== "Vị trí gần bạn").slice(0, 3)}
                                             keyExtractor={(item, index) => index.toString()}
                                             renderItem={({ item }) => (
-                                                <TouchableOpacity style={styles.recentItem}>
+                                                <TouchableOpacity
+                                                    style={styles.recentItem}
+                                                    onPress={() => {
+                                                        onLocationSelected({
+                                                            description: item.location,
+                                                            latitude: item.latitude,
+                                                            longitude: item.longitude
+                                                        });
+                                                        onClose();
+                                                    }}
+                                                >
                                                     <LinearGradient
                                                         colors={['#fff', '#f8f9fa']}
                                                         style={styles.recentGradient}
                                                     >
                                                         <Ionicons name="time-outline" size={20} color={colors.primary} />
-                                                        <Text style={styles.recentText}>{item}</Text>
+                                                        <Text style={styles.recentText} numberOfLines={2}>{item.location}</Text>
                                                     </LinearGradient>
                                                 </TouchableOpacity>
                                             )}
@@ -249,7 +249,7 @@ const LocationSearchModal = ({ visible, onClose, onLocationSelected }) => {
                         </View>
                     </Animated.View>
                 </KeyboardAvoidingView>
-            </Animated.View>
+            </View>
         </Modal>
     );
 };
@@ -268,7 +268,18 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
-        maxHeight: '90%',
+        maxHeight: height * 0.8,
+        ...Platform.select({
+            android: {
+                elevation: 5,
+            },
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+            },
+        }),
     },
     header: {
         padding: 20,
@@ -412,10 +423,10 @@ const styles = StyleSheet.create({
     recentGradient: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 15,
+        padding: 12,
     },
     recentText: {
-        marginLeft: 10,
+        marginLeft: 5,
         fontSize: 16,
         color: '#333',
     },

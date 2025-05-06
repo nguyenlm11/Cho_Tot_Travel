@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, Dimensions, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
@@ -7,157 +7,84 @@ import EditSearchModal from '../components/Modal/EditSearchModal';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSearch } from '../contexts/SearchContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { useAnimatedStyle, withSpring, useSharedValue, } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+
+const { width, height } = Dimensions.get('window');
+const isIOS = Platform.OS === 'ios';
 
 const ResultCard = React.memo(({ item, index, onPress }) => {
-    const scale = useSharedValue(1);
-    const opacity = useSharedValue(0);
-    const translateY = useSharedValue(50);
     const hasImages = item.imageHomeStays && Array.isArray(item.imageHomeStays) && item.imageHomeStays.length > 0;
     const imageUrl = hasImages && item.imageHomeStays[0]?.image
         ? item.imageHomeStays[0].image
         : 'https://via.placeholder.com/300?text=No+Image';
 
-    React.useEffect(() => {
-        opacity.value = withSpring(1, { damping: 20 });
-        translateY.value = withSpring(0, { damping: 20 });
-    }, []);
-
-    const handlePressIn = () => {
-        scale.value = withSpring(0.97, { damping: 12 });
-    };
-
-    const handlePressOut = () => {
-        scale.value = withSpring(1, { damping: 12 });
-    };
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [
-            { scale: scale.value },
-            { translateY: translateY.value }
-        ],
-        opacity: opacity.value,
-    }));
-
     return (
         <Animated.View
-            style={[styles.cardContainer, animatedStyle]}
+            entering={FadeInDown.delay(index * 100)}
+            style={styles.cardContainer}
         >
-            <TouchableOpacity
-                onPress={() => onPress(item.homeStayID)}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                activeOpacity={1}
-            >
-                <View style={styles.card}>
-                    <View style={styles.imageContainer}>
-                        <Image
-                            style={styles.image}
-                            source={{ uri: imageUrl }}
-                            resizeMode="cover"
-                        />
-                        <LinearGradient
-                            colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.5)']}
-                            style={styles.imageOverlay}
-                        />
-                        {item.status === 1 && (
-                            <View style={styles.statusBadge}>
-                                <View style={styles.statusDot} />
-                                <Text style={styles.statusText}>Đang hoạt động</Text>
-                            </View>
-                        )}
-                        <View style={styles.priceTag}>
-                            <LinearGradient
-                                colors={[colors.primary, colors.primary + 'AA']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.priceGradient}
-                            >
-                                <Text style={styles.priceTagText}>Liên hệ để biết giá</Text>
-                            </LinearGradient>
+            <View style={styles.card}>
+                <Image
+                    source={{ uri: imageUrl }}
+                    style={styles.cardImage}
+                />
+                <View style={styles.cardContent}>
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
+                        <View style={styles.ratingContainer}>
+                            <Ionicons name="star" size={16} color="#FFD700" />
+                            <Text style={styles.ratingText}>{item.rating || 'Chưa có đánh giá'}</Text>
                         </View>
                     </View>
 
-                    <View style={styles.info}>
-                        <View style={styles.headerInfo}>
-                            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                            <View style={styles.starContainer}>
-                                {[1, 2, 3, 4].map((_, idx) => (
-                                    <Ionicons key={idx} name="star" size={16} color="#FFD700" />
-                                ))}
-                                <Ionicons name="star-half" size={16} color="#FFD700" />
-                                <Text style={styles.ratingText}>4.5</Text>
-                            </View>
-                        </View>
+                    <View style={styles.locationContainer}>
+                        <Ionicons name="location-outline" size={16} color={colors.primary} />
+                        <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
+                    </View>
 
-                        <View style={styles.locationContainer}>
-                            <Ionicons name="location-outline" size={16} color={colors.primary} />
-                            <Text style={styles.address} numberOfLines={2}>
-                                {item.address}
-                            </Text>
+                    <View style={styles.priceContainer}>
+                        <View>
+                            <Text style={styles.priceLabel}>Giá từ</Text>
+                            <Text style={styles.priceValue}>{item.price?.toLocaleString() || '0'}đ</Text>
                         </View>
-
-                        <View style={styles.tagsContainer}>
-                            <View style={styles.featureTag}>
-                                <Ionicons name="location" size={14} color={colors.primary} />
-                                <Text style={styles.featureText}>{item.area}</Text>
-                            </View>
-                            <View style={styles.featureTag}>
-                                <Ionicons
-                                    name={item.typeOfRental === 1 ? "home" : "time"}
-                                    size={14}
-                                    color={colors.primary}
-                                />
-                                <Text style={styles.featureText}>
-                                    {item.typeOfRental === 1 ? 'Cho thuê theo ngày' : 'Cho thuê theo giờ'}
-                                </Text>
-                            </View>
-                        </View>
-
                         <TouchableOpacity
-                            style={styles.bookButton}
-                            onPress={() => onPress(item.homeStayID)}
+                            style={styles.viewButton}
+                            onPress={onPress}
                         >
-                            <LinearGradient
-                                colors={[colors.primary, colors.primary + 'D0']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.bookButtonGradient}
-                            >
-                                <Text style={styles.bookButtonText}>Xem chi tiết</Text>
-                                <Ionicons name="arrow-forward" size={16} color="#fff" />
-                            </LinearGradient>
+                            <Text style={styles.viewButtonText}>Xem chi tiết</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
-            </TouchableOpacity>
+            </View>
         </Animated.View>
     );
 });
 
 export default function ResultScreen() {
     const { currentSearch, searchResults } = useSearch();
-    const [isEditModalVisible, setEditModalVisible] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const navigation = useNavigation();
+    const [isLoading, setIsLoading] = useState(false);
+    const [isEditModalVisible, setEditModalVisible] = useState(false);
 
-    const handleSelectHomeStay = useCallback((homestayId) => {
-        navigation.navigate('HomeStayDetail', { id: homestayId });
-        console.log("ResultScreen - homeStayId", homestayId);
-    }, [navigation]);
+    const validResults = searchResults?.filter(item =>
+        item &&
+        item.name &&
+        item.imageHomeStays &&
+        Array.isArray(item.imageHomeStays) &&
+        item.imageHomeStays.length > 0
+    ) || [];
 
     const renderItem = useCallback(({ item, index }) => (
         <ResultCard
             item={item}
             index={index}
-            onPress={handleSelectHomeStay}
+            onPress={() => navigation.navigate('HomeStayDetail', { id: item.homeStayID })}
         />
-    ), [handleSelectHomeStay]);
-
-    const validResults = Array.isArray(searchResults) ? searchResults : [];
+    ), [navigation]);
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="light-content" />
             <LinearGradient
                 colors={[colors.primary, colors.primary + 'E6']}
                 style={styles.header}
@@ -181,7 +108,9 @@ export default function ResultScreen() {
                 >
                     <TouchableOpacity style={styles.filterChip}>
                         <Ionicons name="calendar-outline" size={20} color="#ffffff" />
-                        <Text style={styles.filterText}>{currentSearch?.checkInDate || 'Ngày nhận phòng'} - {currentSearch?.checkOutDate || 'Ngày trả phòng'}</Text>
+                        <Text style={styles.filterText}>
+                            {currentSearch?.checkInDate || 'Ngày nhận phòng'} - {currentSearch?.checkOutDate || 'Ngày trả phòng'}
+                        </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.filterChip}>
@@ -244,13 +173,13 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f8f9fa',
-        zIndex: 100,
     },
     header: {
-        padding: 20,
-        paddingTop: 60,
+        height: 60 + (isIOS ? 44 : StatusBar.currentHeight || 0),
+        paddingTop: isIOS ? 44 : StatusBar.currentHeight || 0,
         flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: 15,
     },
     backButton: {
         marginRight: 15,
@@ -258,141 +187,107 @@ const styles = StyleSheet.create({
     headerText: {
         flex: 1,
         fontSize: 20,
-        fontWeight: 'bold',
+        fontWeight: '600',
         color: '#fff',
     },
     filterBar: {
-        backgroundColor: colors.primary,
+        height: 50,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
+        padding: 10,
+        backgroundColor: colors.primary,
     },
     filterScrollContent: {
-        paddingHorizontal: 15,
+        flexGrow: 1,
+        paddingRight: 10,
     },
     filterChip: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
         borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         marginRight: 10,
     },
     filterText: {
+        marginLeft: 5,
         color: '#fff',
-        marginLeft: 6,
         fontSize: 14,
     },
     editButton: {
-        padding: 10,
-        marginRight: 15,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     listContainer: {
-        padding: 15,
+        padding: 10,
+        // paddingBottom: 40,
     },
     cardContainer: {
-        marginBottom: 24,
-        marginHorizontal: 4,
+        marginBottom: 15,
+        marginHorizontal: 5,
     },
     card: {
         backgroundColor: '#fff',
-        borderRadius: 24,
+        borderRadius: 12,
         overflow: 'hidden',
-        elevation: 16,
-        shadowColor: colors.primary + '90',
-        shadowOffset: { width: 0, height: 9 },
-        shadowOpacity: 1,
-        shadowRadius: 20,
-    },
-    imageContainer: {
-        position: 'relative',
-        height: 220,
-    },
-    image: {
-        width: '100%',
-        height: '100%',
-    },
-    imageOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    statusBadge: {
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.95)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
+        elevation: 3,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-        elevation: 2,
     },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#4CAF50',
-        marginRight: 6,
+    cardImage: {
+        width: '100%',
+        height: height * 0.25,
+        resizeMode: 'cover',
     },
-    statusText: {
-        fontSize: 12,
-        color: '#333',
+    cardContent: {
+        padding: 15,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 10,
+    },
+    cardTitle: {
+        flex: 1,
+        fontSize: 18,
         fontWeight: '600',
-    },
-    priceTag: {
-        position: 'absolute',
-        bottom: 16,
-        right: 16,
-        overflow: 'hidden',
-        borderRadius: 20,
-    },
-    priceGradient: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-    },
-    priceTagText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-    info: {
-        padding: 20,
-    },
-    headerInfo: {
-        marginBottom: 12,
-    },
-    name: {
-        fontSize: 20,
-        fontWeight: 'bold',
         color: '#333',
-        marginBottom: 8,
+        marginRight: 10,
     },
-    starContainer: {
+    ratingContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#f8f9fa',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
     },
     ratingText: {
-        marginLeft: 5,
-        color: '#666',
+        marginLeft: 4,
         fontSize: 14,
-        fontWeight: 'bold',
+        color: '#666',
+        fontWeight: '500',
     },
     locationContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 14,
-        backgroundColor: '#f9f9f9',
-        padding: 12,
-        borderRadius: 12,
+        marginBottom: 12,
+        backgroundColor: '#f8f9fa',
+        padding: 10,
+        borderRadius: 8,
     },
     address: {
         flex: 1,
@@ -401,50 +296,31 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         lineHeight: 20,
     },
-    tagsContainer: {
+    priceContainer: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginBottom: 16,
-    },
-    featureTag: {
-        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: colors.primary + '15',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginRight: 10,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: colors.primary + '30',
-    },
-    featureText: {
-        fontSize: 13,
-        color: colors.primary,
-        marginLeft: 6,
-        fontWeight: '500',
-    },
-    bookButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
         marginTop: 8,
     },
-    bookButtonGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
+    priceLabel: {
+        fontSize: 12,
+        color: '#666',
     },
-    bookButtonText: {
-        color: '#fff',
-        fontSize: 16,
+    priceValue: {
+        fontSize: 18,
         fontWeight: '600',
-        marginRight: 8,
+        color: colors.primary,
     },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+    viewButton: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    viewButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
     },
     noResultsContainer: {
         flex: 1,
@@ -453,26 +329,27 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     noResultsText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.primary,
         marginTop: 20,
+        marginBottom: 10,
     },
     noResultsSubtext: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#666',
         textAlign: 'center',
-        marginTop: 10,
         marginBottom: 20,
     },
     retryButton: {
-        width: '80%',
-        borderRadius: 12,
+        width: width * 0.8,
+        height: 50,
+        borderRadius: 25,
         overflow: 'hidden',
-        marginTop: 10,
     },
     retryButtonGradient: {
-        paddingVertical: 15,
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     retryButtonText: {

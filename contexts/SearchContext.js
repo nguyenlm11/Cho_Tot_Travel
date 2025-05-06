@@ -35,12 +35,10 @@ export const SearchProvider = ({ children }) => {
     }, [userData?.userID]);
 
     const updateCurrentSearch = (searchData) => {
-        // console.log("SearchContext - Updating currentSearch:", searchData);
         setCurrentSearch(searchData);
     };
 
     const updateSearchResults = (results) => {
-        // console.log("SearchContext - Updating searchResults, count:", results?.length || 0);
         setSearchResults(results);
     };
 
@@ -63,17 +61,12 @@ export const SearchProvider = ({ children }) => {
                 newHistory.splice(existingIndex, 1);
             }
 
-            // Thêm kết quả tìm kiếm vào dữ liệu lịch sử
             const historyItem = {
                 ...searchData,
                 results: results || []
             };
 
-            newHistory = [historyItem, ...newHistory];
-
-            if (newHistory.length > 5) {
-                newHistory = newHistory.slice(0, 5);
-            }
+            newHistory = [historyItem, ...newHistory].slice(0, 5);
 
             setSearchHistory(newHistory);
             await AsyncStorage.setItem(`searchHistory_${userData.userID}`, JSON.stringify(newHistory));
