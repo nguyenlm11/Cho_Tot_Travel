@@ -152,6 +152,25 @@ export default function ResultScreen() {
                             {currentSearch?.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
                         </Text>
                     </TouchableOpacity>
+
+                    {currentSearch?.rating && (
+                        <TouchableOpacity style={styles.filterChip}>
+                            <Ionicons name="star" size={20} color="#ffffff" />
+                            <Text style={styles.filterText}>
+                                {currentSearch.rating} sao trở lên
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {(currentSearch?.minPrice || currentSearch?.maxPrice) && (
+                        <TouchableOpacity style={styles.filterChip}>
+                            <Ionicons name="cash-outline" size={20} color="#ffffff" />
+                            <Text style={styles.filterText}>
+                                {currentSearch.minPrice ? `${currentSearch.minPrice.toLocaleString()}đ` : '0đ'} - 
+                                {currentSearch.maxPrice ? `${currentSearch.maxPrice.toLocaleString()}đ` : 'Không giới hạn'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </ScrollView>
             </LinearGradient>
 

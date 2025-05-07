@@ -85,7 +85,10 @@ export default function HomeScreen() {
                 latitude,
                 longitude,
                 formattedCheckIn,
-                formattedCheckOut
+                formattedCheckOut,
+                rating: selectedStar,
+                minPrice: priceFrom ? parseFloat(priceFrom) : null,
+                maxPrice: priceTo ? parseFloat(priceTo) : null
             };
 
             console.log("HomeScreen - Search data:", searchData);
@@ -100,6 +103,9 @@ export default function HomeScreen() {
                 Latitude: latitude,
                 Longitude: longitude,
                 MaxDistance: 10,
+                Rating: selectedStar,
+                MinPrice: priceFrom ? parseFloat(priceFrom) : null,
+                MaxPrice: priceTo ? parseFloat(priceTo) : null
             };
             const results = await homeStayApi.filterHomeStays(filterParams);
             updateSearchResults(results);
@@ -174,9 +180,14 @@ export default function HomeScreen() {
     const renderSearchHistory = () => (
         <View style={styles.recentSearch}>
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Tra cứu gần đây</Text>
+                <View style={styles.sectionTitleContainer}>
+                    <Text style={styles.sectionTitle}>Tra cứu gần đây</Text>
+                </View>
                 {searchHistory.length > 0 && (
-                    <TouchableOpacity onPress={clearSearchHistory}>
+                    <TouchableOpacity
+                        style={styles.clearButton}
+                        onPress={clearSearchHistory}
+                    >
                         <Text style={styles.clearText}>Xóa tất cả</Text>
                     </TouchableOpacity>
                 )}
@@ -196,16 +207,50 @@ export default function HomeScreen() {
                             navigation.navigate("Results");
                         }}
                     >
-                        <Icon name="location-outline" size={20} color="#4A4A4A" />
                         <View style={styles.recentItemContent}>
-                            <Text style={styles.itemTitle} numberOfLines={2}>{item.location}</Text>
-                            <Text style={styles.itemDetails}>
-                                {item.checkInDate} - {item.checkOutDate}
-                            </Text>
-                            <Text style={styles.itemDetails}>
-                                {item.adults} người lớn
-                                {item.children > 0 ? `, ${item.children} trẻ em` : ''}
-                            </Text>
+                            <View style={styles.locationContainer}>
+                                <Icon name="location" size={20} color={colors.primary} />
+                                <Text style={styles.locationText} numberOfLines={1}>{item.location}</Text>
+                            </View>
+
+                            <View style={styles.divider} />
+
+                            <View style={styles.detailsContainer}>
+                                <View style={styles.dateContainer}>
+                                    <Icon name="calendar-outline" size={16} color={colors.textSecondary} />
+                                    <Text style={styles.dateText}>
+                                        {item.checkInDate.split(', ')[1]} - {item.checkOutDate.split(', ')[1]}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.guestContainer}>
+                                    <Icon name="people-outline" size={16} color={colors.textSecondary} />
+                                    <Text style={styles.guestText}>
+                                        {item.adults} người lớn
+                                        {item.children > 0 ? `, ${item.children} trẻ em` : ''}
+                                    </Text>
+                                </View>
+
+                                {(item.rating || item.minPrice || item.maxPrice) && (
+                                    <View style={styles.filtersContainer}>
+                                        {item.rating && (
+                                            <View style={styles.ratingContainer}>
+                                                <Icon name="star" size={14} color="#FFD700" />
+                                                <Text style={styles.ratingText}>{item.rating} sao</Text>
+                                            </View>
+                                        )}
+                                        {(item.minPrice || item.maxPrice) && (
+                                            <View style={styles.priceContainer}>
+                                                <Icon name="cash-outline" size={14} color={colors.primary} />
+                                                <Text style={styles.priceText}>
+                                                    {item.minPrice ? `${item.minPrice.toLocaleString()}đ` : '0đ'} -
+                                                    {item.maxPrice ? `${item.maxPrice.toLocaleString()}đ` : 'Max'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
                         </View>
                     </TouchableOpacity>
                 ))}
@@ -647,46 +692,113 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 15,
     },
+    sectionTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#4A4A4A',
+        color: '#333',
+        marginLeft: 8,
+    },
+    clearButton: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     clearText: {
         fontSize: 14,
         color: colors.primary,
+        fontWeight: '500',
     },
     historyScrollContent: {
         paddingRight: 20,
     },
     recentItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 15,
-        padding: 15,
+        width: width * 0.8,
         marginRight: 15,
+        backgroundColor: '#fff',
+        borderRadius: 16,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 2,
-        width: width * 0.7,
+        shadowRadius: 8,
+        elevation: 4,
     },
     recentItemContent: {
-        flex: 1,
-        marginLeft: 10,
+        padding: 16,
     },
-    itemTitle: {
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    locationText: {
+        flex: 1,
         fontSize: 16,
         fontWeight: '600',
-        color: '#4A4A4A',
-        marginBottom: 5,
+        color: '#333',
+        marginLeft: 8,
     },
-    itemDetails: {
+    divider: {
+        height: 1,
+        backgroundColor: '#f0f0f0',
+        marginVertical: 12,
+    },
+    detailsContainer: {
+        gap: 8,
+    },
+    dateContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    dateText: {
+        marginLeft: 8,
         fontSize: 14,
-        color: '#4A4A4A',
-        opacity: 0.7,
+        color: colors.textSecondary,
+    },
+    guestContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    guestText: {
+        marginLeft: 8,
+        fontSize: 14,
+        color: colors.textSecondary,
+    },
+    filtersContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 8,
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF9E6',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    ratingText: {
+        marginLeft: 4,
+        fontSize: 12,
+        color: '#B8860B',
+        fontWeight: '500',
+    },
+    priceContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary + '10',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    priceText: {
+        marginLeft: 4,
+        fontSize: 12,
+        color: colors.primary,
+        fontWeight: '500',
     },
     trendingSection: {
         paddingHorizontal: 20,
