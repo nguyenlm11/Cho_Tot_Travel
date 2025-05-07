@@ -175,14 +175,21 @@ export default function PaymentWebView() {
                     const errorCode = params?.vnp_ResponseCode || '99';
                     navigation.replace('BookingFailed', {
                         bookingId: bookingId,
-                        errorCode: errorCode
+                        errorCode: errorCode,
+                        isFullPayment: route.params?.isFullPayment || true,
+                        isBookingService: route.params?.isBookingService || false,
+                        onPaymentComplete: route.params?.onPaymentComplete
                     });
                 }
             }, 300);
         } catch (error) {
             console.error('Error processing VNPay response:', error);
             navigation.replace('BookingFailed', {
-                error: 'Không thể xử lý phản hồi từ cổng thanh toán.'
+                error: 'Không thể xử lý phản hồi từ cổng thanh toán.',
+                bookingId: bookingId,
+                isFullPayment: route.params?.isFullPayment || true,
+                isBookingService: route.params?.isBookingService || false,
+                onPaymentComplete: route.params?.onPaymentComplete
             });
         } finally {
             setIsProcessingPayment(false);

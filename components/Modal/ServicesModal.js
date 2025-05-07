@@ -214,7 +214,7 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
           serviceType: originalService?.serviceType || 0
         };
       });
-
+      console.log('servicesToSave', servicesToSave);
       onSelect(servicesToSave);
       onClose();
     }

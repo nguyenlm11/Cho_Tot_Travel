@@ -131,7 +131,7 @@ const BookingDetailScreen = () => {
                         try {
                             setLoading(true);
                             if (bookingData.bookingServices?.length > 0) {
-                                const serviceStatusPromises = bookingData.bookingServices.map(service => 
+                                const serviceStatusPromises = bookingData.bookingServices.map(service =>
                                     bookingApi.changeBookingServiceStatus(
                                         bookingId,
                                         service.bookingServicesID,
@@ -182,7 +182,7 @@ const BookingDetailScreen = () => {
                 return;
             }
 
-            const invalidServices = selectedServices.filter(service => 
+            const invalidServices = selectedServices.filter(service =>
                 service.serviceType === 2 && (!service.startDate || !service.endDate)
             );
             if (invalidServices.length > 0) {
@@ -205,6 +205,7 @@ const BookingDetailScreen = () => {
             };
 
             const response = await bookingApi.createBookingServices(bookingServiceData);
+            console.log('response', response);
             if (response.success) {
                 const bookingServiceId = response.data?.data?.bookingServicesID;
                 if (bookingServiceId) {
@@ -233,7 +234,9 @@ const BookingDetailScreen = () => {
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: response.paymentUrl,
                     bookingId: bookingServiceId,
-                    onPaymentComplete: fetchBookingDetails
+                    onPaymentComplete: fetchBookingDetails,
+                    isFullPayment: true,
+                    isBookingService: true
                 });
             } else {
                 Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
@@ -318,7 +321,9 @@ const BookingDetailScreen = () => {
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: response.paymentUrl,
                     bookingId: bookingId,
-                    onPaymentComplete: fetchBookingDetails
+                    onPaymentComplete: fetchBookingDetails,
+                    isFullPayment: isFullPayment,
+                    isBookingService: false
                 });
             } else {
                 Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
@@ -728,7 +733,7 @@ const BookingDetailScreen = () => {
     const renderActionButtons = () => {
         if (!bookingData) return null;
         const canCancel = bookingData.status === 0 || bookingData.status === 1;
-        const canPay = bookingData.paymentStatus === 0;
+        const canPay = bookingData.paymentStatus === 0 && bookingData.status !== 4;
         const canBookService = bookingData.status === 1;
 
         return (
