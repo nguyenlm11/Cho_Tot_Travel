@@ -185,7 +185,6 @@ export default function ChatDetailScreen({ route, navigation }) {
         messageText,
         imagesToSend
       );
-      // loadMessages();
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại sau.');
     } finally {
@@ -213,13 +212,15 @@ export default function ChatDetailScreen({ route, navigation }) {
   const renderHeader = () => (
     <View style={styles.customHeader}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Icon name="arrow-back" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
-      <View style={styles.headerInfo}>
-        <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-          {homeStayName || 'Trò chuyện'}
-        </Text>
+      <View style={styles.headerContent}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+            {homeStayName || 'Trò chuyện'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -290,9 +291,9 @@ export default function ChatDetailScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {renderHeader()}
-      <View style={styles.container}>
+      <View style={styles.mainContainer}>
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -308,94 +309,109 @@ export default function ChatDetailScreen({ route, navigation }) {
           </View>
         ) : (
           <KeyboardAvoidingView
-            style={styles.container}
+            style={styles.keyboardView}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 110 : 0}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
           >
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              renderItem={renderMessageItem}
-              keyExtractor={item => item.messageID}
-              contentContainerStyle={styles.messageList}
-              inverted={false}
-              showsVerticalScrollIndicator={false}
-              initialNumToRender={20}
-              maxToRenderPerBatch={10}
-              windowSize={10}
-              refreshing={false}
-              onRefresh={loadMessages}
-            />
-            {selectedImages.length > 0 && (
-              <View style={styles.selectedImagesContainer}>
-                <View style={styles.selectedImagesHeader}>
-                  <Text style={styles.selectedImagesTitle}>
-                    Hình ảnh đã chọn ({selectedImages.length})
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.clearImagesButton}
-                    onPress={() => setSelectedImages([])}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.clearImagesText}>Xóa tất cả</Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.selectedImagesContent}
-                >
-                  {selectedImages.map((image, index) => (
-                    <View key={`selected-${index}`} style={styles.selectedImageWrapper}>
-                      <Image
-                        source={{ uri: image.uri }}
-                        style={styles.selectedImage}
-                        resizeMode="cover"
-                      />
-                      <TouchableOpacity
-                        style={styles.removeImageButton}
-                        onPress={() => removeImage(index)}
-                        activeOpacity={0.7}
-                      >
-                        <Icon name="close-circle" size={24} color="#dc3545" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-            <View style={styles.inputContainer}>
-              <TouchableOpacity
-                style={styles.attachButton}
-                onPress={pickImages}
-                activeOpacity={0.7}
-              >
-                <Icon name="image-outline" size={24} color={colors.primary} />
-              </TouchableOpacity>
-              <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Nhập tin nhắn..."
-                placeholderTextColor="#6c757d"
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (!inputText.trim() && selectedImages.length === 0 || sending) && styles.disabledSendButton
+            <View style={styles.chatContainer}>
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                renderItem={renderMessageItem}
+                keyExtractor={item => item.messageID}
+                contentContainerStyle={[
+                  styles.messageList,
+                  { flexGrow: 1, justifyContent: 'flex-end' }
                 ]}
-                onPress={sendMessage}
-                disabled={(!inputText.trim() && selectedImages.length === 0) || sending}
-                activeOpacity={0.7}
-              >
-                {sending ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Icon name="send" size={22} color={(inputText.trim() || selectedImages.length > 0) ? '#fff' : '#ccc'} />
-                )}
-              </TouchableOpacity>
+                inverted={false}
+                showsVerticalScrollIndicator={false}
+                initialNumToRender={20}
+                maxToRenderPerBatch={10}
+                windowSize={10}
+                refreshing={false}
+                onRefresh={loadMessages}
+                onContentSizeChange={() => {
+                  if (messages.length > 0) {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                  }
+                }}
+                onLayout={() => {
+                  if (messages.length > 0) {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                  }
+                }}
+              />
+              {selectedImages.length > 0 && (
+                <View style={styles.selectedImagesContainer}>
+                  <View style={styles.selectedImagesHeader}>
+                    <Text style={styles.selectedImagesTitle}>
+                      Hình ảnh đã chọn ({selectedImages.length})
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.clearImagesButton}
+                      onPress={() => setSelectedImages([])}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.clearImagesText}>Xóa tất cả</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.selectedImagesContent}
+                  >
+                    {selectedImages.map((image, index) => (
+                      <View key={`selected-${index}`} style={styles.selectedImageWrapper}>
+                        <Image
+                          source={{ uri: image.uri }}
+                          style={styles.selectedImage}
+                          resizeMode="cover"
+                        />
+                        <TouchableOpacity
+                          style={styles.removeImageButton}
+                          onPress={() => removeImage(index)}
+                          activeOpacity={0.7}
+                        >
+                          <Icon name="close-circle" size={24} color="#dc3545" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              <View style={styles.inputContainer}>
+                <TouchableOpacity
+                  style={styles.attachButton}
+                  onPress={pickImages}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="image-outline" size={24} color={colors.primary} />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.input}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Nhập tin nhắn..."
+                  placeholderTextColor="#6c757d"
+                  multiline
+                  maxLength={500}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    (!inputText.trim() && selectedImages.length === 0 || sending) && styles.disabledSendButton
+                  ]}
+                  onPress={sendMessage}
+                  disabled={(!inputText.trim() && selectedImages.length === 0) || sending}
+                  activeOpacity={0.7}
+                >
+                  {sending ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Icon name="send" size={22} color={(inputText.trim() || selectedImages.length > 0) ? '#fff' : '#ccc'} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </KeyboardAvoidingView>
         )}
@@ -405,6 +421,7 @@ export default function ChatDetailScreen({ route, navigation }) {
         transparent={true}
         animationType="fade"
         onRequestClose={() => setViewImage(null)}
+        statusBarTranslucent={true}
       >
         <View style={styles.imageViewerContainer}>
           <TouchableOpacity
@@ -430,84 +447,64 @@ export default function ChatDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#f8f9fa',
   },
-  centered: {
+  mainContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20
+    backgroundColor: '#f8f9fa',
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#6c757d',
-    fontWeight: '500'
+  keyboardView: {
+    flex: 1,
   },
-  errorText: {
-    fontSize: 16,
-    color: '#dc3545',
-    textAlign: 'center',
-    marginBottom: 20
-  },
-  retryButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: colors.primary,
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15
+  chatContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
   customHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     backgroundColor: colors.primary,
     borderBottomWidth: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    elevation: 5,
     zIndex: 10,
-    elevation: 5
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 12,
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
-    marginRight: 6
+    marginRight: 6,
   },
   headerInfo: {
-    flexDirection: 'column',
     flex: 1,
-    marginLeft: 6
+    marginLeft: 6,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF'
+    color: '#FFFFFF',
   },
   messageList: {
     paddingHorizontal: 16,
-    paddingVertical: 12
+    paddingVertical: 12,
+    flexGrow: 1,
   },
   messageRow: {
     marginVertical: 6,
-    flexDirection: 'row'
+    flexDirection: 'row',
   },
   otherMessageRow: {
-    justifyContent: 'flex-start'
+    justifyContent: 'flex-start',
   },
   ownMessageRow: {
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-end',
   },
   messageBubble: {
     maxWidth: '80%',
@@ -517,49 +514,45 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 2
+    elevation: 2,
   },
   ownMessageBubble: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: 5
+    borderBottomRightRadius: 5,
   },
   otherMessageBubble: {
     backgroundColor: '#fff',
-    borderBottomLeftRadius: 5
-  },
-  errorMessage: {
-    backgroundColor: '#ffe3e6'
+    borderBottomLeftRadius: 5,
   },
   messageText: {
     fontSize: 16,
-    lineHeight: 22
+    lineHeight: 22,
   },
   ownMessageText: {
-    color: '#fff'
+    color: '#fff',
   },
   otherMessageText: {
-    color: '#212529'
+    color: '#212529',
   },
   messageFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 4
+    marginTop: 4,
   },
   messageTime: {
     fontSize: 11,
-    marginRight: 4
+    marginRight: 4,
   },
   ownMessageTime: {
-    color: 'rgba(255,255,255,0.8)'
+    color: 'rgba(255,255,255,0.8)',
   },
   otherMessageTime: {
-    color: 'rgba(0,0,0,0.5)'
+    color: 'rgba(0,0,0,0.5)',
   },
-  readIcon: { marginLeft: 2 },
   dateContainer: {
     alignItems: 'center',
-    marginVertical: 12
+    marginVertical: 12,
   },
   dateText: {
     backgroundColor: 'rgba(108, 117, 125, 0.15)',
@@ -568,7 +561,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     fontSize: 13,
     color: '#495057',
-    fontWeight: '500'
+    fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -581,7 +574,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
-    elevation: 3
+    elevation: 3,
+    position: 'relative',
+    zIndex: 1,
   },
   input: {
     flex: 1,
@@ -594,7 +589,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginHorizontal: 10,
     backgroundColor: '#f8f9fa',
-    fontSize: 16
+    fontSize: 16,
   },
   sendButton: {
     width: 48,
@@ -607,10 +602,130 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2
+    elevation: 2,
   },
   disabledSendButton: {
-    backgroundColor: '#e9ecef'
+    backgroundColor: '#e9ecef',
+  },
+  attachButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginRight: 5,
+  },
+  selectedImagesContainer: {
+    padding: 12,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  selectedImagesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  selectedImagesTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#495057',
+  },
+  clearImagesButton: {
+    padding: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  clearImagesText: {
+    color: '#dc3545',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  selectedImagesContent: {
+    paddingVertical: 8,
+  },
+  selectedImageWrapper: {
+    marginRight: 12,
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  selectedImage: {
+    width: 90,
+    height: 90,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  imageViewerContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeImageButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 40,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  fullImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.8,
+    borderRadius: 10,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6c757d',
+    fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#dc3545',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   avatarContainer: {
     width: 40,
@@ -639,89 +754,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
     backgroundColor: '#f8f9fa'
-  },
-  selectedImagesContainer: {
-    padding: 12,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef'
-  },
-  selectedImagesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12
-  },
-  selectedImagesTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#495057'
-  },
-  clearImagesButton: {
-    padding: 8,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#dee2e6'
-  },
-  clearImagesText: {
-    color: '#dc3545',
-    fontWeight: '600',
-    fontSize: 13
-  },
-  selectedImagesContent: { paddingVertical: 8 },
-  selectedImageWrapper: {
-    marginRight: 12,
-    position: 'relative',
-    borderRadius: 8,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
-  },
-  selectedImage: {
-    width: 90,
-    height: 90,
-    borderRadius: 8
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-    elevation: 2
-  },
-  attachButton: {
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    marginRight: 5
-  },
-  fullImage: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height * 0.8,
-    borderRadius: 10
-  },
-  imageViewerContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  closeImageButton: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
-    padding: 8
   },
 });

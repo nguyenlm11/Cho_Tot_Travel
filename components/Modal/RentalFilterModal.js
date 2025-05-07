@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        height: height * 0.4,
+        height: height * 0.42,
         overflow: 'hidden',
     },
     header: {
