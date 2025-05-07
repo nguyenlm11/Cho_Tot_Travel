@@ -4,55 +4,45 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/Colors';
 import chatApi from '../services/api/chatApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import signalRService from '../services/signalRService';
 import * as ImagePicker from 'expo-image-picker';
+import signalRService from '../services/signalRService';
 
 export default function ChatDetailScreen({ route, navigation }) {
-  const { conversationId, otherUser } = route.params;
+  const { conversationId, receiverId, homeStayId, homeStayName } = route.params;
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [inputText, setInputText] = useState('');
   const [userId, setUserId] = useState(null);
   const [sending, setSending] = useState(false);
-  const [connected, setConnected] = useState(false);
   const [selectedImages, setSelectedImages] = useState([]);
   const [viewImage, setViewImage] = useState(null);
   const flatListRef = useRef(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
+  const [connected, setConnected] = useState(false);
   const messageAnimations = useRef({}).current;
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 50],
-    outputRange: [1, 0.9],
-    extrapolate: 'clamp'
-  });
-
-  const headerElevation = scrollY.interpolate({
-    inputRange: [0, 50],
-    outputRange: [0, 5],
-    extrapolate: 'clamp'
-  });
 
   useEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   useEffect(() => {
-    const getUserId = async () => {
+    const getUserIdFromStorage = async () => {
       try {
         const userJson = await AsyncStorage.getItem('user');
         if (userJson) {
           const user = JSON.parse(userJson);
           setUserId(user.userId || user.AccountID);
+        } else {
+          setError('Không thể xác thực người dùng.');
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Lỗi khi lấy ID người dùng:', error);
+      } catch (e) {
+        setError('Lỗi xác thực người dùng.');
+        setLoading(false);
       }
     };
-    getUserId();
-    loadMessages();
-  }, [conversationId]);
+    getUserIdFromStorage();
+  }, []);
 
   useEffect(() => {
     let messageUnsubscribe = () => { };
@@ -80,6 +70,12 @@ export default function ChatDetailScreen({ route, navigation }) {
       }
     };
   }, [conversationId]);
+
+  useEffect(() => {
+    if (userId && conversationId) {
+      loadMessages();
+    }
+  }, [userId, conversationId]);
 
   const animateNewMessage = (index) => {
     if (!messageAnimations[index]) {
@@ -111,6 +107,11 @@ export default function ChatDetailScreen({ route, navigation }) {
   };
 
   const loadMessages = async () => {
+    if (!userId) {
+      setError("Chưa xác thực được người dùng để tải tin nhắn.");
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -118,24 +119,19 @@ export default function ChatDetailScreen({ route, navigation }) {
       const sortedMessages = data.sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
       setMessages(sortedMessages);
     } catch (err) {
-      console.error('Lỗi khi tải tin nhắn:', err);
       setError(err.message || 'Không thể tải tin nhắn');
     } finally {
       setLoading(false);
     }
   };
 
-  const markMessagesAsRead = async () => {
-    if (!userId || !conversationId) return;
-    try {
-      await chatApi.markAsRead(conversationId);
-      if (signalRService.isConnected()) {
-        await signalRService.markMessagesAsRead(conversationId, userId);
-      }
-    } catch (error) {
-      console.error('Lỗi khi đánh dấu tin nhắn đã đọc:', error);
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 100);
     }
-  };
+  }, [messages]);
 
   const pickImages = async () => {
     try {
@@ -145,7 +141,7 @@ export default function ChatDetailScreen({ route, navigation }) {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         quality: 1,
         aspect: [4, 3],
@@ -159,7 +155,6 @@ export default function ChatDetailScreen({ route, navigation }) {
         setSelectedImages(formattedImages);
       }
     } catch (error) {
-      console.error('Error picking images:', error);
       Alert.alert('Lỗi', 'Không thể chọn ảnh. Vui lòng thử lại sau.');
     }
   };
@@ -178,35 +173,21 @@ export default function ChatDetailScreen({ route, navigation }) {
       setInputText('');
       const imagesToSend = [...selectedImages];
       setSelectedImages([]);
-
-      // Tạo message tạm thời với ID tạm
-      const tempMessageId = `temp-${Date.now()}`;
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-
       const userString = await AsyncStorage.getItem('user');
       const user = JSON.parse(userString);
+      const userID = user?.userId || user?.AccountID;
       const senderName = user.accountName || user.userName || 'Customer';
-      const homeStayId = route.params.homeStayId || 1;
-      const result = await chatApi.sendMessageMultipart(
-        otherUser.accountID,
+      await chatApi.sendMessageMultipart(
+        receiverId,
         senderName,
-        userId,
+        userID,
         homeStayId,
         messageText,
         imagesToSend
       );
-      console.log('Kết quả gửi tin nhắn:', result);
+      // loadMessages();
     } catch (error) {
-      console.error('Lỗi khi gửi tin nhắn:', error);
-      setMessages(prevMessages =>
-        prevMessages.map(msg =>
-          msg.messageID.startsWith('temp-')
-            ? { ...msg, error: true }
-            : msg
-        )
-      );
+      Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại sau.');
     } finally {
       setSending(false);
     }
@@ -230,50 +211,22 @@ export default function ChatDetailScreen({ route, navigation }) {
   };
 
   const renderHeader = () => (
-    <Animated.View style={[
-      styles.customHeader,
-      { opacity: headerOpacity, elevation: headerElevation, shadowOpacity: headerElevation }
-    ]}>
+    <View style={styles.customHeader}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
+      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
         <Icon name="arrow-back" size={24} color="#FFFFFF" />
       </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.headerInfo}
-        onPress={() => navigation.navigate('OtherProfileScreen', { userId: otherUser.accountID })}
-        activeOpacity={0.8}
-      >
+      <View style={styles.headerInfo}>
         <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-          {otherUser?.name || 'Trò chuyện'}
+          {homeStayName || 'Trò chuyện'}
         </Text>
-        {connected ? (
-          <View style={styles.onlineStatus}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>Đang hoạt động</Text>
-          </View>
-        ) : (
-          <Text style={styles.offlineText}>Không hoạt động</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.headerAction}
-      >
-        <Icon name="ellipsis-vertical" size={22} color="#FFFFFF" />
-      </TouchableOpacity>
-    </Animated.View>
+      </View>
+    </View>
   );
 
   const renderMessageItem = ({ item, index }) => {
     const isOwnMessage = item.senderID === userId;
     const showDate = index === 0 || !isSameDay(new Date(messages[index - 1]?.sentAt), new Date(item.sentAt));
-    if (!messageAnimations[index]) {
-      messageAnimations[index] = new Animated.Value(1);
-    }
     let messageContent = item.content;
     let imageURLs = [];
     if (messageContent && isImageURL(messageContent)) {
@@ -290,73 +243,32 @@ export default function ChatDetailScreen({ route, navigation }) {
             <Text style={styles.dateText}>{formatDate(item.sentAt)}</Text>
           </View>
         )}
-        <Animated.View style={[
-          styles.messageRow,
-          isOwnMessage ? styles.ownMessageRow : styles.otherMessageRow,
-          {
-            opacity: messageAnimations[index],
-            transform: [
-              {
-                scale: messageAnimations[index].interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.8, 1]
-                })
-              }
-            ]
-          }
-        ]}>
+        <View style={[styles.messageRow, isOwnMessage ? styles.ownMessageRow : styles.otherMessageRow]}>
           {!isOwnMessage && (
             <View style={styles.avatarContainer}>
               <Text style={styles.avatarText}>
-                {otherUser?.name?.charAt(0)?.toUpperCase() || '?'}
+                {homeStayName?.charAt(0)?.toUpperCase() || '?'}
               </Text>
             </View>
           )}
-
-          <View style={[
-            styles.messageBubble,
-            isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble,
-            item.error && styles.errorMessage
-          ]}>
+          <View style={[styles.messageBubble, isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble]}>
             {messageContent ? (
-              <Text style={[
-                styles.messageText,
-                isOwnMessage && styles.ownMessageText
-              ]}>{messageContent}</Text>
+              <Text style={[styles.messageText, isOwnMessage && styles.ownMessageText]}>{messageContent}</Text>
             ) : null}
-
             {imageURLs.length > 0 && (
               <View style={styles.imageContainer}>
                 {imageURLs.map((url, imgIndex) => (
-                  <TouchableOpacity
-                    key={`img-${imgIndex}-${item.messageID}`}
-                    onPress={() => handleViewImage(url)}
-                    activeOpacity={0.9}
-                  >
-                    <Image
-                      source={{ uri: url }}
-                      style={styles.messageImage}
-                      resizeMode="cover"
-                    />
+                  <TouchableOpacity key={`img-${imgIndex}-${item.messageID}`} onPress={() => setViewImage(url)} activeOpacity={0.9}>
+                    <Image source={{ uri: url }} style={styles.messageImage} resizeMode="cover" />
                   </TouchableOpacity>
                 ))}
               </View>
             )}
-
             <View style={styles.messageFooter}>
-              <Text style={[
-                styles.messageTime,
-                isOwnMessage && styles.ownMessageTime
-              ]}>{formatTime(item.sentAt)}</Text>
-              {isOwnMessage && item.isRead && (
-                <Icon name="checkmark-done" size={16} color="#4FC3F7" style={styles.readIcon} />
-              )}
-              {isOwnMessage && item.isSending && (
-                <Icon name="time-outline" size={16} color="rgba(255,255,255,0.7)" style={styles.readIcon} />
-              )}
+              <Text style={[styles.messageTime, isOwnMessage && styles.ownMessageTime]}>{formatTime(item.sentAt)}</Text>
             </View>
           </View>
-        </Animated.View>
+        </View>
       </>
     );
   };
@@ -371,8 +283,6 @@ export default function ChatDetailScreen({ route, navigation }) {
         url.endsWith('.gif'));
   };
 
-  const handleViewImage = (imageUrl) => { setViewImage(imageUrl) };
-  const closeImageViewer = () => { setViewImage(null) };
   const isSameDay = (d1, d2) => {
     return d1.getFullYear() === d2.getFullYear() &&
       d1.getMonth() === d2.getMonth() &&
@@ -413,18 +323,11 @@ export default function ChatDetailScreen({ route, navigation }) {
               initialNumToRender={20}
               maxToRenderPerBatch={10}
               windowSize={10}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               refreshing={false}
               onRefresh={loadMessages}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                { useNativeDriver: false }
-              )}
-              scrollEventThrottle={16}
             />
-
             {selectedImages.length > 0 && (
-              <Animated.View style={styles.selectedImagesContainer}>
+              <View style={styles.selectedImagesContainer}>
                 <View style={styles.selectedImagesHeader}>
                   <Text style={styles.selectedImagesTitle}>
                     Hình ảnh đã chọn ({selectedImages.length})
@@ -437,7 +340,6 @@ export default function ChatDetailScreen({ route, navigation }) {
                     <Text style={styles.clearImagesText}>Xóa tất cả</Text>
                   </TouchableOpacity>
                 </View>
-
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -460,10 +362,9 @@ export default function ChatDetailScreen({ route, navigation }) {
                     </View>
                   ))}
                 </ScrollView>
-              </Animated.View>
+              </View>
             )}
-
-            <Animated.View style={styles.inputContainer}>
+            <View style={styles.inputContainer}>
               <TouchableOpacity
                 style={styles.attachButton}
                 onPress={pickImages}
@@ -471,7 +372,6 @@ export default function ChatDetailScreen({ route, navigation }) {
               >
                 <Icon name="image-outline" size={24} color={colors.primary} />
               </TouchableOpacity>
-
               <TextInput
                 style={styles.input}
                 value={inputText}
@@ -496,26 +396,24 @@ export default function ChatDetailScreen({ route, navigation }) {
                   <Icon name="send" size={22} color={(inputText.trim() || selectedImages.length > 0) ? '#fff' : '#ccc'} />
                 )}
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </KeyboardAvoidingView>
         )}
       </View>
-
       <Modal
         visible={viewImage !== null}
         transparent={true}
         animationType="fade"
-        onRequestClose={closeImageViewer}
+        onRequestClose={() => setViewImage(null)}
       >
         <View style={styles.imageViewerContainer}>
           <TouchableOpacity
             style={styles.closeImageButton}
-            onPress={closeImageViewer}
+            onPress={() => setViewImage(null)}
             activeOpacity={0.7}
           >
             <Icon name="close" size={28} color="#fff" />
           </TouchableOpacity>
-
           {viewImage && (
             <Image
               source={{ uri: viewImage }}
@@ -597,11 +495,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF'
   },
-  headerAction: {
-    padding: 8,
-    borderRadius: 20,
-    marginLeft: 6
-  },
   messageList: {
     paddingHorizontal: 16,
     paddingVertical: 12
@@ -610,9 +503,11 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     flexDirection: 'row'
   },
-  ownMessageRow: { justifyContent: 'flex-end' },
   otherMessageRow: {
     justifyContent: 'flex-start'
+  },
+  ownMessageRow: {
+    justifyContent: 'flex-end'
   },
   messageBubble: {
     maxWidth: '80%',
@@ -637,10 +532,14 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    color: '#212529',
     lineHeight: 22
   },
-  ownMessageText: { color: '#fff' },
+  ownMessageText: {
+    color: '#fff'
+  },
+  otherMessageText: {
+    color: '#212529'
+  },
   messageFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -649,10 +548,14 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 11,
-    color: 'rgba(0,0,0,0.5)',
     marginRight: 4
   },
-  ownMessageTime: { color: 'rgba(255,255,255,0.8)' },
+  ownMessageTime: {
+    color: 'rgba(255,255,255,0.8)'
+  },
+  otherMessageTime: {
+    color: 'rgba(0,0,0,0.5)'
+  },
   readIcon: { marginLeft: 2 },
   dateContainer: {
     alignItems: 'center',
@@ -724,29 +627,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#495057'
-  },
-  onlineStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4
-  },
-  onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
-    marginRight: 6
-  },
-  onlineText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.9)'
-  },
-  offlineText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '500',
-    marginTop: 4
   },
   imageContainer: {
     flexDirection: 'column',

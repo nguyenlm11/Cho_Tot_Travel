@@ -26,21 +26,23 @@ const formatDate = (dateString) => {
 };
 
 const ConversationItem = ({ conversation, onPress }) => {
-  const { conversationID, homeStayName, ownerID, lastMessage } = conversation;
+  const { conversationID, homeStayName, staffID, staffName, lastMessage } = conversation;
   
   return (
     <TouchableOpacity 
       style={styles.conversationItem} 
-      onPress={() => onPress(conversationID, ownerID, homeStayName)}
+      onPress={() => onPress(conversationID, staffID, staffName, homeStayName)}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>
-          {homeStayName?.charAt(0) || '?'}
+          {staffName?.charAt(0) || homeStayName?.charAt(0) || '?'}
         </Text>
       </View>
       
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>{homeStayName || 'Không xác định'}</Text>
+        <Text style={styles.name} numberOfLines={1}>
+          {staffName ? `${staffName} - ${homeStayName}` : homeStayName || 'Không xác định'}
+        </Text>
         <Text style={styles.message} numberOfLines={1}>
           {lastMessage ? lastMessage.content : 'Chưa có tin nhắn'}
         </Text>
@@ -51,7 +53,7 @@ const ConversationItem = ({ conversation, onPress }) => {
           <Text style={styles.time}>{formatDate(lastMessage.sentAt)}</Text>
         )}
         
-        {lastMessage && !lastMessage.isRead && lastMessage.receiverID !== ownerID && (
+        {lastMessage && !lastMessage.isRead && lastMessage.receiverID === staffID && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>1</Text>
           </View>
@@ -98,14 +100,11 @@ export default function ChatScreen() {
           setConnected(signalRService.isConnected());
           
           messageUnsubscribe = signalRService.onMessageReceived(handleNewMessage);
-          
           newConversationUnsubscribe = signalRService.onNewConversation(handleNewConversation);
-          
           messageReadUnsubscribe = signalRService.onMessageRead(handleMessageRead);
           
           statusUnsubscribe = signalRService.onUserStatusChanged((isConnected) => {
             setConnected(isConnected);
-            
             if (isConnected) {
               loadConversations();
             }
@@ -155,7 +154,6 @@ export default function ChatScreen() {
       );
 
       if (conversationIndex !== -1) {
-        // Nếu tìm thấy cuộc trò chuyện, cập nhật tin nhắn cuối cùng
         const updatedConversations = [...prevConversations];
         
         updatedConversations[conversationIndex] = {
@@ -166,7 +164,6 @@ export default function ChatScreen() {
           }
         };
 
-        // Đưa cuộc trò chuyện lên đầu danh sách
         if (conversationIndex > 0) {
           const conversationToMove = updatedConversations.splice(conversationIndex, 1)[0];
           updatedConversations.unshift(conversationToMove);
@@ -174,30 +171,26 @@ export default function ChatScreen() {
 
         return updatedConversations;
       } else {
-        // Nếu không tìm thấy cuộc trò chuyện, thử tạo cuộc trò chuyện mới từ tin nhắn
-        // Chỉ thực hiện nếu có đủ thông tin
         if (message.conversationID && message.senderID && message.senderID !== userId) {
-          // Tạo cuộc trò chuyện mới từ tin nhắn đầu tiên
           const newConversation = {
             conversationID: message.conversationID,
-            homeStayName: message.senderName || 'Người dùng mới',
-            ownerID: message.senderID,
+            homeStayName: message.homeStayName || 'Homestay',
+            staffID: message.senderID,
+            staffName: message.senderName || 'Nhân viên',
             lastMessage: {
               ...message,
               isRead: false
             }
           };
           
-          // Thêm vào đầu danh sách
           return [newConversation, ...prevConversations];
         }
         
-        // Nếu không đủ thông tin hoặc không phải là tin nhắn mới, tải lại danh sách
         loadConversations();
         return prevConversations;
       }
     });
-  }, [userId, loadConversations]);
+  }, [userId]);
 
   const handleMessageRead = useCallback((messageId, conversationId) => {
     console.log('Tin nhắn đã được đọc:', messageId, 'trong cuộc trò chuyện:', conversationId);
@@ -207,13 +200,11 @@ export default function ChatScreen() {
     setConversations(prevConversations => {
       const updatedConversations = [...prevConversations];
       
-      // Tìm cuộc trò chuyện chứa tin nhắn
       const conversationIndex = updatedConversations.findIndex(
         conv => conv.conversationID && conv.conversationID.toString() === conversationId.toString()
       );
       
       if (conversationIndex !== -1) {
-        // Cập nhật trạng thái đã đọc cho tin nhắn cuối cùng
         if (updatedConversations[conversationIndex].lastMessage &&
             updatedConversations[conversationIndex].lastMessage.messageID === messageId) {
           
@@ -245,44 +236,45 @@ export default function ChatScreen() {
       const data = await chatApi.getConversationsByCustomerId();
       console.log('Conversations loaded:', data);
       
-      // Sắp xếp cuộc trò chuyện theo thời gian tin nhắn cuối cùng (mới nhất trước)
       const sortedData = [...data].sort((a, b) => {
         const dateA = a.lastMessage?.sentAt ? new Date(a.lastMessage.sentAt) : new Date(0);
         const dateB = b.lastMessage?.sentAt ? new Date(b.lastMessage.sentAt) : new Date(0);
-        return dateB - dateA; // Sắp xếp giảm dần (mới nhất trước)
+        return dateB - dateA;
       });
       
       setConversations(sortedData);
     } catch (err) {
-      console.error('Error loading conversations:', err);
+      console.error('Lỗi khi tải danh sách trò chuyện:', err);
       setError(err.message || 'Không thể tải danh sách trò chuyện');
     } finally {
       setLoading(false);
     }
   };
-  
-  const handleConversationPress = (conversationId, ownerId, homeStayName) => {
+
+  const handleConversationPress = (conversationId, staffId, staffName, homeStayName) => {
+    console.log(conversationId, staffId, staffName, homeStayName);
     navigation.navigate('ChatDetail', {
       conversationId,
-      otherUser: {
-        accountID: ownerId,
-        name: homeStayName
-      }
+      receiverId: staffId,
+      receiverName: staffName,
+      homeStayName
     });
   };
-  
+
   const renderContent = () => {
     if (loading) {
       return (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Đang tải danh sách trò chuyện...</Text>
         </View>
       );
     }
-    
+
     if (error) {
       return (
         <View style={styles.centered}>
+          <Icon name="alert-circle-outline" size={70} color="#dc3545" />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadConversations}>
             <Text style={styles.retryText}>Thử lại</Text>
@@ -290,43 +282,36 @@ export default function ChatScreen() {
         </View>
       );
     }
-    
+
     if (conversations.length === 0) {
       return (
         <View style={styles.centered}>
-          <Icon name="chatbubble-ellipses-outline" size={64} color={colors.textSecondary} />
+          <Icon name="chatbubble-ellipses-outline" size={70} color="#6c757d" />
           <Text style={styles.emptyText}>Chưa có cuộc trò chuyện nào</Text>
-          <Text style={styles.emptySubText}>Các cuộc trò chuyện với chủ nhà sẽ xuất hiện ở đây</Text>
         </View>
       );
     }
-    
+
     return (
       <FlatList
         data={conversations}
-        keyExtractor={(item) => item.conversationID.toString()}
         renderItem={({ item }) => (
           <ConversationItem
             conversation={item}
             onPress={handleConversationPress}
           />
         )}
-        refreshing={loading}
-        onRefresh={loadConversations}
+        keyExtractor={item => item.conversationID.toString()}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
       />
     );
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Trò chuyện</Text>
-        {connected && (
-          <View style={styles.connectionIndicator}>
-            <View style={styles.connectionDot} />
-            <Text style={styles.connectionText}>Đang kết nối</Text>
-          </View>
-        )}
+        <Text style={styles.headerTitle}>Tin nhắn</Text>
       </View>
       {renderContent()}
     </SafeAreaView>
@@ -336,16 +321,18 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff'
+    backgroundColor: '#f8f9fa'
   },
   header: {
-    padding: 15,
+    padding: 16,
+    backgroundColor: colors.primary,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0'
+    borderBottomColor: 'rgba(0,0,0,0.1)'
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: '#FFFFFF'
   },
   centered: {
     flex: 1,
@@ -353,102 +340,94 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20
   },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#6c757d'
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#dc3545',
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6c757d',
+    marginTop: 10
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 25
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15
+  },
+  listContent: {
+    paddingVertical: 8
+  },
   conversationItem: {
     flexDirection: 'row',
-    padding: 15,
+    padding: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    alignItems: 'center'
+    borderBottomColor: '#e9ecef'
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight || '#e9f7ef',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15
+    marginRight: 12
   },
   avatarText: {
-    color: '#fff',
     fontSize: 20,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: '#495057'
   },
   content: {
-    flex: 1
+    flex: 1,
+    justifyContent: 'center'
   },
   name: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5
+    color: '#212529',
+    marginBottom: 4
   },
   message: {
     fontSize: 14,
-    color: '#777'
+    color: '#6c757d',
+    marginBottom: 2
   },
   meta: {
     alignItems: 'flex-end',
-    justifyContent: 'center'
+    justifyContent: 'space-between',
+    minWidth: 60
   },
   time: {
     fontSize: 12,
-    color: '#999',
-    marginBottom: 5
+    color: '#6c757d',
+    marginBottom: 4
   },
   badge: {
     backgroundColor: colors.primary,
-    width: 20,
-    height: 20,
     borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    paddingHorizontal: 6
   },
   badgeText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold'
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 20
-  },
-  retryButton: {
-    padding: 10,
-    backgroundColor: colors.primary,
-    borderRadius: 5
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: 'bold'
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 10
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: '#777',
-    textAlign: 'center'
-  },
-  connectionIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 5
-  },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginRight: 5
-  },
-  connectionText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '500'
   }
 });
