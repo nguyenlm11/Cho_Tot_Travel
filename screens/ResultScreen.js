@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert, Dimensions, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, Dimensions, StatusBar, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
@@ -24,34 +24,59 @@ const ResultCard = React.memo(({ item, index, onPress }) => {
             style={styles.cardContainer}
         >
             <View style={styles.card}>
-                <Image
-                    source={{ uri: imageUrl }}
-                    style={styles.cardImage}
-                />
+                <View style={styles.imageContainer}>
+                    <Image
+                        source={{ uri: imageUrl }}
+                        style={styles.cardImage}
+                    />
+                    {item.sumRate && (
+                        <View style={styles.ratingBadge}>
+                            <LinearGradient
+                                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.9)']}
+                                style={styles.ratingGradient}
+                            >
+                                <Ionicons name="star" size={14} color="#FFD700" />
+                                <Text style={styles.ratingBadgeText}>{item.sumRate.toFixed(1)}</Text>
+                            </LinearGradient>
+                        </View>
+                    )}
+                    <View style={styles.imageOverlay}>
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.3)']}
+                            style={styles.gradient}
+                        />
+                    </View>
+                </View>
                 <View style={styles.cardContent}>
-                    <View style={styles.cardHeader}>
+                    <View style={styles.titleContainer}>
                         <Text style={styles.cardTitle} numberOfLines={2}>{item.name}</Text>
-                        <View style={styles.ratingContainer}>
-                            <Ionicons name="star" size={16} color="#FFD700" />
-                            <Text style={styles.ratingText}>{item.rating || 'Chưa có đánh giá'}</Text>
+                        <View style={styles.areaContainer}>
+                            <Ionicons name="map-outline" size={14} color={colors.primary} />
+                            <Text style={styles.areaText}>{item.area}</Text>
                         </View>
                     </View>
-
+                    
                     <View style={styles.locationContainer}>
                         <Ionicons name="location-outline" size={16} color={colors.primary} />
                         <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
                     </View>
 
                     <View style={styles.priceContainer}>
-                        <View>
+                        <View style={styles.priceInfo}>
                             <Text style={styles.priceLabel}>Giá từ</Text>
-                            <Text style={styles.priceValue}>{item.price?.toLocaleString() || '0'}đ</Text>
+                            <Text style={styles.priceValue}>{item.defaultRentPrice?.toLocaleString() || '0'}đ</Text>
                         </View>
                         <TouchableOpacity
                             style={styles.viewButton}
                             onPress={onPress}
+                            activeOpacity={0.8}
                         >
-                            <Text style={styles.viewButtonText}>Xem chi tiết</Text>
+                            <LinearGradient
+                                colors={[colors.primary, colors.secondary]}
+                                style={styles.viewButtonGradient}
+                            >
+                                <Text style={styles.viewButtonText}>Xem chi tiết</Text>
+                            </LinearGradient>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -89,18 +114,24 @@ export default function ResultScreen() {
                 colors={[colors.primary, colors.primary + 'E6']}
                 style={styles.header}
             >
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="chevron-back" size={28} color='#fff' />
-                </TouchableOpacity>
-                <Text style={styles.headerText} numberOfLines={1}>
-                    {currentSearch?.location || 'Kết quả tìm kiếm'}
-                </Text>
-            </LinearGradient>
+                <View style={styles.headerTop}>
+                    <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Ionicons name="chevron-back" size={28} color='#fff' />
+                    </TouchableOpacity>
+                    <Text style={styles.headerText} numberOfLines={1}>
+                        {currentSearch?.location || 'Kết quả tìm kiếm'}
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => setEditModalVisible(true)}
+                    >
+                        <Ionicons name="options-outline" size={24} color="#ffffff" />
+                    </TouchableOpacity>
+                </View>
 
-            <View style={styles.filterBar}>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -121,14 +152,7 @@ export default function ResultScreen() {
                         </Text>
                     </TouchableOpacity>
                 </ScrollView>
-
-                <TouchableOpacity
-                    style={styles.editButton}
-                    onPress={() => setEditModalVisible(true)}
-                >
-                    <Ionicons name="options-outline" size={24} color="#ffffff" />
-                </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
             {isLoading ? (
                 <View style={styles.loadingContainer}>
@@ -175,45 +199,29 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f9fa',
     },
     header: {
-        height: 60 + (isIOS ? 44 : StatusBar.currentHeight || 0),
         paddingTop: isIOS ? 44 : StatusBar.currentHeight || 0,
+        paddingBottom: 16,
+        paddingHorizontal: 16,
+    },
+    headerTop: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 15,
+        marginBottom: 16,
     },
     backButton: {
-        marginRight: 15,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
     },
     headerText: {
         flex: 1,
         fontSize: 20,
         fontWeight: '600',
         color: '#fff',
-    },
-    filterBar: {
-        height: 50,
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-        backgroundColor: colors.primary,
-    },
-    filterScrollContent: {
-        flexGrow: 1,
-        paddingRight: 10,
-    },
-    filterChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 20,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        marginRight: 10,
-    },
-    filterText: {
-        marginLeft: 5,
-        color: '#fff',
-        fontSize: 14,
+        marginHorizontal: 12,
     },
     editButton: {
         width: 40,
@@ -223,6 +231,24 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    filterScrollContent: {
+        paddingRight: 16,
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        marginRight: 12,
+    },
+    filterText: {
+        marginLeft: 8,
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '500',
+    },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -230,15 +256,45 @@ const styles = StyleSheet.create({
     },
     listContainer: {
         padding: 10,
-        // paddingBottom: 40,
     },
     cardContainer: {
-        marginBottom: 15,
+        marginBottom: 20,
         marginHorizontal: 5,
     },
     card: {
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 20,
+        overflow: 'hidden',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+    },
+    imageContainer: {
+        position: 'relative',
+        height: height * 0.25,
+    },
+    cardImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    imageOverlay: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    gradient: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 100,
+    },
+    ratingBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        borderRadius: 20,
         overflow: 'hidden',
         elevation: 3,
         shadowColor: '#000',
@@ -246,48 +302,53 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
     },
-    cardImage: {
-        width: '100%',
-        height: height * 0.25,
-        resizeMode: 'cover',
-    },
-    cardContent: {
-        padding: 15,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 10,
-    },
-    cardTitle: {
-        flex: 1,
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginRight: 10,
-    },
-    ratingContainer: {
+    ratingGradient: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f8f9fa',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
     },
-    ratingText: {
+    ratingBadgeText: {
         marginLeft: 4,
         fontSize: 14,
-        color: '#666',
-        fontWeight: '500',
+        fontWeight: '600',
+        color: '#333',
+    },
+    cardContent: {
+        padding: 16,
+    },
+    titleContainer: {
+        marginBottom: 12,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#333',
+        marginBottom: 8,
+        lineHeight: 24,
+    },
+    areaContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary + '10',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+        alignSelf: 'flex-start',
+    },
+    areaText: {
+        marginLeft: 4,
+        fontSize: 13,
+        color: colors.primary,
+        fontWeight: '600',
     },
     locationContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        marginBottom: 12,
+        marginBottom: 16,
         backgroundColor: '#f8f9fa',
-        padding: 10,
-        borderRadius: 8,
+        padding: 12,
+        borderRadius: 12,
     },
     address: {
         flex: 1,
@@ -300,52 +361,74 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 8,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    priceInfo: {
+        flex: 1,
+        marginRight: 16,
     },
     priceLabel: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#666',
+        marginBottom: 4,
     },
     priceValue: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 22,
+        fontWeight: '700',
         color: colors.primary,
     },
     viewButton: {
-        backgroundColor: colors.primary,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 8,
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 3,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    viewButtonGradient: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
     },
     viewButtonText: {
         color: '#fff',
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '600',
     },
     noResultsContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        padding: 24,
+        backgroundColor: '#fff',
     },
     noResultsText: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: 22,
+        fontWeight: '700',
         color: colors.primary,
-        marginTop: 20,
-        marginBottom: 10,
+        marginTop: 24,
+        marginBottom: 12,
+        textAlign: 'center',
     },
     noResultsSubtext: {
-        fontSize: 14,
+        fontSize: 16,
         color: '#666',
         textAlign: 'center',
-        marginBottom: 20,
+        marginBottom: 32,
+        lineHeight: 24,
     },
     retryButton: {
         width: width * 0.8,
-        height: 50,
-        borderRadius: 25,
+        height: 56,
+        borderRadius: 28,
         overflow: 'hidden',
+        elevation: 4,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
     },
     retryButtonGradient: {
         flex: 1,
@@ -354,7 +437,7 @@ const styles = StyleSheet.create({
     },
     retryButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '600',
     },
 });
