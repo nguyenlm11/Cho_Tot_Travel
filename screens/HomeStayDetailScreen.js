@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, StatusBar, FlatList, Share, Platform, Image, Linking, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, Ionicons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import homeStayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import ImageViewer from '../components/ImageViewer';
@@ -12,6 +11,19 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
+
+const palette = {
+  primary: colors.primary,
+  secondary: colors.secondary,
+  background: '#ffffff',
+  card: '#f8f9fa',
+  cardBorder: '#eaeaea',
+  text: { dark: '#2c3e50', medium: '#546e7a', light: '#78909c' },
+  accent: '#00acc1',
+  success: '#4caf50',
+  warning: '#ffc107',
+  danger: '#f44336',
+};
 
 export default function HomestayDetailScreen() {
   const navigation = useNavigation();
@@ -64,9 +76,7 @@ export default function HomestayDetailScreen() {
 
   const handleOpenMap = () => {
     if (!homestay) return;
-
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${homestay.latitude},${homestay.longitude}`;
-
     Linking.canOpenURL(googleMapsUrl).then(supported => {
       if (supported) {
         Linking.openURL(googleMapsUrl);
@@ -83,18 +93,15 @@ export default function HomestayDetailScreen() {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
-
     const day = vietnamDate.getDate().toString().padStart(2, '0');
     const month = (vietnamDate.getMonth() + 1).toString().padStart(2, '0');
     const year = vietnamDate.getFullYear();
-
     return `${day}/${month}/${year}`;
   };
 
   const renderStar = (index, rating) => {
     const fullStar = Math.floor(rating);
     const hasHalfStar = rating % 1 >= 0.5;
-
     if (index < fullStar) {
       return <MaterialIcons name="star" size={14} color="#FFD700" />;
     } else if (index === fullStar && hasHalfStar) {
@@ -104,22 +111,66 @@ export default function HomestayDetailScreen() {
     }
   };
 
-  const renderServiceItem = ({ item }) => (
-    <Animated.View entering={FadeInDown.delay(50)} style={styles.serviceCard}>
+  const calculateAverageRatings = (ratings) => {
+    if (!ratings || ratings.length === 0) return { cleanliness: 0, service: 0, facility: 0 };
+    let totalCleanliness = 0;
+    let totalService = 0;
+    let totalFacility = 0;
+    ratings.forEach(rating => {
+      totalCleanliness += rating.cleaningRate || 0;
+      totalService += rating.serviceRate || 0;
+      totalFacility += rating.facilityRate || 0;
+    });
+
+    return {
+      cleanliness: totalCleanliness / ratings.length,
+      service: totalService / ratings.length,
+      facility: totalFacility / ratings.length
+    };
+  };
+
+  const renderServiceGridItem = (item, index) => (
+    <View style={styles.serviceGridItem} key={index}>
       <LinearGradient
-        colors={[colors.secondary + '20', colors.secondary + '05']}
+        colors={[palette.secondary + '15', palette.secondary + '05']}
         style={styles.serviceIconContainer}
       >
-        <Ionicons name="pricetag-outline" size={24} color={colors.secondary} />
+        <Ionicons name="pricetag-outline" size={20} color={palette.secondary} />
       </LinearGradient>
       <View style={styles.serviceContentContainer}>
-        <View style={styles.serviceHeaderContainer}>
-          <Text style={styles.serviceName}>{item.servicesName || 'Không có tên'}</Text>
-          <Text style={styles.servicePrice}>{item.servicesPrice?.toLocaleString() || '0'}đ</Text>
-        </View>
-        <Text style={styles.serviceDescription}>{item.description || 'Không có mô tả'}</Text>
+        <Text style={styles.serviceNameGrid}>{item.servicesName || 'Không có tên'}</Text>
+        <Text style={styles.servicePriceGrid}>{item.servicesPrice?.toLocaleString() || '0'}đ</Text>
       </View>
-    </Animated.View>
+    </View>
+  );
+
+  const renderRatingGridItem = (item, index) => (
+    <View style={styles.ratingGridItem} key={index}>
+      <View style={styles.ratingGridHeader}>
+        <View style={styles.ratingAvatar}>
+          <Text style={styles.ratingAvatarText}>{item.username?.charAt(0)?.toUpperCase() || 'U'}</Text>
+        </View>
+        <View style={styles.ratingGridInfo}>
+          <Text style={styles.ratingUsername} numberOfLines={1}>{item.username}</Text>
+          <Text style={styles.ratingDate}>{formatDate(item.createdAt)}</Text>
+        </View>
+        <View style={styles.ratingScoreBadge}>
+          <Text style={styles.ratingGridScore}>{item.sumRate.toFixed(1)}</Text>
+        </View>
+      </View>
+      <View style={styles.ratingStarsContainer}>
+        {[0, 1, 2, 3, 4].map((star) => (
+          <View key={star} style={{ marginRight: 4 }}>
+            {renderStar(star, item.sumRate)}
+          </View>
+        ))}
+      </View>
+      {item.content && (
+        <View style={styles.ratingContentContainer}>
+          <Text style={styles.ratingContent} numberOfLines={3}>{item.content}</Text>
+        </View>
+      )}
+    </View>
   );
 
   const renderCoverImageItem = ({ item, index }) => (
@@ -138,7 +189,7 @@ export default function HomestayDetailScreen() {
         cachePolicy="memory-disk"
       />
       <LinearGradient
-        colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.3)']}
+        colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.5)']}
         style={styles.imageGradient}
       />
     </TouchableOpacity>
@@ -271,7 +322,7 @@ export default function HomestayDetailScreen() {
             onPress={() => navigation.goBack()}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <View style={[styles.blurButton, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+            <View style={styles.blurButton}>
               <Ionicons name="chevron-back" size={24} color="#fff" />
             </View>
           </TouchableOpacity>
@@ -281,7 +332,7 @@ export default function HomestayDetailScreen() {
               onPress={handleShare}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <View style={[styles.blurButton, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+              <View style={styles.blurButton}>
                 <Ionicons name="share-outline" size={22} color="#fff" />
               </View>
             </TouchableOpacity>
@@ -321,12 +372,12 @@ export default function HomestayDetailScreen() {
         </View>
 
         <View style={styles.contentContainer}>
-          <Animated.View entering={FadeInDown.delay(100)} style={styles.titleSection}>
+          <View style={styles.titleSection}>
             <View style={styles.titleContainer}>
               <View style={styles.titleWrapper}>
                 <Text style={styles.hotelName}>{homestay?.name || 'Không có tên'}</Text>
                 <View style={styles.locationRow}>
-                  <Ionicons name="location-outline" size={18} color="#666" />
+                  <Ionicons name="location-outline" size={18} color={palette.text.light} />
                   <Text style={styles.locationText} numberOfLines={1}>
                     {homestay?.area || 'Không xác định'}
                   </Text>
@@ -344,12 +395,15 @@ export default function HomestayDetailScreen() {
                 <Text style={styles.reviewCount}>({homestay?.totalRatings || 0} đánh giá)</Text>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(200)} style={styles.addressSection}>
+          <View style={styles.addressSection}>
             <View style={styles.addressContainer}>
-              <Ionicons name="location" size={22} color={colors.primary} />
+              <View style={styles.addressIconContainer}>
+                <Ionicons name="location" size={22} color={palette.primary} />
+              </View>
               <View style={styles.addressTextContainer}>
+                <Text style={styles.addressLabel}>Địa chỉ</Text>
                 <Text style={styles.addressText} numberOfLines={2}>
                   {homestay?.address || 'Không có địa chỉ'}
                 </Text>
@@ -358,16 +412,16 @@ export default function HomestayDetailScreen() {
                 style={styles.mapButton}
                 onPress={handleOpenMap}
               >
-                <Ionicons name="map-outline" size={20} color={colors.primary} />
+                <Ionicons name="map-outline" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
-          </Animated.View>
+          </View>
 
           {homestay?.services?.length > 0 && (
-            <Animated.View entering={FadeInDown.delay(300)} style={styles.section}>
+            <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleContainer}>
-                  <MaterialCommunityIcons name="room-service-outline" size={24} color={colors.primary} style={styles.sectionIcon} />
+                  <MaterialCommunityIcons name="room-service-outline" size={24} color={palette.primary} style={styles.sectionIcon} />
                   <Text style={styles.sectionTitle}>Dịch vụ</Text>
                 </View>
                 <TouchableOpacity
@@ -375,24 +429,22 @@ export default function HomestayDetailScreen() {
                   style={styles.viewAllButton}
                 >
                   <Text style={styles.viewAllText}>Xem tất cả</Text>
-                  <FontAwesome5 name="angle-right" size={16} color={colors.primary} />
+                  <AntDesign name="arrowright" size={16} color={palette.primary} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.servicesContainer}>
-                <FlatList
-                  data={homestay.services.slice(0, 2)}
-                  renderItem={renderServiceItem}
-                  keyExtractor={(item, index) => `service-${index}`}
-                  scrollEnabled={false}
-                />
+
+              <View style={styles.serviceGrid}>
+                {homestay.services.slice(0, 4).map((item, index) =>
+                  renderServiceGridItem(item, index)
+                )}
               </View>
-            </Animated.View>
+            </View>
           )}
 
-          <Animated.View entering={FadeInDown.delay(350)} style={styles.section}>
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <MaterialIcons name="star-rate" size={24} color={colors.primary} style={styles.sectionIcon} />
+                <MaterialIcons name="star-rate" size={24} color={palette.primary} style={styles.sectionIcon} />
                 <Text style={styles.sectionTitle}>Đánh giá</Text>
               </View>
               <TouchableOpacity
@@ -400,85 +452,107 @@ export default function HomestayDetailScreen() {
                 onPress={() => navigation.navigate('ReviewScreen', { homestayId })}
               >
                 <Text style={styles.viewAllText}>Xem tất cả</Text>
-                <FontAwesome5 name="angle-right" size={16} color={colors.primary} />
+                <AntDesign name="arrowright" size={16} color={palette.primary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.ratingSummary}>
-              <View style={styles.ratingOverall}>
-                <Text style={styles.ratingOverallScore}>{homestay?.sumRate?.toFixed(1) || '0.0'}</Text>
-                <View style={styles.ratingOverallStars}>
-                  {[0, 1, 2, 3, 4].map((star) => (
-                    <View key={star}>
-                      {renderStar(star, homestay?.sumRate || 0)}
-                    </View>
-                  ))}
+              <View style={styles.ratingOverallContainer}>
+                <View style={styles.ratingScoreCircle}>
+                  <Text style={styles.ratingOverallScore}>{homestay?.sumRate?.toFixed(1) || '0.0'}</Text>
                 </View>
-                <Text style={styles.ratingTotalCount}>({homestay?.totalRatings || 0} đánh giá)</Text>
+
+                <View style={styles.ratingDetailsContainer}>
+                  <Text style={styles.ratingScoreLabel}>Điểm đánh giá</Text>
+                  <View style={styles.ratingOverallStars}>
+                    {[0, 1, 2, 3, 4].map((star) => (
+                      <View key={star} style={{ marginHorizontal: 2 }}>
+                        {renderStar(star, homestay?.sumRate || 0)}
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.ratingCountContainer}>
+                    <MaterialIcons name="people" size={16} color={palette.text.light} />
+                    <Text style={styles.ratingTotalCount}>{homestay?.totalRatings || 0} lượt đánh giá</Text>
+                  </View>
+                </View>
               </View>
+
+              {homestay?.latestRatings?.length > 0 && (
+                <View style={styles.ratingSummaryFooter}>
+                  {(() => {
+                    const avgRatings = calculateAverageRatings(homestay.latestRatings);
+                    return (
+                      <>
+                        <View style={styles.ratingSummaryStat}>
+                          <Text style={styles.ratingSummaryStatLabel}>Vệ sinh</Text>
+                          <View style={styles.ratingSummaryStatValue}>
+                            <Text style={styles.ratingSummaryStatScore}>{avgRatings.cleanliness.toFixed(1)}</Text>
+                            <MaterialIcons name="cleaning-services" size={14} color={palette.secondary} />
+                          </View>
+                        </View>
+
+                        <View style={styles.ratingSummaryDivider} />
+
+                        <View style={styles.ratingSummaryStat}>
+                          <Text style={styles.ratingSummaryStatLabel}>Dịch vụ</Text>
+                          <View style={styles.ratingSummaryStatValue}>
+                            <Text style={styles.ratingSummaryStatScore}>{avgRatings.service.toFixed(1)}</Text>
+                            <MaterialIcons name="room-service" size={14} color={palette.secondary} />
+                          </View>
+                        </View>
+
+                        <View style={styles.ratingSummaryDivider} />
+
+                        <View style={styles.ratingSummaryStat}>
+                          <Text style={styles.ratingSummaryStatLabel}>Tiện nghi</Text>
+                          <View style={styles.ratingSummaryStatValue}>
+                            <Text style={styles.ratingSummaryStatScore}>{avgRatings.facility.toFixed(1)}</Text>
+                            <MaterialIcons name="hotel" size={14} color={palette.secondary} />
+                          </View>
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
             </View>
 
             {homestay?.latestRatings?.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.ratingScrollContent}
-              >
-                {homestay.latestRatings.map((item) => (
-                  <View key={item.ratingID} style={styles.ratingCard}>
-                    <View style={styles.ratingCardHeader}>
-                      <View style={styles.ratingUserInfo}>
-                        <View style={styles.ratingAvatar}>
-                          <Text style={styles.ratingAvatarText}>{item.username?.charAt(0)?.toUpperCase()}</Text>
-                        </View>
-                        <View>
-                          <Text style={styles.ratingUsername}>{item.username}</Text>
-                          <Text style={styles.ratingDate}>{formatDate(item.createdAt)}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.ratingScore}>
-                        <Text style={styles.ratingScoreText}>{item.sumRate.toFixed(1)}</Text>
-                        <View style={styles.ratingStars}>
-                          {[0, 1, 2, 3, 4].map((star) => (
-                            <View key={star}>
-                              {renderStar(star, item.sumRate)}
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    </View>
-                    {item.content && (
-                      <Text style={styles.ratingContent} numberOfLines={3}>{item.content}</Text>
-                    )}
-                  </View>
-                ))}
-              </ScrollView>
+              <View style={styles.ratingGrid}>
+                {homestay.latestRatings.slice(0, 3).map((item, index) =>
+                  renderRatingGridItem(item, index)
+                )}
+
+                {homestay.totalRatings > 3 && (
+                  <TouchableOpacity
+                    style={styles.viewMoreRatingsButton}
+                    onPress={() => navigation.navigate('ReviewScreen', { homestayId })}
+                  >
+                    <Text style={styles.viewMoreRatingsText}>Xem thêm {homestay.totalRatings - 3} đánh giá</Text>
+                    <AntDesign name="arrowright" size={16} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              </View>
             ) : (
               <View style={styles.noReviewContainer}>
                 <Ionicons name="chatbubble-ellipses-outline" size={48} color="#ddd" />
                 <Text style={styles.noReviewText}>Chưa có đánh giá nào</Text>
-                <Text style={styles.noReviewSubtext}>Hãy là người đầu tiên đánh giá homestay này</Text>
-                <TouchableOpacity
-                  style={styles.writeReviewButton}
-                  onPress={() => navigation.navigate('WriteReview', { homestayId })}
-                >
-                  <Text style={styles.writeReviewText}>Viết đánh giá</Text>
-                </TouchableOpacity>
               </View>
             )}
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(400)} style={styles.section}>
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <MaterialIcons name="policy" size={24} color={colors.primary} style={styles.sectionIcon} />
+                <MaterialIcons name="policy" size={24} color={palette.primary} style={styles.sectionIcon} />
                 <Text style={styles.sectionTitle}>Chính sách hoàn trả</Text>
               </View>
             </View>
             <View style={styles.policyContainer}>
               <View style={styles.policyItem}>
                 <View style={styles.policyIconContainer}>
-                  <MaterialIcons name="access-time" size={24} color={colors.primary} />
+                  <MaterialIcons name="access-time" size={24} color={palette.primary} />
                 </View>
                 <View style={styles.policyContent}>
                   <Text style={styles.policyTitle}>Thời gian hủy</Text>
@@ -487,9 +561,10 @@ export default function HomestayDetailScreen() {
                   </Text>
                 </View>
               </View>
+              <View style={styles.divider} />
               <View style={styles.policyItem}>
                 <View style={styles.policyIconContainer}>
-                  <MaterialIcons name="payments" size={24} color={colors.primary} />
+                  <MaterialIcons name="payments" size={24} color={palette.primary} />
                 </View>
                 <View style={styles.policyContent}>
                   <Text style={styles.policyTitle}>Tỷ lệ hoàn tiền</Text>
@@ -499,12 +574,12 @@ export default function HomestayDetailScreen() {
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(450)} style={styles.section}>
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleContainer}>
-                <FontAwesome5 name="info-circle" size={22} color={colors.primary} style={styles.sectionIcon} />
+                <FontAwesome5 name="info-circle" size={22} color={palette.primary} style={styles.sectionIcon} />
                 <Text style={styles.sectionTitle}>Mô tả</Text>
               </View>
             </View>
@@ -523,26 +598,27 @@ export default function HomestayDetailScreen() {
                   <Text style={styles.readMoreText}>
                     {expanded ? 'Thu gọn' : 'Xem thêm'}
                   </Text>
+                  <AntDesign name={expanded ? "up" : "down"} size={14} color={palette.primary} style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
               )}
             </View>
-          </Animated.View>
+          </View>
 
           <View style={styles.bottomSpacer} />
         </View>
       </ScrollView>
 
-      <Animated.View entering={FadeIn} style={styles.bookingSection}>
+      <View style={styles.bookingSection}>
         <View style={styles.bookingBlur}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Giá từ</Text>
-            <Text style={styles.price}>{homestay?.cheapestPrice?.toLocaleString() || '0'} ₫</Text>
+            <Text style={styles.price}>{homestay?.cheapestPrice?.toLocaleString() || '0'} <Text style={styles.priceCurrency}>₫</Text></Text>
             <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
           </View>
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.contactButton} onPress={handleContact}>
               <LinearGradient
-                colors={[colors.secondary, colors.primary]}
+                colors={[palette.secondary, palette.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
@@ -552,17 +628,17 @@ export default function HomestayDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
               <LinearGradient
-                colors={[colors.primary, colors.secondary]}
+                colors={[palette.primary, palette.secondary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
+                style={[styles.gradientButton, styles.bookGradientButton]}
               >
                 <Text style={styles.bookButtonText}>Xem căn</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
-      </Animated.View>
+      </View>
 
       <ImageViewer
         visible={imageViewerVisible}
@@ -577,7 +653,7 @@ export default function HomestayDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: palette.background,
   },
   headerContainer: {
     position: 'absolute',
@@ -614,10 +690,10 @@ const styles = StyleSheet.create({
     bottom: 20,
     alignSelf: 'center',
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   indicatorTouchable: {
     padding: 5,
@@ -643,16 +719,17 @@ const styles = StyleSheet.create({
   },
   imageCountButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
   },
   imageCountText: {
     color: '#fff',
-    marginLeft: 4,
+    marginLeft: 6,
     fontWeight: '600',
+    fontSize: 14,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -672,17 +749,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   contentContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: palette.background,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     marginTop: -24,
     paddingHorizontal: 20,
     paddingTop: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
   },
   titleSection: {
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -691,13 +779,14 @@ const styles = StyleSheet.create({
   },
   titleWrapper: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 16,
   },
   hotelName: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    color: palette.text.dark,
+    marginBottom: 10,
+    letterSpacing: -0.5,
   },
   locationRow: {
     flexDirection: 'row',
@@ -705,19 +794,22 @@ const styles = StyleSheet.create({
   },
   locationText: {
     fontSize: 16,
-    color: '#666',
-    marginLeft: 4,
+    color: palette.text.medium,
+    marginLeft: 6,
+    fontWeight: '500',
   },
   ratingContainer: {
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: palette.card,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
   },
   ratingScore: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: palette.primary,
   },
   ratingStars: {
     flexDirection: 'row',
@@ -726,39 +818,60 @@ const styles = StyleSheet.create({
   },
   reviewCount: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    color: palette.text.light,
+    marginTop: 6,
   },
   addressSection: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   addressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: palette.card,
     padding: 16,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+  },
+  addressIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
   addressTextContainer: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
+    marginRight: 10,
+  },
+  addressLabel: {
+    fontSize: 13,
+    color: palette.text.light,
+    marginBottom: 4,
   },
   addressText: {
     fontSize: 15,
-    color: '#333',
+    color: palette.text.dark,
     lineHeight: 22,
+    fontWeight: '500',
   },
   mapButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary + '15',
+    backgroundColor: palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -771,12 +884,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: palette.text.dark,
+    letterSpacing: -0.3,
   },
   viewAllButton: {
     flexDirection: 'row',
@@ -785,157 +899,252 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
-    color: colors.primary,
-    marginRight: 4,
+    color: palette.primary,
+    marginRight: 6,
+    fontWeight: '600',
   },
-  servicesContainer: {
-    marginTop: 5,
-  },
-  serviceCard: {
+
+  serviceGrid: {
     flexDirection: 'row',
-    backgroundColor: '#f8f9fa',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  serviceGridItem: {
+    width: '48%',
+    backgroundColor: palette.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
   },
   serviceIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   serviceContentContainer: {
     flex: 1,
   },
-  serviceHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  serviceName: {
-    fontSize: 16,
+  serviceNameGrid: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: palette.text.dark,
+    marginBottom: 4,
   },
-  servicePrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.secondary,
-  },
-  serviceDescription: {
+  servicePriceGrid: {
     fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  ratingSummary: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  ratingOverall: {
-    alignItems: 'center',
-  },
-  ratingOverallScore: {
-    fontSize: 40,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: palette.secondary,
   },
-  ratingOverallStars: {
-    flexDirection: 'row',
-    marginVertical: 8,
+
+  ratingGrid: {
+    marginTop: 8,
   },
-  ratingTotalCount: {
-    fontSize: 14,
-    color: '#666',
-  },
-  ratingScrollContent: {
-    paddingRight: 20,
-  },
-  ratingCard: {
-    width: width * 0.85,
-    backgroundColor: '#fff',
+  ratingGridItem: {
+    backgroundColor: palette.card,
     borderRadius: 16,
     padding: 16,
-    marginRight: 12,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: palette.cardBorder,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  ratingCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  ratingUserInfo: {
+  ratingGridHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
   ratingAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary,
+    backgroundColor: palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   ratingAvatarText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
+  ratingGridInfo: {
+    flex: 1,
+  },
   ratingUsername: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: palette.text.dark,
+    marginBottom: 2,
   },
   ratingDate: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 2,
+    color: palette.text.light,
   },
-  ratingScore: {
+  ratingStarsContainer: {
+    flexDirection: 'row',
+    marginBottom: 10,
+  },
+  ratingScoreBadge: {
+    backgroundColor: palette.primary + '15',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  ratingScoreText: {
-    fontSize: 20,
+  ratingGridScore: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: palette.primary,
+  },
+  ratingContentContainer: {
+    backgroundColor: palette.card + '80',
+    borderRadius: 12,
+    padding: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: palette.primary + '40',
   },
   ratingContent: {
     fontSize: 14,
-    color: '#333',
+    color: palette.text.medium,
     lineHeight: 20,
+    fontStyle: 'italic',
+  },
+
+  ratingSummary: {
+    backgroundColor: palette.card,
+    borderRadius: 16,
+    padding: 0,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+    overflow: 'hidden',
+  },
+  ratingOverallContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: palette.card,
+  },
+  ratingScoreCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: palette.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  ratingDetailsContainer: {
+    flex: 1,
+  },
+  ratingScoreLabel: {
+    fontSize: 14,
+    color: palette.text.medium,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  ratingOverallScore: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  ratingOverallStars: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  ratingCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingTotalCount: {
+    fontSize: 14,
+    color: palette.text.light,
+    marginLeft: 4,
+  },
+  ratingSummaryFooter: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: palette.cardBorder,
+    paddingVertical: 12,
+    backgroundColor: palette.primary + '05',
+  },
+  ratingSummaryStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  ratingSummaryStatLabel: {
+    fontSize: 12,
+    color: palette.text.medium,
+    marginBottom: 4,
+  },
+  ratingSummaryStatValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingSummaryStatScore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: palette.text.dark,
+    marginRight: 4,
+  },
+  ratingSummaryDivider: {
+    width: 1,
+    backgroundColor: palette.cardBorder,
+    marginHorizontal: 8,
+  },
+  viewMoreRatingsButton: {
+    backgroundColor: palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  viewMoreRatingsText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginRight: 8,
   },
   policyContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: palette.card,
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
   },
   policyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginVertical: 8,
   },
   policyIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary + '15',
+    backgroundColor: palette.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -946,30 +1155,43 @@ const styles = StyleSheet.create({
   policyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: palette.text.dark,
     marginBottom: 4,
   },
   policyDescription: {
     fontSize: 14,
-    color: '#666',
+    color: palette.text.medium,
+    lineHeight: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: palette.cardBorder,
+    marginVertical: 12,
   },
   descriptionContainer: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: palette.card,
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
   },
   descriptionText: {
     fontSize: 15,
-    color: '#444',
+    color: palette.text.medium,
     lineHeight: 24,
   },
   readMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'center',
     marginTop: 12,
-    padding: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: palette.primary + '10',
   },
   readMoreText: {
-    color: colors.primary,
+    color: palette.primary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -981,15 +1203,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: palette.background,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
+    shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 16,
+    borderTopWidth: 1,
+    borderColor: palette.cardBorder,
   },
   bookingBlur: {
     flexDirection: 'row',
@@ -1003,77 +1227,22 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 14,
-    color: '#666',
+    color: palette.text.light,
+    fontWeight: '500',
   },
   price: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: 2,
+    color: palette.primary,
+    marginTop: 4,
+  },
+  priceCurrency: {
+    fontSize: 20,
   },
   priceNote: {
     fontSize: 12,
-    color: '#888',
+    color: palette.text.light,
     marginTop: 2,
-  },
-  bookButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginLeft: 16,
-  },
-  bookButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  retryButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  noReviewContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  noReviewText: {
-    color: '#666',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  noReviewSubtext: {
-    color: '#888',
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  writeReviewButton: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-  },
-  writeReviewText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -1083,13 +1252,72 @@ const styles = StyleSheet.create({
   contactButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginLeft: 16,
+    marginRight: 12,
+    elevation: 4,
+    shadowColor: palette.secondary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  bookButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: palette.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   gradientButton: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  bookGradientButton: {
+    paddingHorizontal: 24,
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  noReviewContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: palette.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.cardBorder,
+  },
+  noReviewText: {
+    color: palette.text.medium,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: palette.danger,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: palette.primary,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
