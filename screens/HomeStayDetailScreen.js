@@ -8,6 +8,8 @@ import homeStayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import ImageViewer from '../components/ImageViewer';
 import LoadingScreen from '../components/LoadingScreen';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -62,43 +64,43 @@ export default function HomestayDetailScreen() {
 
   const handleOpenMap = () => {
     if (!homestay) return;
-    
+
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${homestay.latitude},${homestay.longitude}`;
 
     Linking.canOpenURL(googleMapsUrl).then(supported => {
-        if (supported) {
-            Linking.openURL(googleMapsUrl);
-        } else {
-            Alert.alert(
-                "Lỗi",
-                "Không thể mở Google Maps. Vui lòng cài đặt Google Maps trên thiết bị của bạn.",
-                [{ text: "Đóng" }]
-            );
-        }
+      if (supported) {
+        Linking.openURL(googleMapsUrl);
+      } else {
+        Alert.alert(
+          "Lỗi",
+          "Không thể mở Google Maps. Vui lòng cài đặt Google Maps trên thiết bị của bạn.",
+          [{ text: "Đóng" }]
+        );
+      }
     });
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const vietnamDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
-    
+
     const day = vietnamDate.getDate().toString().padStart(2, '0');
     const month = (vietnamDate.getMonth() + 1).toString().padStart(2, '0');
     const year = vietnamDate.getFullYear();
-    
+
     return `${day}/${month}/${year}`;
   };
 
   const renderStar = (index, rating) => {
     const fullStar = Math.floor(rating);
     const hasHalfStar = rating % 1 >= 0.5;
-    
+
     if (index < fullStar) {
-        return <MaterialIcons name="star" size={14} color="#FFD700" />;
+      return <MaterialIcons name="star" size={14} color="#FFD700" />;
     } else if (index === fullStar && hasHalfStar) {
-        return <MaterialIcons name="star-half" size={14} color="#FFD700" />;
+      return <MaterialIcons name="star-half" size={14} color="#FFD700" />;
     } else {
-        return <MaterialIcons name="star" size={14} color="#e0e0e0" />;
+      return <MaterialIcons name="star" size={14} color="#e0e0e0" />;
     }
   };
 
@@ -175,6 +177,63 @@ export default function HomestayDetailScreen() {
   }, []);
 
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
+
+  const handleContact = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      const userID = user?.userId || user?.AccountID;
+
+      if (!userID) {
+        Alert.alert(
+          "Thông báo",
+          "Vui lòng đăng nhập để liên hệ với nhân viên homestay",
+          [
+            { text: "Đóng" },
+            {
+              text: "Đăng nhập",
+              onPress: () => navigation.navigate('Login')
+            }
+          ]
+        );
+        return;
+      }
+
+      if (!homestay?.staffID) {
+        Alert.alert(
+          "Thông báo",
+          "Homestay này hiện chưa có nhân viên phụ trách. Vui lòng thử lại sau.",
+          [{ text: "Đóng" }]
+        );
+        return;
+      }
+
+      const response = await axios.post('https://capstone-bookinghomestay.onrender.com/api/Chat/create-conversation', {
+        receiverID: homestay.staffID,
+        senderID: userID,
+        homeStayId: homestayId,
+        createdAt: new Date().toISOString()
+      });
+
+      if (response.data?.data?.conversationID) {
+        navigation.navigate('ChatDetail', {
+          conversationId: response.data.data.conversationID,
+          receiverId: homestay.staffID,
+          homeStayId: homestayId,
+          homeStayName: homestay.name
+        });
+      } else {
+        throw new Error('Không nhận được ID cuộc trò chuyện từ server');
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      Alert.alert(
+        "Lỗi",
+        "Không thể tạo cuộc trò chuyện. Vui lòng thử lại sau.",
+        [{ text: "Đóng" }]
+      );
+    }
+  };
 
   if (loading) {
     return (
@@ -480,16 +539,28 @@ export default function HomestayDetailScreen() {
             <Text style={styles.price}>{homestay?.cheapestPrice?.toLocaleString() || '0'} ₫</Text>
             <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
           </View>
-          <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
-            <LinearGradient
-              colors={[colors.primary, colors.secondary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
-            >
-              <Text style={styles.bookButtonText}>Xem căn</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.contactButton} onPress={handleContact}>
+              <LinearGradient
+                colors={[colors.secondary, colors.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.bookButton} onPress={handleListRoom}>
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Text style={styles.bookButtonText}>Xem căn</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
 
@@ -727,10 +798,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -801,10 +869,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f0f0f0',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -921,10 +986,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 8,
@@ -958,10 +1020,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginLeft: 16,
-  },
-  gradientButton: {
-    paddingHorizontal: 28,
-    paddingVertical: 16,
   },
   bookButtonText: {
     color: '#fff',
@@ -1016,5 +1074,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+  },
+  contactButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginLeft: 16,
+  },
+  gradientButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
