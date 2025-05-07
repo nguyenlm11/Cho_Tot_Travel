@@ -13,6 +13,7 @@ import { useSearch } from '../contexts/SearchContext';
 import authApi from '../services/api/authApi';
 import homeStayApi from '../services/api/homeStayApi';
 import { useUser } from '../contexts/UserContext';
+import LoadingScreen from '../components/LoadingScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -180,9 +181,9 @@ export default function HomeScreen() {
                     </TouchableOpacity>
                 )}
             </View>
-            
-            <ScrollView 
-                horizontal 
+
+            <ScrollView
+                horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.historyScrollContent}
             >
@@ -257,10 +258,10 @@ export default function HomeScreen() {
 
     if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Đang tải...</Text>
-            </View>
+            <LoadingScreen
+                message="Đang tìm kiếm"
+                subMessage="Vui lòng đợi trong giây lát..."
+            />
         );
     }
 

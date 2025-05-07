@@ -7,7 +7,8 @@ import EditSearchModal from '../components/Modal/EditSearchModal';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSearch } from '../contexts/SearchContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import LoadingScreen from '../components/LoadingScreen';
 
 const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -155,9 +156,10 @@ export default function ResultScreen() {
             </LinearGradient>
 
             {isLoading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </View>
+                <LoadingScreen 
+                    message="Đang tìm kiếm homestay"
+                    subMessage="Vui lòng đợi trong giây lát..."
+                />
             ) : validResults.length > 0 ? (
                 <FlatList
                     data={validResults}
@@ -248,11 +250,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 14,
         fontWeight: '500',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
     listContainer: {
         padding: 10,
