@@ -1,15 +1,22 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { colors } from '../constants/Colors';
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 
 export default function BookingSuccess() {
     const navigation = useNavigation();
     const route = useRoute();
     const { bookingId, transactionId } = route.params || {};
+    const [loading, setLoading] = useState(true);
+
+    // useEffect(() => {
+    //     const timer = setTimeout(() => {
+    //         setLoading(false);
+    //     }, 500);
+    //     return () => clearTimeout(timer);
+    // }, []);
 
     const handleGoToBookings = () => {
         navigation.replace('HomeTabs', {
@@ -51,40 +58,25 @@ export default function BookingSuccess() {
                 style={styles.background}
             />
 
-            <Animated.View
-                entering={SlideInDown.delay(300).springify()}
-                style={styles.content}
-            >
-                <Animated.View
-                    entering={FadeInDown.delay(500)}
-                    style={styles.successIcon}
-                >
+            <View style={styles.content}>
+                <View style={styles.successIcon}>
                     <LinearGradient
                         colors={[colors.primary, colors.secondary]}
                         style={styles.iconCircle}
                     >
                         <FontAwesome5 name="check" size={50} color="#fff" />
                     </LinearGradient>
-                </Animated.View>
+                </View>
 
-                <Animated.Text
-                    entering={FadeInDown.delay(700)}
-                    style={styles.title}
-                >
+                <Text style={styles.title}>
                     Thanh toán thành công!
-                </Animated.Text>
+                </Text>
 
-                <Animated.Text
-                    entering={FadeInDown.delay(900)}
-                    style={styles.message}
-                >
+                <Text style={styles.message}>
                     Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi. Chúng tôi đã ghi nhận thanh toán của bạn và đã xác nhận đơn đặt phòng.
-                </Animated.Text>
+                </Text>
 
-                <Animated.View
-                    entering={FadeInDown.delay(1100)}
-                    style={styles.bookingInfo}
-                >
+                <View style={styles.bookingInfo}>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Mã đặt phòng:</Text>
                         <Text style={styles.infoValue}>{bookingId || "Không có thông tin"}</Text>
@@ -100,12 +92,9 @@ export default function BookingSuccess() {
                             <Text style={styles.statusText}>Đã thanh toán</Text>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
 
-                <Animated.View
-                    entering={FadeIn.delay(1300)}
-                    style={styles.buttonContainer}
-                >
+                <View style={styles.buttonContainer}>
                     <TouchableOpacity
                         style={styles.button}
                         onPress={handleGoToBookings}
@@ -126,8 +115,8 @@ export default function BookingSuccess() {
                     >
                         <Text style={styles.secondaryButtonText}>Về trang chủ</Text>
                     </TouchableOpacity>
-                </Animated.View>
-            </Animated.View>
+                </View>
+            </View>
         </View>
     );
 }

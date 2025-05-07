@@ -1,17 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown, SlideInDown } from 'react-native-reanimated';
 import { colors } from '../constants/Colors';
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
+import bookingApi from '../services/api/bookingApi';
 
 export default function BookingFailed() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { bookingId, errorCode, error } = route.params || {};
+    const { bookingId, errorCode, error, isBookingService = false, onPaymentComplete } = route.params || {};
+    const [loading, setLoading] = useState(false);
 
-    // Mảng mã lỗi và mô tả tương ứng
     const errorMessages = {
         '02': 'Merchant không hợp lệ (kiểm tra lại vnp_TmnCode)',
         '03': 'Dữ liệu gửi sang không đúng định dạng',
@@ -26,7 +26,6 @@ export default function BookingFailed() {
         '99': 'Lỗi không xác định'
     };
 
-    // Hiển thị mô tả lỗi phù hợp
     const getErrorMessage = () => {
         if (error) return error;
         if (errorCode && errorMessages[errorCode]) {
@@ -35,8 +34,53 @@ export default function BookingFailed() {
         return 'Giao dịch không thành công. Vui lòng thử lại sau.';
     };
 
+    const processPayment = async (useFullPayment) => {
+        try {
+            setLoading(true);
+
+            let response;
+            if (isBookingService) {
+                // Nếu là thanh toán dịch vụ
+                response = await bookingApi.getBookingServicePaymentUrl(bookingId, true);
+            } else {
+                // Nếu là thanh toán đặt phòng - sử dụng paymentType được chọn
+                response = await bookingApi.getPaymentUrl(bookingId, useFullPayment);
+            }
+
+            if (response.success && response.paymentUrl) {
+                navigation.navigate('PaymentWebView', {
+                    paymentUrl: response.paymentUrl,
+                    bookingId: bookingId,
+                    onPaymentComplete: onPaymentComplete,
+                    isFullPayment: useFullPayment,
+                    isBookingService: isBookingService
+                });
+            } else {
+                throw new Error(response.error || 'Không thể tạo URL thanh toán');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tạo URL thanh toán:', error);
+            const errorMessage = error.message || 'Không thể xử lý thanh toán. Vui lòng thử lại sau.';
+            Alert.alert('Lỗi', errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleTryAgain = () => {
-        navigation.goBack();
+        if (isBookingService) {
+            processPayment(true);
+            return;
+        }
+        Alert.alert(
+            'Chọn hình thức thanh toán',
+            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
+            [
+                { text: 'Thanh toán đầy đủ', onPress: () => processPayment(true) },
+                { text: 'Đặt cọc 30%', onPress: () => processPayment(false) },
+                { text: 'Hủy', style: 'cancel' }
+            ]
+        );
     };
 
     const handleGoHome = () => {
@@ -71,41 +115,18 @@ export default function BookingFailed() {
                 colors={[colors.error || '#FF5252', '#FF8A80']}
                 style={styles.background}
             />
-
-            <Animated.View
-                entering={SlideInDown.delay(300).springify()}
-                style={styles.content}
-            >
-                <Animated.View
-                    entering={FadeInDown.delay(500)}
-                    style={styles.failIcon}
-                >
+            <View style={styles.content}>
+                <View style={styles.failIcon}>
                     <LinearGradient
                         colors={[colors.error || '#FF5252', '#FF8A80']}
                         style={styles.iconCircle}
                     >
                         <FontAwesome5 name="times" size={50} color="#fff" />
                     </LinearGradient>
-                </Animated.View>
-
-                <Animated.Text
-                    entering={FadeInDown.delay(700)}
-                    style={styles.title}
-                >
-                    Thanh toán thất bại!
-                </Animated.Text>
-
-                <Animated.Text
-                    entering={FadeInDown.delay(900)}
-                    style={styles.message}
-                >
-                    {getErrorMessage()}
-                </Animated.Text>
-
-                <Animated.View
-                    entering={FadeInDown.delay(1100)}
-                    style={styles.bookingInfo}
-                >
+                </View>
+                <Text style={styles.title}>Thanh toán thất bại! </Text>
+                <Text style={styles.message}>{getErrorMessage()}</Text>
+                <View style={styles.bookingInfo}>
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Mã đặt phòng:</Text>
                         <Text style={styles.infoValue}>{bookingId || "Không có thông tin"}</Text>
@@ -123,15 +144,13 @@ export default function BookingFailed() {
                             <Text style={styles.statusText}>Chưa thanh toán</Text>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
 
-                <Animated.View
-                    entering={FadeIn.delay(1300)}
-                    style={styles.buttonContainer}
-                >
+                <View style={styles.buttonContainer}>
                     <TouchableOpacity
-                        style={styles.button}
+                        style={[styles.button, loading && styles.disabledButton]}
                         onPress={handleTryAgain}
+                        disabled={loading}
                     >
                         <LinearGradient
                             colors={[colors.primary, colors.secondary]}
@@ -139,18 +158,23 @@ export default function BookingFailed() {
                             end={{ x: 1, y: 0 }}
                             style={styles.gradientButton}
                         >
-                            <Text style={styles.buttonText}>Thử lại</Text>
+                            {loading ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <Text style={styles.buttonText}>Thanh toán lại</Text>
+                            )}
                         </LinearGradient>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.button, styles.secondaryButton]}
                         onPress={handleGoHome}
+                        disabled={loading}
                     >
                         <Text style={styles.secondaryButtonText}>Về trang chủ</Text>
                     </TouchableOpacity>
-                </Animated.View>
-            </Animated.View>
+                </View>
+            </View>
         </View>
     );
 }
@@ -270,5 +294,13 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    disabledButton: {
+        backgroundColor: '#ccc',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 }); 
