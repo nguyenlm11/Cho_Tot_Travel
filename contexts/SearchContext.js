@@ -35,7 +35,13 @@ export const SearchProvider = ({ children }) => {
     }, [userData?.userID]);
 
     const updateCurrentSearch = (searchData) => {
-        setCurrentSearch(searchData);
+        const updatedSearchData = {
+            ...searchData,
+            rating: searchData.rating || null,
+            minPrice: searchData.minPrice || null,
+            maxPrice: searchData.maxPrice || null
+        };
+        setCurrentSearch(updatedSearchData);
     };
 
     const updateSearchResults = (results) => {
@@ -52,7 +58,10 @@ export const SearchProvider = ({ children }) => {
                     item.checkInDate === searchData.checkInDate &&
                     item.checkOutDate === searchData.checkOutDate &&
                     item.adults === searchData.adults &&
-                    item.children === searchData.children
+                    item.children === searchData.children &&
+                    item.rating === searchData.rating &&
+                    item.minPrice === searchData.minPrice &&
+                    item.maxPrice === searchData.maxPrice
             );
 
             let newHistory = [...searchHistory];

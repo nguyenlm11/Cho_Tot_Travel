@@ -121,7 +121,10 @@ const EditSearchModal = ({ visible, onClose }) => {
                 NumberOfChildren: localSearch.children,
                 Latitude: localSearch.latitude,
                 Longitude: localSearch.longitude,
-                MaxDistance: 10
+                MaxDistance: 10,
+                Rating: localSearch.selectedStar,
+                MinPrice: localSearch.priceFrom ? parseFloat(localSearch.priceFrom) : null,
+                MaxPrice: localSearch.priceTo ? parseFloat(localSearch.priceTo) : null
             };
             const results = await homeStayApi.filterHomeStays(filterParams);
             updateSearchResults(results);
