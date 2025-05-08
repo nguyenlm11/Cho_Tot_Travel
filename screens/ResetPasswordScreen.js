@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Image, StatusBar, ActivityIndicator, Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard, Image, StatusBar, ActivityIndicator, Alert, Dimensions, SafeAreaView } from "react-native";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { colors } from "../constants/Colors";
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
 import authApi from '../services/api/authApi';
+
+const { width, height } = Dimensions.get('window');
+const scale = width / 375;
 
 export default function ResetPasswordScreen({ route }) {
     const { email, resetToken } = route.params;
-    
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -17,13 +19,11 @@ export default function ResetPasswordScreen({ route }) {
     const [secureTextConfirm, setSecureTextConfirm] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [apiError, setApiError] = useState("");
-    
     const [errors, setErrors] = useState({
         username: "",
         password: "",
         confirmPassword: ""
     });
-    
     const navigation = useNavigation();
 
     const validatePassword = (password) => {
@@ -38,17 +38,14 @@ export default function ResetPasswordScreen({ route }) {
             password: "",
             confirmPassword: ""
         };
-        
         if (!username.trim()) {
             newErrors.username = "Vui lòng nhập tên đăng nhập";
             isValid = false;
         }
-        
         if (!resetToken) {
             Alert.alert("Lỗi", "Không có mã xác nhận. Vui lòng thử lại từ đầu.");
             isValid = false;
         }
-        
         if (!password) {
             newErrors.password = "Vui lòng nhập mật khẩu mới";
             isValid = false;
@@ -56,7 +53,6 @@ export default function ResetPasswordScreen({ route }) {
             newErrors.password = "Mật khẩu phải có ít nhất 8 ký tự, bao gồm số và ký tự đặc biệt";
             isValid = false;
         }
-        
         if (!confirmPassword) {
             newErrors.confirmPassword = "Vui lòng xác nhận mật khẩu";
             isValid = false;
@@ -64,25 +60,17 @@ export default function ResetPasswordScreen({ route }) {
             newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
             isValid = false;
         }
-        
         setErrors(newErrors);
         return isValid;
     };
 
     const handleResetPassword = async () => {
-        // Reset API error
         setApiError("");
-        
-        // Validate form
         if (!validateForm()) {
             return;
         }
-        
-        // Form is valid, proceed with API call
         setIsLoading(true);
-        
         try {
-            // Call API to reset password
             const resetData = {
                 username,
                 email,
@@ -90,17 +78,14 @@ export default function ResetPasswordScreen({ route }) {
                 confirmPassword,
                 token: resetToken
             };
-            
             const response = await authApi.resetPassword(resetData);
-            
-            // Show success message
             Alert.alert(
-                "Thành công", 
+                "Thành công",
                 "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập bằng mật khẩu mới.",
                 [
-                    { 
-                        text: "Đăng nhập ngay", 
-                        onPress: () => navigation.navigate('Login') 
+                    {
+                        text: "Đăng nhập ngay",
+                        onPress: () => navigation.navigate('Login')
                     }
                 ]
             );
@@ -113,215 +98,284 @@ export default function ResetPasswordScreen({ route }) {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <ScrollView
-                    contentContainerStyle={styles.scrollContainer}
-                    showsVerticalScrollIndicator={false}
-                >
-                    <TouchableOpacity
-                        style={styles.backButton}
-                        onPress={() => navigation.goBack()}
+        <SafeAreaView style={styles.safeArea}>
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor={colors.primary}
+                translucent={true}
+            />
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContainer}
+                        showsVerticalScrollIndicator={false}
+                        bounces={false}
                     >
-                        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    
-                    <Animated.View 
-                        entering={FadeInDown.duration(1000).springify()}
-                        style={styles.headerContainer}
-                    >
-                        {/* <Image source={require('../assets/reset-password.png')} style={styles.image} /> */}
-                    </Animated.View>
-                    
-                    <Animated.View 
-                        entering={FadeInUp.delay(200).duration(1000).springify()}
-                        style={styles.formContainer}
-                    >
-                        <View style={styles.titleContainer}>
-                            <Text style={styles.titleText}>Đặt lại mật khẩu</Text>
-                            <Text style={styles.subtitleText}>
-                                Nhập thông tin để đặt lại mật khẩu của bạn
-                            </Text>
-                        </View>
-                        
-                        {/* API Error Message */}
-                        {apiError ? (
-                            <View style={styles.apiErrorContainer}>
-                                <Text style={styles.apiErrorText}>{apiError}</Text>
-                            </View>
-                        ) : null}
-                        
-                        {/* Email (Readonly) */}
-                        <View style={styles.inputBox}>
-                            <Ionicons name="mail-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                            <TextInput
-                                style={[styles.input, { color: colors.textSecondary }]}
-                                value={email}
-                                editable={false}
-                            />
-                        </View>
-                        
-                        {/* Username Input */}
-                        <View style={[styles.inputBox, errors.username && styles.inputBoxError]}>
-                            <Ionicons name="person-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Tên đăng nhập"
-                                value={username}
-                                onChangeText={(text) => {
-                                    setUsername(text);
-                                    setErrors({...errors, username: ""});
-                                }}
-                                autoCapitalize="none"
-                                editable={!isLoading}
-                            />
-                        </View>
-                        {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
-                        
-                        {/* Password Input */}
-                        <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
-                            <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Mật khẩu mới"
-                                value={password}
-                                onChangeText={(text) => {
-                                    setPassword(text);
-                                    setErrors({...errors, password: ""});
-                                }}
-                                secureTextEntry={secureTextPassword}
-                                editable={!isLoading}
-                            />
-                            <TouchableOpacity 
-                                onPress={() => setSecureTextPassword(!secureTextPassword)}
-                                style={styles.eyeIcon}
-                            >
-                                <Ionicons 
-                                    name={secureTextPassword ? "eye-off-outline" : "eye-outline"} 
-                                    size={22} 
-                                    color={colors.textSecondary} 
-                                />
-                            </TouchableOpacity>
-                        </View>
-                        {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
-                        
-                        {/* Confirm Password Input */}
-                        <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
-                            <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Xác nhận mật khẩu"
-                                value={confirmPassword}
-                                onChangeText={(text) => {
-                                    setConfirmPassword(text);
-                                    setErrors({...errors, confirmPassword: ""});
-                                }}
-                                secureTextEntry={secureTextConfirm}
-                                editable={!isLoading}
-                            />
-                            <TouchableOpacity 
-                                onPress={() => setSecureTextConfirm(!secureTextConfirm)}
-                                style={styles.eyeIcon}
-                            >
-                                <Ionicons 
-                                    name={secureTextConfirm ? "eye-off-outline" : "eye-outline"} 
-                                    size={22} 
-                                    color={colors.textSecondary} 
-                                />
-                            </TouchableOpacity>
-                        </View>
-                        {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
-
-                        {/* Token Info */}
-                        {resetToken ? (
-                            <View style={styles.tokenInfoContainer}>
-                                <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
-                                <Text style={styles.tokenInfoText}>
-                                    Mã xác nhận đã được tự động điền
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.tokenInfoContainer}>
-                                <Ionicons name="warning-outline" size={20} color={colors.warning} />
-                                <Text style={styles.tokenWarningText}>
-                                    Không có mã xác nhận. Vui lòng kiểm tra email của bạn hoặc yêu cầu mã mới.
-                                </Text>
-                            </View>
-                        )}
-
-                        <TouchableOpacity 
-                            style={[styles.submitButton, isLoading && styles.disabledButton]} 
-                            onPress={handleResetPassword}
-                            activeOpacity={0.8}
-                            disabled={isLoading}
+                        <Animated.View
+                            entering={FadeIn.duration(500)}
+                            style={styles.backgroundContainer}
                         >
                             <LinearGradient
                                 colors={[colors.primary, colors.secondary]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                                style={styles.gradient}
+                                style={styles.headerBackground}
                             >
-                                {isLoading ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <Text style={styles.submitText}>Đặt lại mật khẩu</Text>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <Animated.View
+                                    entering={FadeInDown.duration(1000).springify()}
+                                    style={styles.headerContainer}
+                                >
+                                    <View style={styles.logoContainer}>
+                                        <Image source={require('../assets/logo.png')} style={styles.image} />
+                                    </View>
+                                </Animated.View>
 
-                        <TouchableOpacity 
-                            style={styles.loginLink}
-                            onPress={() => navigation.navigate('Login')}
+                                <Animated.View
+                                    entering={FadeInDown.delay(200).duration(800)}
+                                    style={styles.wavyBackground}
+                                />
+                            </LinearGradient>
+                        </Animated.View>
+
+                        <Animated.View
+                            entering={FadeInUp.delay(200).duration(1000).springify()}
+                            style={styles.formContainer}
                         >
-                            <Text style={styles.loginLinkText}>Quay lại đăng nhập</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
-                </ScrollView>
-            </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+                            <View style={styles.titleContainer}>
+                                <Text style={styles.titleText}>Đặt lại mật khẩu</Text>
+                                <Text style={styles.subtitleText}>
+                                    Nhập thông tin để đặt lại mật khẩu của bạn
+                                </Text>
+                            </View>
+
+                            {/* API Error Message */}
+                            {apiError ? (
+                                <Animated.View
+                                    entering={FadeIn.duration(300)}
+                                    style={styles.apiErrorContainer}
+                                >
+                                    <Ionicons name="alert-circle" size={20} color="#D32F2F" style={styles.errorIcon} />
+                                    <Text style={styles.apiErrorText}>{apiError}</Text>
+                                </Animated.View>
+                            ) : null}
+
+                            {/* Email (Readonly) */}
+                            <View style={styles.inputBox}>
+                                <Ionicons name="mail-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                <TextInput
+                                    style={[styles.input, { color: colors.textSecondary }]}
+                                    value={email}
+                                    editable={false}
+                                />
+                                <MaterialIcons name="lock" size={18} color={colors.textSecondary} />
+                            </View>
+
+                            {/* Username Input */}
+                            <View style={[styles.inputBox, errors.username && styles.inputBoxError]}>
+                                <Ionicons name="person-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Tên đăng nhập"
+                                    value={username}
+                                    onChangeText={(text) => {
+                                        setUsername(text);
+                                        setErrors({ ...errors, username: "" });
+                                    }}
+                                    autoCapitalize="none"
+                                    editable={!isLoading}
+                                    placeholderTextColor="#9E9E9E"
+                                />
+                                {username.trim() !== "" && (
+                                    <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+                                )}
+                            </View>
+                            {errors.username ? (
+                                <Animated.View
+                                    entering={FadeInDown.duration(300)}
+                                    style={styles.errorContainer}
+                                >
+                                    <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                                    <Text style={styles.errorText}>{errors.username}</Text>
+                                </Animated.View>
+                            ) : null}
+
+                            {/* Password Input */}
+                            <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
+                                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Mật khẩu mới"
+                                    value={password}
+                                    onChangeText={(text) => {
+                                        setPassword(text);
+                                        setErrors({ ...errors, password: "" });
+                                    }}
+                                    secureTextEntry={secureTextPassword}
+                                    editable={!isLoading}
+                                    placeholderTextColor="#9E9E9E"
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setSecureTextPassword(!secureTextPassword)}
+                                    style={styles.eyeIcon}
+                                >
+                                    <Ionicons
+                                        name={secureTextPassword ? "eye-off-outline" : "eye-outline"}
+                                        size={22}
+                                        color={colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                            {errors.password ? (
+                                <Animated.View
+                                    entering={FadeInDown.duration(300)}
+                                    style={styles.errorContainer}
+                                >
+                                    <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                                    <Text style={styles.errorText}>{errors.password}</Text>
+                                </Animated.View>
+                            ) : null}
+
+                            {/* Confirm Password Input */}
+                            <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
+                                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Xác nhận mật khẩu"
+                                    value={confirmPassword}
+                                    onChangeText={(text) => {
+                                        setConfirmPassword(text);
+                                        setErrors({ ...errors, confirmPassword: "" });
+                                    }}
+                                    secureTextEntry={secureTextConfirm}
+                                    editable={!isLoading}
+                                    placeholderTextColor="#9E9E9E"
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setSecureTextConfirm(!secureTextConfirm)}
+                                    style={styles.eyeIcon}
+                                >
+                                    <Ionicons
+                                        name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
+                                        size={22}
+                                        color={colors.textSecondary}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                            {errors.confirmPassword ? (
+                                <Animated.View
+                                    entering={FadeInDown.duration(300)}
+                                    style={styles.errorContainer}
+                                >
+                                    <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                                    <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+                                </Animated.View>
+                            ) : null}
+                        </Animated.View>
+
+                        <Animated.View
+                            entering={FadeInUp.delay(400).duration(1000).springify()}
+                            style={styles.buttonsContainer}
+                        >
+                            <TouchableOpacity
+                                style={[styles.submitButton, isLoading && styles.disabledButton]}
+                                onPress={handleResetPassword}
+                                activeOpacity={0.8}
+                                disabled={isLoading}
+                            >
+                                <LinearGradient
+                                    colors={[colors.primary, colors.secondary]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.gradient}
+                                >
+                                    {isLoading ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.submitText}>Đặt lại mật khẩu</Text>
+                                            <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.arrowIcon} />
+                                        </>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.loginLink}
+                                onPress={() => navigation.navigate('Login')}
+                            >
+                                <Text style={styles.loginLinkText}>Quay lại đăng nhập</Text>
+                            </TouchableOpacity>
+                        </Animated.View>
+                    </ScrollView>
+                </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: colors.primary,
+    },
     container: {
         flex: 1,
         backgroundColor: '#fff',
     },
     scrollContainer: {
         flexGrow: 1,
-        paddingBottom: 30,
     },
-    backButton: {
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        zIndex: 10,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#f5f5f5',
-        justifyContent: 'center',
-        alignItems: 'center',
+    backgroundContainer: {
+        width: '100%',
+        height: height * 0.35,
+    },
+    headerBackground: {
+        width: '100%',
+        height: '100%',
     },
     headerContainer: {
         alignItems: 'center',
-        marginTop: 60,
-        marginBottom: 20,
+        justifyContent: 'center',
+        height: '60%',
+    },
+    logoContainer: {
+        width: 110,
+        height: 110,
+        borderRadius: 55,
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 8,
     },
     image: {
-        width: 250,
-        height: 250,
+        width: 90,
+        height: 90,
         resizeMode: 'contain',
+    },
+    wavyBackground: {
+        position: 'absolute',
+        bottom: -1,
+        left: 0,
+        right: 0,
+        height: 80,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 40,
+        borderTopRightRadius: 40,
     },
     formContainer: {
         paddingHorizontal: 30,
     },
     titleContainer: {
-        marginBottom: 30,
+        marginBottom: 25,
         alignItems: 'center',
     },
     titleText: {
@@ -331,35 +385,42 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     subtitleText: {
-        fontSize: 16,
+        fontSize: 15,
         color: colors.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
     },
     apiErrorContainer: {
-        backgroundColor: colors.error + '20',
-        borderLeftWidth: 4,
-        borderLeftColor: colors.error,
-        padding: 10,
-        borderRadius: 5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFEBEE',
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
         marginBottom: 20,
     },
+    errorIcon: {
+        marginRight: 10,
+    },
     apiErrorText: {
-        color: colors.error,
+        color: '#D32F2F',
+        flex: 1,
+        fontSize: 14,
     },
     inputBox: {
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        borderRadius: 10,
+        borderRadius: 15,
         paddingHorizontal: 15,
-        marginBottom: 15,
-        height: 55,
+        marginBottom: 20,
+        height: 60,
         backgroundColor: '#F9F9F9',
     },
     inputBoxError: {
         borderColor: colors.error,
+        borderWidth: 1.5,
     },
     icon: {
         marginRight: 10,
@@ -368,63 +429,69 @@ const styles = StyleSheet.create({
         flex: 1,
         height: '100%',
         fontSize: 16,
+        color: colors.textPrimary,
     },
     eyeIcon: {
-        padding: 10,
+        padding: 8,
+    },
+    errorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: -15,
+        marginBottom: 20,
+        paddingLeft: 5,
     },
     errorText: {
         color: colors.error,
         fontSize: 14,
-        marginTop: -10,
-        marginBottom: 15,
         marginLeft: 5,
     },
-    tokenInfoContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.primary + '10',
-        padding: 12,
-        borderRadius: 10,
-        marginBottom: 20,
-    },
-    tokenInfoText: {
-        color: colors.primary,
-        fontSize: 14,
-        marginLeft: 8,
-        flex: 1,
-    },
-    tokenWarningText: {
-        color: colors.warning,
-        fontSize: 14,
-        marginLeft: 8,
-        flex: 1,
+    buttonsContainer: {
+        paddingHorizontal: 30,
+        marginTop: 10,
     },
     submitButton: {
-        marginTop: 20,
-        height: 55,
-        borderRadius: 10,
+        borderRadius: 15,
         overflow: 'hidden',
+        ...Platform.select({
+            ios: {
+                shadowColor: colors.primary,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
     },
     disabledButton: {
         opacity: 0.7,
     },
     gradient: {
-        flex: 1,
+        flexDirection: 'row',
+        height: 58,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 20,
     },
     submitText: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '600',
     },
+    arrowIcon: {
+        marginLeft: 10,
+    },
     loginLink: {
-        marginTop: 20,
         alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 25,
+        padding: 15,
     },
     loginLinkText: {
         color: colors.primary,
         fontSize: 16,
-        fontWeight: '500',
+        fontWeight: '600',
     },
 }); 
