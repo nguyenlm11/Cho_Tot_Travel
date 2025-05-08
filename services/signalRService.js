@@ -167,8 +167,20 @@ class SignalRService {
         throw new Error('Sender ID is not available');
       }
 
-      this.log('Sending message via SignalR:', { senderId, receiverId, text, senderName, homestayId });
+      this.log('Sending message via SignalR:', { 
+        senderId, 
+        receiverId, 
+        text, 
+        senderName, 
+        homestayId,
+        connectionId: this.connection.connectionId,
+        connectionState: this.connection.state
+      });
+
+      // Log before invoking
+      this.log('Invoking SendMessage on Hub...');
       await this.connection.invoke('SendMessage', senderId, receiverId, text, senderName, homestayId, null);
+      this.log('SendMessage invoked successfully');
       return true;
     } catch (error) {
       this.log('Error sending message:', error);
@@ -238,7 +250,7 @@ class SignalRService {
 
   _setupEventHandlers() {
     if (!this.connection) {
-      console.error('Cannot setup event handlers: connection is null');
+      this.log('Cannot setup event handlers: connection is null');
       return;
     }
     this.log("Setting up event handlers");
@@ -253,7 +265,15 @@ class SignalRService {
 
     // Add new handlers
     this.connection.on('ReceiveMessage', (senderId, content, sentAt, messageId, conversationId) => {
-      this.log('Received message event:', { senderId, content, sentAt, messageId, conversationId });
+      this.log('Received message event from Hub:', { 
+        senderId, 
+        content, 
+        sentAt, 
+        messageId, 
+        conversationId,
+        connectionId: this.connection.connectionId,
+        connectionState: this.connection.state
+      });
 
       if (!messageId) {
         this.log('Skipping message without ID');
@@ -288,14 +308,18 @@ class SignalRService {
           callback(message);
           this.log(`Message callback ${index + 1} completed`);
         } catch (error) {
-          console.error(`Error in message callback ${index + 1}:`, error);
+          this.log(`Error in message callback ${index + 1}:`, error);
         }
       });
     });
 
     // Add logging for other events
     this.connection.on('NewConversation', (conversationData) => {
-      this.log('New conversation received:', conversationData);
+      this.log('New conversation received from Hub:', {
+        conversationData,
+        connectionId: this.connection.connectionId,
+        connectionState: this.connection.state
+      });
       this.log('Raw conversation data type:', typeof conversationData);
       this.onNewConversationCallbacks.forEach((callback, index) => {
         try {
@@ -303,13 +327,18 @@ class SignalRService {
           callback(conversationData);
           this.log(`Conversation callback ${index + 1} completed`);
         } catch (error) {
-          console.error(`Error in conversation callback ${index + 1}:`, error);
+          this.log(`Error in conversation callback ${index + 1}:`, error);
         }
       });
     });
 
     this.connection.on('MessageRead', (messageId, conversationId) => {
-      this.log('Message marked as read:', messageId, 'in conversation:', conversationId);
+      this.log('Message marked as read from Hub:', {
+        messageId,
+        conversationId,
+        connectionId: this.connection.connectionId,
+        connectionState: this.connection.state
+      });
       this.log('Raw message read parameters:', {
         messageId: typeof messageId,
         conversationId: typeof conversationId
@@ -320,7 +349,7 @@ class SignalRService {
           callback(messageId, conversationId);
           this.log(`Message read callback ${index + 1} completed`);
         } catch (error) {
-          console.error(`Error in message read callback ${index + 1}:`, error);
+          this.log(`Error in message read callback ${index + 1}:`, error);
         }
       });
     });
