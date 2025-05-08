@@ -60,8 +60,7 @@ export default function ForgotPasswordScreen() {
                 );
             }
         } catch (error) {
-            console.error('Request reset token error:', error);
-            setApiError(error.message || 'Không thể gửi yêu cầu đặt lại mật khẩu. Vui lòng thử lại sau.');
+            setApiError('Không thể gửi yêu cầu đặt lại mật khẩu.');
         } finally {
             setIsLoading(false);
         }

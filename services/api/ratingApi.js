@@ -38,7 +38,7 @@ const ratingApi = {
             if (!userId) {
                 throw new Error('Không tìm thấy ID người dùng');
             }
-            const response = await apiClient.post('/api/rating', formData, {
+            const response = await apiClient.post('/api/rating/CreateRating', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -56,6 +56,85 @@ const ratingApi = {
             throw new Error(handleError(error));
         }
     },
+
+    getRatingById: async (ratingId) => {
+        try {
+            const response = await apiClient.get(`/api/rating/GetById/${ratingId}`);
+            if (response.data?.success && response.data?.data) {
+                return {
+                    success: true,
+                    data: response.data.data
+                };
+            }
+            return {
+                success: false,
+                error: 'Không tìm thấy đánh giá'
+            };
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin đánh giá:', error);
+            return {
+                success: false,
+                error: 'Không thể tải thông tin đánh giá. Vui lòng thử lại sau.'
+            };
+        }
+    },
+
+    updateRating: async (ratingId, formData) => {
+        try {
+            const userString = await AsyncStorage.getItem('user');
+            if (!userString) {
+                throw new Error('Không tìm thấy thông tin người dùng');
+            }
+            const user = JSON.parse(userString);
+            const userId = user.userId || user.AccountID;
+            if (!userId) {
+                throw new Error('Không tìm thấy ID người dùng');
+            }
+
+            // Thêm ratingID vào formData
+            formData.append('RatingID', ratingId);
+            
+            const response = await apiClient.put('/api/rating/UpdateRating', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            
+            if (response.status === 200) {
+                return {
+                    success: true,
+                    data: response.data.data,
+                    message: response.data.message || 'Cập nhật đánh giá thành công'
+                };
+            }
+            throw new Error(response.data.message || 'Không thể cập nhật đánh giá');
+        } catch (error) {
+            console.error('Lỗi khi cập nhật đánh giá:', error);
+            throw new Error(handleError(error));
+        }
+    },
+
+    getRatingByBookingId: async (bookingId) => {
+        try {
+            const response = await apiClient.get(`/api/rating/GetByBookingId/${bookingId}`);
+            if (response.data?.success && response.data?.data) {
+                return {
+                    success: true,
+                    data: response.data.data
+                };
+            }
+            return {
+                success: false,
+                error: 'Không tìm thấy đánh giá cho đặt phòng này'
+            };
+        } catch (error) {
+            console.error('Lỗi khi lấy thông tin đánh giá theo booking:', error);
+            return {
+                success: false,
+                error: 'Không thể tải thông tin đánh giá. Vui lòng thử lại sau.'
+            };
+        }
+    }
 };
 
 export default ratingApi; 
