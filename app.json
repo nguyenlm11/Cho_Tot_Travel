@@ -9,7 +9,7 @@
     "newArchEnabled": true,
     "scheme": "chotottravel",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/adaptive-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
@@ -27,7 +27,8 @@
         "ACCESS_COARSE_LOCATION"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo.png",
+        "backgroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       }
     },
