@@ -201,77 +201,82 @@ export default function ResetPasswordScreen({ route }) {
                                 </Animated.View>
                             ) : null}
 
-                            {/* Password Input */}
-                            <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
-                                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Mật khẩu mới"
-                                    value={password}
-                                    onChangeText={(text) => {
-                                        setPassword(text);
-                                        setErrors({ ...errors, password: "" });
-                                    }}
-                                    secureTextEntry={secureTextPassword}
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
-                                <TouchableOpacity
-                                    onPress={() => setSecureTextPassword(!secureTextPassword)}
-                                    style={styles.eyeIcon}
-                                >
-                                    <Ionicons
-                                        name={secureTextPassword ? "eye-off-outline" : "eye-outline"}
-                                        size={22}
-                                        color={colors.textSecondary}
+                            {/* Password and Confirm Password Row */}
+                            <View style={styles.inputRow}>
+                                {/* Password Input */}
+                                <View style={[styles.inputBoxHalf, errors.password && styles.inputBoxError]}>
+                                    <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Mật khẩu mới"
+                                        value={password}
+                                        onChangeText={(text) => {
+                                            setPassword(text);
+                                            setErrors({ ...errors, password: "" });
+                                        }}
+                                        secureTextEntry={secureTextPassword}
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
                                     />
-                                </TouchableOpacity>
-                            </View>
-                            {errors.password ? (
-                                <Animated.View
-                                    entering={FadeInDown.duration(300)}
-                                    style={styles.errorContainer}
-                                >
-                                    <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
-                                    <Text style={styles.errorText}>{errors.password}</Text>
-                                </Animated.View>
-                            ) : null}
+                                    <TouchableOpacity 
+                                        onPress={() => setSecureTextPassword(!secureTextPassword)} 
+                                        style={styles.eyeIcon} 
+                                        disabled={isLoading}
+                                    >
+                                        <Ionicons 
+                                            name={secureTextPassword ? "eye-off-outline" : "eye-outline"} 
+                                            size={22} 
+                                            color={colors.textSecondary} 
+                                        />
+                                    </TouchableOpacity>
+                                </View>
 
-                            {/* Confirm Password Input */}
-                            <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
-                                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Xác nhận mật khẩu"
-                                    value={confirmPassword}
-                                    onChangeText={(text) => {
-                                        setConfirmPassword(text);
-                                        setErrors({ ...errors, confirmPassword: "" });
-                                    }}
-                                    secureTextEntry={secureTextConfirm}
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
-                                <TouchableOpacity
-                                    onPress={() => setSecureTextConfirm(!secureTextConfirm)}
-                                    style={styles.eyeIcon}
-                                >
-                                    <Ionicons
-                                        name={secureTextConfirm ? "eye-off-outline" : "eye-outline"}
-                                        size={22}
-                                        color={colors.textSecondary}
+                                {/* Confirm Password Input */}
+                                <View style={[styles.inputBoxHalf, errors.confirmPassword && styles.inputBoxError]}>
+                                    <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Xác nhận mật khẩu"
+                                        value={confirmPassword}
+                                        onChangeText={(text) => {
+                                            setConfirmPassword(text);
+                                            setErrors({ ...errors, confirmPassword: "" });
+                                        }}
+                                        secureTextEntry={secureTextConfirm}
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
                                     />
-                                </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        onPress={() => setSecureTextConfirm(!secureTextConfirm)} 
+                                        style={styles.eyeIcon} 
+                                        disabled={isLoading}
+                                    >
+                                        <Ionicons 
+                                            name={secureTextConfirm ? "eye-off-outline" : "eye-outline"} 
+                                            size={22} 
+                                            color={colors.textSecondary} 
+                                        />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            {errors.confirmPassword ? (
-                                <Animated.View
-                                    entering={FadeInDown.duration(300)}
-                                    style={styles.errorContainer}
-                                >
-                                    <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
-                                    <Text style={styles.errorText}>{errors.confirmPassword}</Text>
-                                </Animated.View>
-                            ) : null}
+
+                            {/* Errors for Password and Confirm Password */}
+                            <View style={styles.inputRow}>
+                                <View style={styles.errorContainer}>
+                                    {errors.password ? (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            {errors.password}
+                                        </Animated.Text>
+                                    ) : null}
+                                </View>
+                                <View style={styles.errorContainer}>
+                                    {errors.confirmPassword ? (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            {errors.confirmPassword}
+                                        </Animated.Text>
+                                    ) : null}
+                                </View>
+                            </View>
                         </Animated.View>
 
                         <Animated.View
@@ -294,7 +299,7 @@ export default function ResetPasswordScreen({ route }) {
                                         <ActivityIndicator size="small" color="#fff" />
                                     ) : (
                                         <>
-                                            <Text style={styles.submitText}>Đặt lại mật khẩu</Text>
+                                            <Text style={styles.submitText}>Cập nhật mật khẩu</Text>
                                             <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.arrowIcon} />
                                         </>
                                     )}
@@ -302,10 +307,10 @@ export default function ResetPasswordScreen({ route }) {
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={styles.loginLink}
+                                style={styles.backLink}
                                 onPress={() => navigation.navigate('Login')}
                             >
-                                <Text style={styles.loginLinkText}>Quay lại đăng nhập</Text>
+                                <Text style={styles.backLinkText}>Quay lại đăng nhập</Text>
                             </TouchableOpacity>
                         </Animated.View>
                     </ScrollView>
@@ -322,29 +327,40 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: "#fff",
     },
     scrollContainer: {
         flexGrow: 1,
     },
     backgroundContainer: {
         width: '100%',
-        height: height * 0.35,
+        height: height * 0.28,
     },
     headerBackground: {
         width: '100%',
         height: '100%',
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
     },
     headerContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        height: '60%',
+        flex: 1,
+    },
+    wavyBackground: {
+        position: 'absolute',
+        bottom: -20,
+        left: 0,
+        right: 0,
+        height: 50,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
     },
     logoContainer: {
-        width: 110,
-        height: 110,
-        borderRadius: 55,
-        backgroundColor: 'white',
+        width: Math.min(width * 0.32, 140),
+        height: Math.min(width * 0.32, 140),
+        borderRadius: Math.min(width * 0.16, 70),
+        backgroundColor: 'rgba(255,255,255,0.9)',
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: "#000",
@@ -353,73 +369,78 @@ const styles = StyleSheet.create({
             height: 4,
         },
         shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 8,
+        shadowRadius: 6,
+        elevation: 10,
     },
     image: {
-        width: 90,
-        height: 90,
+        width: Math.min(width * 0.24, 110),
+        height: Math.min(width * 0.24, 110),
         resizeMode: 'contain',
     },
-    wavyBackground: {
-        position: 'absolute',
-        bottom: -1,
-        left: 0,
-        right: 0,
-        height: 80,
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 40,
-        borderTopRightRadius: 40,
-    },
     formContainer: {
-        paddingHorizontal: 30,
+        width: "100%",
+        paddingHorizontal: width * 0.06,
+        backgroundColor: '#fff',
     },
     titleContainer: {
-        marginBottom: 25,
-        alignItems: 'center',
+        marginBottom: 20,
     },
     titleText: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: Math.max(22, scale * 24),
+        fontWeight: "700",
         color: colors.textPrimary,
-        marginBottom: 10,
+        marginBottom: 5,
     },
     subtitleText: {
-        fontSize: 15,
+        fontSize: Math.max(14, scale * 15),
         color: colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
     },
     apiErrorContainer: {
+        backgroundColor: "#FFEBEE",
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 15,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFEBEE',
-        borderRadius: 10,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        marginBottom: 20,
     },
     errorIcon: {
         marginRight: 10,
     },
     apiErrorText: {
-        color: '#D32F2F',
-        flex: 1,
+        color: "#D32F2F",
         fontSize: 14,
+        flex: 1,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+    },
+    inputBoxHalf: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E0E0E0",
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        marginBottom: 10,
+        backgroundColor: "#FAFAFA",
+        width: '48.5%',  // Slightly adjusted width
     },
     inputBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         borderWidth: 1,
-        borderColor: '#E0E0E0',
-        borderRadius: 15,
+        borderColor: "#E0E0E0",
+        borderRadius: 16,
         paddingHorizontal: 15,
-        marginBottom: 20,
-        height: 60,
-        backgroundColor: '#F9F9F9',
+        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        marginBottom: 10,
+        backgroundColor: "#FAFAFA",
     },
     inputBoxError: {
-        borderColor: colors.error,
+        borderColor: "#F44336",
         borderWidth: 1.5,
     },
     icon: {
@@ -427,71 +448,72 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        height: '100%',
-        fontSize: 16,
+        height: 25,
+        fontSize: Math.max(15, scale * 15),
         color: colors.textPrimary,
     },
     eyeIcon: {
-        padding: 8,
+        padding: 5,
     },
     errorContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: -15,
-        marginBottom: 20,
-        paddingLeft: 5,
+        marginBottom: 10,
+        width: '48.5%',
     },
     errorText: {
-        color: colors.error,
-        fontSize: 14,
+        color: "#F44336",
+        fontSize: 12,
         marginLeft: 5,
+        flex: 1,
     },
     buttonsContainer: {
-        paddingHorizontal: 30,
-        marginTop: 10,
+        width: "100%",
+        paddingHorizontal: width * 0.06,
+        marginTop: 20,
+        marginBottom: 30,
     },
     submitButton: {
-        borderRadius: 15,
-        overflow: 'hidden',
-        ...Platform.select({
-            ios: {
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.2,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 4,
-            },
-        }),
+        width: "100%",
+        height: Math.max(55, scale * 55),
+        borderRadius: 16,
+        overflow: "hidden",
+        marginVertical: 15,
+        shadowColor: colors.primary,
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 8,
+    },
+    gradient: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        flexDirection: 'row',
+    },
+    submitText: {
+        color: "white",
+        fontSize: Math.max(18, scale * 18),
+        fontWeight: "600",
+        marginRight: 8,
+    },
+    arrowIcon: {
+        marginLeft: 5,
     },
     disabledButton: {
         opacity: 0.7,
     },
-    gradient: {
-        flexDirection: 'row',
-        height: 58,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    submitText: {
-        color: '#fff',
-        fontSize: 17,
-        fontWeight: '600',
-    },
-    arrowIcon: {
-        marginLeft: 10,
-    },
-    loginLink: {
+    backLink: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 25,
-        padding: 15,
+        paddingVertical: 15,
     },
-    loginLinkText: {
-        color: colors.primary,
-        fontSize: 16,
-        fontWeight: '600',
+    backLinkText: {
+        color: colors.textSecondary,
+        fontSize: Math.max(16, scale * 16),
+        fontWeight: "500",
     },
 }); 

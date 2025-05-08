@@ -129,11 +129,31 @@ const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => {
                     <View style={styles.actionsContainer}>
                         {item.status === 3 && (
                             <TouchableOpacity
-                                style={[styles.actionButton, styles.reviewButton]}
-                                onPress={() => navigation.navigate('Review', { bookingId: item.bookingID, homeStayID: item.homeStayID })}
+                                style={[styles.actionButton, styles.reviewButton, item.isRating && styles.editReviewButton]}
+                                onPress={() => {
+                                    if (item.isRating) {
+                                        navigation.navigate('WriteReview', { 
+                                            bookingId: item.bookingID, 
+                                            homeStayID: item.homeStayID,
+                                            isEditing: true,
+                                            ratingID: item.ratingID
+                                        });
+                                    } else {
+                                        navigation.navigate('Review', { 
+                                            bookingId: item.bookingID, 
+                                            homeStayID: item.homeStayID 
+                                        });
+                                    }
+                                }}
                             >
-                                <Ionicons name="star-outline" size={16} color="#fff" />
-                                <Text style={styles.actionButtonText}>Đánh giá</Text>
+                                <Ionicons 
+                                    name={item.isRating ? "create-outline" : "star-outline"} 
+                                    size={16} 
+                                    color="#fff" 
+                                />
+                                <Text style={styles.actionButtonText}>
+                                    {item.isRating ? 'Sửa đánh giá' : 'Đánh giá'}
+                                </Text>
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity
@@ -151,7 +171,8 @@ const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => {
     return (
         prevProps.item.bookingID === nextProps.item.bookingID &&
         prevProps.item.status === nextProps.item.status &&
-        prevProps.item.total === nextProps.item.total
+        prevProps.item.total === nextProps.item.total &&
+        prevProps.item.isRating === nextProps.item.isRating
     );
 });
 
@@ -681,7 +702,11 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     reviewButton: {
-        backgroundColor: '#FFC107',
+        backgroundColor: colors.secondary,
+        marginRight: 8,
+    },
+    editReviewButton: {
+        backgroundColor: '#FF9800',
     },
     detailButton: {
         backgroundColor: colors.secondary,

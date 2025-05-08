@@ -160,80 +160,103 @@ export default function RegisterScreen() {
                                 </Animated.View>
                             ) : null}
 
-                            <View style={[styles.inputBox, errors.username && styles.errorBorder]}>
-                                <Ionicons name="person-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Tên đăng nhập"
-                                    value={username.trim()}
-                                    onChangeText={setUsername}
-                                    keyboardType="default"
-                                    autoCapitalize="none"
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
-                            </View>
-                            {errors.username && (
-                                <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
-                                    Tên đăng nhập không được để trống
-                                </Animated.Text>
-                            )}
+                            {/* Username and Name Row */}
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputBoxHalf, errors.username && styles.errorBorder]}>
+                                    <Ionicons name="person-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Tên đăng nhập"
+                                        value={username.trim()}
+                                        onChangeText={setUsername}
+                                        keyboardType="default"
+                                        autoCapitalize="none"
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
+                                    />
+                                </View>
 
-                            <View style={[styles.inputBox, errors.name && styles.errorBorder]}>
-                                <Ionicons name="person-circle-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Họ và tên"
-                                    value={name}
-                                    onChangeText={setName}
-                                    keyboardType="default"
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
+                                <View style={[styles.inputBoxHalf, errors.name && styles.errorBorder]}>
+                                    <Ionicons name="person-circle-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Họ và tên"
+                                        value={name}
+                                        onChangeText={setName}
+                                        keyboardType="default"
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
+                                    />
+                                </View>
                             </View>
-                            {errors.name && (
-                                <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
-                                    Họ và tên không được để trống
-                                </Animated.Text>
-                            )}
-
-                            <View style={[styles.inputBox, errors.email && styles.errorBorder]}>
-                                <Ionicons name="mail-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Email"
-                                    value={email.trim()}
-                                    onChangeText={setEmail}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
+                            
+                            {/* Errors for Username and Name */}
+                            <View style={styles.inputRow}>
+                                <View style={styles.errorContainer}>
+                                    {errors.username && (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            Tên đăng nhập không được để trống
+                                        </Animated.Text>
+                                    )}
+                                </View>
+                                <View style={styles.errorContainer}>
+                                    {errors.name && (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            Họ và tên không được để trống
+                                        </Animated.Text>
+                                    )}
+                                </View>
                             </View>
-                            {errors.email && (
-                                <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
-                                    Email không hợp lệ
-                                </Animated.Text>
-                            )}
 
-                            <View style={[styles.inputBox, errors.phone && styles.errorBorder]}>
-                                <Ionicons name="call-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Số điện thoại"
-                                    value={phone.trim()}
-                                    onChangeText={setPhone}
-                                    keyboardType="phone-pad"
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
+                            {/* Email and Phone Row */}
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputBoxHalf, errors.email && styles.errorBorder]}>
+                                    <Ionicons name="mail-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Email"
+                                        value={email.trim()}
+                                        onChangeText={setEmail}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
+                                    />
+                                </View>
+
+                                <View style={[styles.inputBoxHalf, errors.phone && styles.errorBorder]}>
+                                    <Ionicons name="call-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Số điện thoại"
+                                        value={phone.trim()}
+                                        onChangeText={setPhone}
+                                        keyboardType="phone-pad"
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
+                                    />
+                                </View>
                             </View>
-                            {errors.phone && (
-                                <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
-                                    Số điện thoại không hợp lệ (10-11 số)
-                                </Animated.Text>
-                            )}
+                            
+                            {/* Errors for Email and Phone */}
+                            <View style={styles.inputRow}>
+                                <View style={styles.errorContainer}>
+                                    {errors.email && (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            Email không hợp lệ
+                                        </Animated.Text>
+                                    )}
+                                </View>
+                                <View style={styles.errorContainer}>
+                                    {errors.phone && (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            Số điện thoại không hợp lệ (10-11 số)
+                                        </Animated.Text>
+                                    )}
+                                </View>
+                            </View>
 
+                            {/* Address */}
                             <View style={[styles.inputBox, errors.address && styles.errorBorder]}>
                                 <Ionicons name="location-outline" size={22} color={colors.textSecondary} style={styles.icon} />
                                 <TextInput
@@ -252,47 +275,58 @@ export default function RegisterScreen() {
                                 </Animated.Text>
                             )}
 
-                            <View style={[styles.inputBox, errors.password && styles.errorBorder]}>
-                                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Mật khẩu"
-                                    value={password.trim()}
-                                    onChangeText={setPassword}
-                                    secureTextEntry={secureText}
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
-                                <TouchableOpacity onPress={() => setSecureText(!secureText)} style={styles.eyeIcon} disabled={isLoading}>
-                                    <Ionicons name={secureText ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSecondary} />
-                                </TouchableOpacity>
-                            </View>
-                            {errors.password && (
-                                <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
-                                    Mật khẩu phải có ít nhất 8 ký tự, 1 số và 1 ký tự đặc biệt
-                                </Animated.Text>
-                            )}
+                            {/* Password and Confirm Password Row */}
+                            <View style={styles.inputRow}>
+                                <View style={[styles.inputBoxHalf, errors.password && styles.errorBorder]}>
+                                    <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Mật khẩu"
+                                        value={password.trim()}
+                                        onChangeText={setPassword}
+                                        secureTextEntry={secureText}
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
+                                    />
+                                    <TouchableOpacity onPress={() => setSecureText(!secureText)} style={styles.eyeIcon} disabled={isLoading}>
+                                        <Ionicons name={secureText ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
 
-                            <View style={[styles.inputBox, errors.confirmPassword && styles.errorBorder]}>
-                                <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Xác nhận mật khẩu"
-                                    value={confirmPassword.trim()}
-                                    onChangeText={setConfirmPassword}
-                                    secureTextEntry={secureTextConfirm}
-                                    editable={!isLoading}
-                                    placeholderTextColor="#9E9E9E"
-                                />
-                                <TouchableOpacity onPress={() => setSecureTextConfirm(!secureTextConfirm)} style={styles.eyeIcon} disabled={isLoading}>
-                                    <Ionicons name={secureTextConfirm ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSecondary} />
-                                </TouchableOpacity>
+                                <View style={[styles.inputBoxHalf, errors.confirmPassword && styles.errorBorder]}>
+                                    <Ionicons name="lock-closed-outline" size={22} color={colors.textSecondary} style={styles.icon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Xác nhận mật khẩu"
+                                        value={confirmPassword.trim()}
+                                        onChangeText={setConfirmPassword}
+                                        secureTextEntry={secureTextConfirm}
+                                        editable={!isLoading}
+                                        placeholderTextColor="#9E9E9E"
+                                    />
+                                    <TouchableOpacity onPress={() => setSecureTextConfirm(!secureTextConfirm)} style={styles.eyeIcon} disabled={isLoading}>
+                                        <Ionicons name={secureTextConfirm ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            {errors.confirmPassword && (
-                                <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
-                                    Mật khẩu không khớp
-                                </Animated.Text>
-                            )}
+                            
+                            {/* Errors for Password and Confirm Password */}
+                            <View style={styles.inputRow}>
+                                <View style={styles.errorContainer}>
+                                    {errors.password && (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            Mật khẩu phải có ít nhất 8 ký tự, 1 số và 1 ký tự đặc biệt
+                                        </Animated.Text>
+                                    )}
+                                </View>
+                                <View style={styles.errorContainer}>
+                                    {errors.confirmPassword && (
+                                        <Animated.Text entering={FadeIn.duration(300)} style={styles.errorText}>
+                                            Mật khẩu không khớp
+                                        </Animated.Text>
+                                    )}
+                                </View>
+                            </View>
 
                             <TouchableOpacity
                                 style={styles.termsContainer}
@@ -444,6 +478,27 @@ const styles = StyleSheet.create({
         color: "#D32F2F",
         fontSize: 14,
         flex: 1,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+    },
+    inputBoxHalf: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E0E0E0",
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        marginBottom: 10,
+        backgroundColor: "#FAFAFA",
+        width: '48.5%',  // Slightly adjusted width
+    },
+    errorContainer: {
+        width: '48.5%',
+        paddingRight: 5,
     },
     inputBox: {
         flexDirection: "row",
