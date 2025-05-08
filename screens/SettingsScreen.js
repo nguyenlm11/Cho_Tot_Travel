@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import authApi from '../services/api/authApi';
 import { useUser } from '../contexts/UserContext';
@@ -12,8 +12,6 @@ import { useUser } from '../contexts/UserContext';
 export default function SettingsScreen() {
     const navigation = useNavigation();
     const { userData, refreshUserData } = useUser();
-
-    // State management
     const [isLoading, setIsLoading] = useState(false);
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
@@ -271,7 +269,7 @@ const styles = StyleSheet.create({
         borderBottomLeftRadius: 30,
         borderBottomRightRadius: 30,
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
     },
     headerTitle: {

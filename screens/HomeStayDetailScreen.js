@@ -267,6 +267,32 @@ export default function HomestayDetailScreen() {
       });
 
       if (response.data?.data?.conversationID) {
+        // Lưu thông tin cuộc trò chuyện mới tạm thời, để có thể hiển thị khi quay lại màn hình chat
+        try {
+          const existingConvsString = await AsyncStorage.getItem('recent_conversations');
+          const existingConvs = existingConvsString ? JSON.parse(existingConvsString) : [];
+          
+          // Thêm cuộc trò chuyện mới vào danh sách
+          const newConv = {
+            conversationID: response.data.data.conversationID,
+            homeStayID: homestayId,
+            homeStayName: homestay.name,
+            staff: {
+              staffIdAccount: homestay.staffID,
+              staffName: homestay.staffName || "Nhân viên"
+            },
+            lastMessage: null
+          };
+          
+          const updatedConvs = [newConv, ...existingConvs.filter(c => 
+            c.conversationID !== response.data.data.conversationID
+          )];
+          
+          await AsyncStorage.setItem('recent_conversations', JSON.stringify(updatedConvs));
+        } catch (err) {
+          console.log('Error saving recent conversation:', err);
+        }
+        
         navigation.navigate('ChatDetail', {
           conversationId: response.data.data.conversationID,
           receiverId: homestay.staffID,

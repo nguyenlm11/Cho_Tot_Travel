@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, SafeAreaView, Image, Alert, Modal, Dimensions, ScrollView, Animated, StatusBar } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/Colors';
@@ -6,6 +6,8 @@ import chatApi from '../services/api/chatApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import signalRService from '../services/signalRService';
+import { LinearGradient } from 'expo-linear-gradient';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function ChatDetailScreen({ route, navigation }) {
   const { conversationId, receiverId, homeStayId, homeStayName } = route.params;
@@ -54,7 +56,6 @@ export default function ChatDetailScreen({ route, navigation }) {
           await signalRService.startConnection(token);
           setConnected(signalRService.isConnected());
           messageUnsubscribe = signalRService.onMessageReceived(handleNewMessage);
-          // markMessagesAsRead();
         }
       } catch (error) {
         console.error('Lỗi khi thiết lập SignalR:', error);
@@ -101,7 +102,6 @@ export default function ChatDetailScreen({ route, navigation }) {
           flatListRef.current?.scrollToEnd({ animated: true });
           animateNewMessage(newIndex);
         }, 100);
-        // markMessagesAsRead();
       }
     }
   };
@@ -118,12 +118,38 @@ export default function ChatDetailScreen({ route, navigation }) {
       const data = await chatApi.getMessages(conversationId);
       const sortedMessages = data.sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
       setMessages(sortedMessages);
+      
+      markMessagesAsRead();
     } catch (err) {
       setError(err.message || 'Không thể tải tin nhắn');
     } finally {
       setLoading(false);
     }
   };
+
+  const markMessagesAsRead = useCallback(async () => {
+    if (!userId || !conversationId) return;
+    
+    try {
+      if (homeStayId) {
+        await chatApi.markAsReadWithHomeStayId(homeStayId);
+      } else {
+        await chatApi.markAsRead(conversationId);
+      }
+      
+      if (signalRService.isConnected()) {
+        await signalRService.markMessagesAsRead(conversationId, userId);
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  }, [userId, conversationId, homeStayId]);
+
+  useEffect(() => {
+    if (userId && conversationId) {
+      markMessagesAsRead();
+    }
+  }, [userId, conversationId, markMessagesAsRead]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -177,7 +203,70 @@ export default function ChatDetailScreen({ route, navigation }) {
       const user = JSON.parse(userString);
       const userID = user?.userId || user?.AccountID;
       const senderName = user.accountName || user.userName || 'Customer';
-      await chatApi.sendMessageMultipart(
+      
+      if (!receiverId) {
+        throw new Error('ReceiverID không hợp lệ');
+      }
+      
+      if (!homeStayId) {
+        try {
+          const conversationsString = await AsyncStorage.getItem('recent_conversations');
+          const conversations = conversationsString ? JSON.parse(conversationsString) : [];
+          const currentConv = conversations.find(conv => conv.conversationID === conversationId);
+          
+          if (currentConv && currentConv.homeStayID) {
+            const retrievedHomeStayId = currentConv.homeStayID;
+            
+            const response = await chatApi.sendMessageMultipart(
+              receiverId,
+              senderName,
+              userID,
+              retrievedHomeStayId,
+              messageText,
+              imagesToSend
+            );
+            
+            if (response && response.messageID) {
+              try {
+                const lastMessage = {
+                  messageID: response.messageID,
+                  senderID: userID,
+                  senderName: senderName,
+                  receiverID: receiverId,
+                  content: messageText || (imagesToSend.length > 0 ? "[Hình ảnh]" : ""),
+                  sentAt: new Date().toISOString(),
+                  isRead: false
+                };
+                
+                const recentConvsString = await AsyncStorage.getItem('recent_conversations');
+                let recentConvs = recentConvsString ? JSON.parse(recentConvsString) : [];
+                
+                const existingIndex = recentConvs.findIndex(conv => 
+                  conv.conversationID === conversationId
+                );
+                
+                if (existingIndex !== -1) {
+                  recentConvs[existingIndex].lastMessage = lastMessage;
+                  const updatedConv = recentConvs.splice(existingIndex, 1)[0];
+                  recentConvs = [updatedConv, ...recentConvs];
+                }
+                
+                await AsyncStorage.setItem('recent_conversations', JSON.stringify(recentConvs));
+              } catch (err) {
+                console.log('Error updating last message in AsyncStorage:', err);
+              }
+            }
+            
+            return;
+          }
+        } catch (err) {
+          console.log('Error retrieving homeStayId from AsyncStorage:', err);
+        }
+        
+        throw new Error('HomeStayID không hợp lệ');
+      }
+      
+      const response = await chatApi.sendMessageMultipart(
         receiverId,
         senderName,
         userID,
@@ -185,8 +274,40 @@ export default function ChatDetailScreen({ route, navigation }) {
         messageText,
         imagesToSend
       );
+      
+      if (response && response.messageID) {
+        try {
+          const lastMessage = {
+            messageID: response.messageID,
+            senderID: userID,
+            senderName: senderName,
+            receiverID: receiverId,
+            content: messageText || (imagesToSend.length > 0 ? "[Hình ảnh]" : ""),
+            sentAt: new Date().toISOString(),
+            isRead: false
+          };
+          
+          const recentConvsString = await AsyncStorage.getItem('recent_conversations');
+          let recentConvs = recentConvsString ? JSON.parse(recentConvsString) : [];
+          
+          const existingIndex = recentConvs.findIndex(conv => 
+            conv.conversationID === conversationId
+          );
+          
+          if (existingIndex !== -1) {
+            recentConvs[existingIndex].lastMessage = lastMessage;
+            const updatedConv = recentConvs.splice(existingIndex, 1)[0];
+            recentConvs = [updatedConv, ...recentConvs];
+          }
+          
+          await AsyncStorage.setItem('recent_conversations', JSON.stringify(recentConvs));
+        } catch (err) {
+          console.log('Error updating last message in AsyncStorage:', err);
+        }
+      }
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể gửi tin nhắn. Vui lòng thử lại sau.');
+      console.error('Send message error:', error);
+      Alert.alert('Lỗi', error.message || 'Không thể gửi tin nhắn. Vui lòng thử lại sau.');
     } finally {
       setSending(false);
     }
@@ -210,7 +331,10 @@ export default function ChatDetailScreen({ route, navigation }) {
   };
 
   const renderHeader = () => (
-    <View style={styles.customHeader}>
+    <LinearGradient
+      colors={[colors.primary, colors.secondary]}
+      style={styles.header}
+    >
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <View style={styles.headerContent}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -220,9 +344,12 @@ export default function ChatDetailScreen({ route, navigation }) {
           <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
             {homeStayName || 'Trò chuyện'}
           </Text>
+          <Text style={styles.headerSubtitle}>
+            {connected ? 'Đang hoạt động' : 'Đang kết nối...'}
+          </Text>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 
   const renderMessageItem = ({ item, index }) => {
@@ -237,6 +364,7 @@ export default function ChatDetailScreen({ route, navigation }) {
     if (item.images && Array.isArray(item.images) && item.images.length > 0) {
       imageURLs = [...imageURLs, ...item.images];
     }
+    
     return (
       <>
         {showDate && (
@@ -244,32 +372,60 @@ export default function ChatDetailScreen({ route, navigation }) {
             <Text style={styles.dateText}>{formatDate(item.sentAt)}</Text>
           </View>
         )}
-        <View style={[styles.messageRow, isOwnMessage ? styles.ownMessageRow : styles.otherMessageRow]}>
+        <Animated.View style={[styles.messageRow, isOwnMessage ? styles.ownMessageRow : styles.otherMessageRow]}>
           {!isOwnMessage && (
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>
-                {homeStayName?.charAt(0)?.toUpperCase() || '?'}
-              </Text>
+            <View style={styles.avatarWrapper}>
+              <LinearGradient
+                colors={['#70A1FF', '#1E90FF']}
+                style={styles.avatar}
+              >
+                <Text style={styles.avatarText}>
+                  {homeStayName?.charAt(0)?.toUpperCase() || '?'}
+                </Text>
+              </LinearGradient>
             </View>
           )}
-          <View style={[styles.messageBubble, isOwnMessage ? styles.ownMessageBubble : styles.otherMessageBubble]}>
-            {messageContent ? (
-              <Text style={[styles.messageText, isOwnMessage && styles.ownMessageText]}>{messageContent}</Text>
-            ) : null}
-            {imageURLs.length > 0 && (
-              <View style={styles.imageContainer}>
-                {imageURLs.map((url, imgIndex) => (
-                  <TouchableOpacity key={`img-${imgIndex}-${item.messageID}`} onPress={() => setViewImage(url)} activeOpacity={0.9}>
-                    <Image source={{ uri: url }} style={styles.messageImage} resizeMode="cover" />
-                  </TouchableOpacity>
-                ))}
+          {isOwnMessage ? (
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              style={[styles.messageBubble, styles.ownMessageBubble]}
+            >
+              {messageContent ? (
+                <Text style={[styles.messageText, styles.ownMessageText]}>{messageContent}</Text>
+              ) : null}
+              {imageURLs.length > 0 && (
+                <View style={styles.imageContainer}>
+                  {imageURLs.map((url, imgIndex) => (
+                    <TouchableOpacity key={`img-${imgIndex}-${item.messageID}`} onPress={() => setViewImage(url)} activeOpacity={0.9}>
+                      <Image source={{ uri: url }} style={styles.messageImage} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <View style={styles.messageFooter}>
+                <Text style={[styles.messageTime, styles.ownMessageTime]}>{formatTime(item.sentAt)}</Text>
               </View>
-            )}
-            <View style={styles.messageFooter}>
-              <Text style={[styles.messageTime, isOwnMessage && styles.ownMessageTime]}>{formatTime(item.sentAt)}</Text>
+            </LinearGradient>
+          ) : (
+            <View style={[styles.messageBubble, styles.otherMessageBubble]}>
+              {messageContent ? (
+                <Text style={styles.messageText}>{messageContent}</Text>
+              ) : null}
+              {imageURLs.length > 0 && (
+                <View style={styles.imageContainer}>
+                  {imageURLs.map((url, imgIndex) => (
+                    <TouchableOpacity key={`img-${imgIndex}-${item.messageID}`} onPress={() => setViewImage(url)} activeOpacity={0.9}>
+                      <Image source={{ uri: url }} style={styles.messageImage} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <View style={styles.messageFooter}>
+                <Text style={styles.messageTime}>{formatTime(item.sentAt)}</Text>
+              </View>
             </View>
-          </View>
-        </View>
+          )}
+        </Animated.View>
       </>
     );
   };
@@ -292,13 +448,14 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       {renderHeader()}
       <View style={styles.mainContainer}>
         {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Đang tải tin nhắn...</Text>
-          </View>
+          <LoadingScreen 
+            message="Đang tải tin nhắn..." 
+            subMessage="Vui lòng đợi trong giây lát" 
+          />
         ) : error ? (
           <View style={styles.centered}>
             <Icon name="alert-circle-outline" size={70} color="#dc3545" />
@@ -392,7 +549,7 @@ export default function ChatDetailScreen({ route, navigation }) {
                   value={inputText}
                   onChangeText={setInputText}
                   placeholder="Nhập tin nhắn..."
-                  placeholderTextColor="#6c757d"
+                  placeholderTextColor="#8E8E93"
                   multiline
                   maxLength={500}
                 />
@@ -408,7 +565,16 @@ export default function ChatDetailScreen({ route, navigation }) {
                   {sending ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Icon name="send" size={22} color={(inputText.trim() || selectedImages.length > 0) ? '#fff' : '#ccc'} />
+                    (!inputText.trim() && selectedImages.length === 0) ? (
+                      <Icon name="send" size={22} color="#CCCCCC" />
+                    ) : (
+                      <LinearGradient
+                        colors={[colors.primary, colors.secondary]}
+                        style={styles.sendButtonGradient}
+                      >
+                        <Icon name="send" size={22} color="#FFFFFF" />
+                      </LinearGradient>
+                    )
                   )}
                 </TouchableOpacity>
               </View>
@@ -460,36 +626,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  customHeader: {
-    backgroundColor: colors.primary,
-    borderBottomWidth: 0,
+  header: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    flexDirection: 'column',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 10,
     elevation: 5,
     zIndex: 10,
   },
   headerContent: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight + 12,
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
-    marginRight: 6,
+    marginRight: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   headerInfo: {
     flex: 1,
-    marginLeft: 6,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 4,
   },
   messageList: {
     paddingHorizontal: 16,
@@ -566,14 +740,14 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 14,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
+    borderTopColor: 'rgba(0,0,0,0.05)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowRadius: 5,
     elevation: 3,
     position: 'relative',
     zIndex: 1,
@@ -583,35 +757,37 @@ const styles = StyleSheet.create({
     minHeight: 45,
     maxHeight: 120,
     borderWidth: 1,
-    borderColor: '#dee2e6',
+    borderColor: '#E5E5EA',
     borderRadius: 25,
     paddingHorizontal: 18,
     paddingVertical: 10,
     marginHorizontal: 10,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F8F9FA',
     fontSize: 16,
+    color: '#1C1C1E',
   },
   sendButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   disabledSendButton: {
-    backgroundColor: '#e9ecef',
+    backgroundColor: '#E5E5EA',
   },
   attachButton: {
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    marginRight: 5,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
   },
   selectedImagesContainer: {
     padding: 12,
@@ -727,21 +903,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
-  avatarContainer: {
+  avatarWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primaryLight || '#e9f7ef',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#e9ecef'
   },
   avatarText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#495057'
+    color: '#fff',
   },
   imageContainer: {
     flexDirection: 'column',
@@ -754,5 +930,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
     backgroundColor: '#f8f9fa'
+  },
+  sendButtonGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
