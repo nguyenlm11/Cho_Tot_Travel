@@ -47,30 +47,22 @@ export default function ChatDetailScreen({ route, navigation }) {
   }, []);
 
   useEffect(() => {
-    let messageUnsubscribe = () => { };
-    let statusUnsubscribe = () => { };
     const setupSignalR = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
         if (token) {
           await signalRService.startConnection(token);
+          const unsubscribe = signalRService.onMessageReceived(handleNewMessage);
           setConnected(signalRService.isConnected());
-          messageUnsubscribe = signalRService.onMessageReceived(handleNewMessage);
+          return () => unsubscribe();
         }
       } catch (error) {
-        console.error('Lỗi khi thiết lập SignalR:', error);
+        console.error('Error setting up SignalR:', error);
       }
     };
+
     setupSignalR();
-    return () => {
-      try {
-        messageUnsubscribe();
-        statusUnsubscribe();
-      } catch (error) {
-        console.error('Lỗi khi dọn dẹp SignalR callbacks:', error);
-      }
-    };
-  }, [conversationId]);
+  }, []);
 
   useEffect(() => {
     if (userId && conversationId) {
@@ -97,7 +89,19 @@ export default function ChatDetailScreen({ route, navigation }) {
       const existingMessage = messages.find(m => m.messageID === message.messageID);
       if (!existingMessage) {
         const newIndex = messages.length;
-        setMessages(prevMessages => [...prevMessages, message]);
+        // Create new message with available data
+        const newMessage = {
+          ...message,
+          senderID: message.senderID,
+          senderName: message.senderID === userId ? 'You' : homeStayName || 'Homestay',
+          receiverID: message.senderID === userId ? receiverId : userId,
+          content: message.content || '',
+          sentAt: message.sentAt || new Date().toISOString(),
+          isRead: false,
+          images: []
+        };
+
+        setMessages(prevMessages => [...prevMessages, newMessage]);
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
           animateNewMessage(newIndex);
@@ -207,6 +211,24 @@ export default function ChatDetailScreen({ route, navigation }) {
       if (!receiverId) {
         throw new Error('ReceiverID không hợp lệ');
       }
+
+      // Create temporary message object
+      const tempMessage = {
+        messageID: Date.now().toString(), // Temporary ID
+        senderID: userID,
+        senderName: senderName,
+        receiverID: receiverId,
+        content: messageText || (imagesToSend.length > 0 ? "[Hình ảnh]" : ""),
+        sentAt: new Date().toISOString(),
+        isRead: false,
+        images: imagesToSend
+      };
+
+      // Add message to state immediately
+      setMessages(prevMessages => [...prevMessages, tempMessage]);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
       
       if (!homeStayId) {
         try {
@@ -227,6 +249,15 @@ export default function ChatDetailScreen({ route, navigation }) {
             );
             
             if (response && response.messageID) {
+              // Update message with real ID from server
+              setMessages(prevMessages => 
+                prevMessages.map(msg => 
+                  msg.messageID === tempMessage.messageID 
+                    ? { ...msg, messageID: response.messageID }
+                    : msg
+                )
+              );
+
               try {
                 const lastMessage = {
                   messageID: response.messageID,
@@ -276,6 +307,15 @@ export default function ChatDetailScreen({ route, navigation }) {
       );
       
       if (response && response.messageID) {
+        // Update message with real ID from server
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.messageID === tempMessage.messageID 
+              ? { ...msg, messageID: response.messageID }
+              : msg
+          )
+        );
+
         try {
           const lastMessage = {
             messageID: response.messageID,
@@ -308,6 +348,10 @@ export default function ChatDetailScreen({ route, navigation }) {
     } catch (error) {
       console.error('Send message error:', error);
       Alert.alert('Lỗi', error.message || 'Không thể gửi tin nhắn. Vui lòng thử lại sau.');
+      // Remove temporary message if send fails
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.messageID !== tempMessage.messageID)
+      );
     } finally {
       setSending(false);
     }
