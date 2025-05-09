@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ScrollView, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,8 @@ import bookingApi from '../services/api/bookingApi';
 import moment from 'moment';
 import QRCodeModal from '../components/Modal/QRCodeModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import debounce from 'lodash/debounce';
+import LoadingScreen from '../components/LoadingScreen';
 moment.locale('vi');
 
 const STATUS_MAPPING = {
@@ -199,67 +201,75 @@ export default function BookingListScreen() {
     const { userData } = useUser();
     const [filterStatus, setFilterStatus] = useState(null);
     const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState({
-        initial: true,
-        refresh: false,
-        filter: false
-    });
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedBookingId, setSelectedBookingId] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [lastFetchTime, setLastFetchTime] = useState(0);
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const ITEMS_PER_PAGE = 10;
 
-    const fetchBookings = useCallback(async (forceRefresh = false) => {
+    const fetchBookings = useCallback(async (forceRefresh = false, pageNum = 1) => {
         if (!userData?.userID) {
-            setLoading(prev => ({ ...prev, initial: false }));
+            setIsLoading(false);
             setBookings([]);
             return;
         }
 
         try {
-            setLoading(prev => ({ ...prev, initial: true }));
+            if (pageNum === 1) {
+                setIsLoading(true);
+            }
 
             const now = Date.now();
             const timeSinceLastFetch = now - lastFetchTime;
             const shouldUseCache = !forceRefresh && timeSinceLastFetch < CACHE_DURATION;
-            if (shouldUseCache) {
+
+            if (shouldUseCache && pageNum === 1) {
                 const cached = await AsyncStorage.getItem(`bookings_${userData.userID}`);
                 if (cached) {
                     const { data, timestamp } = JSON.parse(cached);
                     if (now - timestamp < CACHE_DURATION) {
                         setBookings(data);
-                        setLoading(prev => ({ ...prev, initial: false }));
+                        setIsLoading(false);
                         return;
                     }
                 }
             }
 
-            const result = await bookingApi.getBookingsByAccountID(userData.userID);
-            // console.log(result);
+            const result = await bookingApi.getBookingsByAccountID(userData.userID, pageNum, ITEMS_PER_PAGE);
+            
             if (result?.success && Array.isArray(result.data)) {
                 const sortedBookings = result.data.sort((a, b) =>
                     new Date(b.bookingDate) - new Date(a.bookingDate)
                 );
 
                 setBookings(prevBookings => {
-                    const newBookings = [...sortedBookings];
-                    AsyncStorage.setItem(`bookings_${userData.userID}`, JSON.stringify({
-                        data: newBookings,
-                        timestamp: now
-                    })).catch(console.error);
+                    const newBookings = pageNum === 1 ? sortedBookings : [...prevBookings, ...sortedBookings];
+                    if (pageNum === 1) {
+                        AsyncStorage.setItem(`bookings_${userData.userID}`, JSON.stringify({
+                            data: newBookings,
+                            timestamp: now
+                        })).catch(console.error);
+                    }
                     return newBookings;
                 });
+
+                setHasMore(result.data.length === ITEMS_PER_PAGE);
                 setLastFetchTime(now);
             } else {
-                setBookings([]);
+                if (pageNum === 1) {
+                    setBookings([]);
+                }
                 setError('Dữ liệu đặt phòng không hợp lệ');
             }
         } catch (error) {
             console.error('Lỗi khi tải danh sách đặt phòng:', error);
             setError('Không thể tải danh sách đặt phòng');
         } finally {
-            setLoading(prev => ({ ...prev, initial: false }));
+            setIsLoading(false);
         }
     }, [userData?.userID, lastFetchTime]);
 
@@ -271,18 +281,48 @@ export default function BookingListScreen() {
     // Thêm useEffect để fetch data khi screen được focus
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
-            // Kiểm tra thời gian từ lần fetch cuối cùng
             const now = Date.now();
             const timeSinceLastFetch = now - lastFetchTime;
-
-            // Nếu đã quá 30 giây kể từ lần fetch cuối cùng, fetch lại data
-            if (timeSinceLastFetch > 30000) {
+            if (timeSinceLastFetch > 30000) { // 30 giây
                 fetchBookings(true);
             }
         });
 
         return unsubscribe;
     }, [navigation, fetchBookings, lastFetchTime]);
+
+    // Debounced search function
+    const debouncedSearch = useMemo(
+        () => debounce((status) => {
+            setFilterStatus(status);
+        }, 300),
+        []
+    );
+
+    const handleFilterPress = useCallback((status) => {
+        debouncedSearch(status);
+    }, [debouncedSearch]);
+
+    const handleLoadMore = useCallback(() => {
+        if (!isLoading && hasMore) {
+            setPage(prev => prev + 1);
+            fetchBookings(false, page + 1);
+        }
+    }, [isLoading, hasMore, page, fetchBookings]);
+
+    const handleRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchBookings(true).finally(() => setRefreshing(false));
+    }, [fetchBookings]);
+
+    const handleBookingPress = useCallback((bookingId) => {
+        navigation.navigate('BookingDetail', { bookingId });
+    }, [navigation]);
+
+    const handleQRPress = useCallback((bookingId) => {
+        setSelectedBookingId(bookingId);
+        setModalVisible(true);
+    }, []);
 
     const groupedBookingsList = useMemo(() => {
         if (!Array.isArray(bookings)) return [];
@@ -311,27 +351,9 @@ export default function BookingListScreen() {
             });
     }, [bookings, filterStatus]);
 
-    const handleRefresh = useCallback(() => {
-        setRefreshing(true);
-        fetchBookings(true).finally(() => setRefreshing(false));
-    }, [fetchBookings]);
-
-    const handleBookingPress = useCallback((bookingId) => {
-        navigation.navigate('BookingDetail', { bookingId });
-    }, [navigation]);
-
-    const handleQRPress = useCallback((bookingId) => {
-        setSelectedBookingId(bookingId);
-        setModalVisible(true);
-    }, []);
-
-    const handleFilterPress = useCallback((status) => {
-        setFilterStatus(status);
-        setLoading(prev => ({ ...prev, filter: true }));
-        setTimeout(() => {
-            setLoading(prev => ({ ...prev, filter: false }));
-        }, 300);
-    }, []);
+    if (isLoading) {
+        return <LoadingScreen />;
+    }
 
     return (
         <View style={styles.container}>
@@ -404,9 +426,11 @@ export default function BookingListScreen() {
                         tintColor={colors.primary}
                     />
                 }
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
-                    !loading.initial && (
+                    !isLoading && (
                         <View style={styles.emptyContainer}>
                             <Ionicons name="calendar-outline" size={64} color={colors.textSecondary} />
                             <Text style={styles.emptyTitle}>Chưa có đặt phòng nào</Text>
@@ -419,16 +443,6 @@ export default function BookingListScreen() {
                             >
                                 <Text style={styles.exploreButtonText}>Khám phá ngay</Text>
                             </TouchableOpacity>
-                        </View>
-                    )
-                }
-                ListFooterComponent={
-                    (loading.initial || loading.filter) && (
-                        <View style={styles.loadingContent}>
-                            <ActivityIndicator size="large" color={colors.primary} />
-                            <Text style={styles.loadingText}>
-                                {loading.filter ? 'Đang lọc...' : 'Đang tải danh sách đặt phòng...'}
-                            </Text>
                         </View>
                     )
                 }
@@ -841,5 +855,14 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    loadingMoreContent: {
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    loadingMoreText: {
+        marginTop: 8,
+        fontSize: 14,
+        color: '#666',
     },
 });

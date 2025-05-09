@@ -112,17 +112,75 @@ const BookingDetailScreen = () => {
             return;
         }
 
+        // Kiểm tra nếu chưa thanh toán (status = 0 và paymentStatus = 0)
+        if (bookingData.status === 0 && bookingData.paymentStatus === 0) {
+            Alert.alert(
+                'Xác nhận hủy đặt phòng',
+                'Bạn chưa thanh toán đặt phòng này. Bạn có chắc chắn muốn hủy?',
+                [
+                    { text: 'Hủy', style: 'cancel' },
+                    {
+                        text: 'Xác nhận',
+                        onPress: async () => {
+                            try {
+                                setLoading(true);
+                                if (bookingData.bookingServices?.length > 0) {
+                                    const serviceStatusPromises = bookingData.bookingServices.map(service =>
+                                        bookingApi.changeBookingServiceStatus(
+                                            bookingId,
+                                            service.bookingServicesID,
+                                            bookingData.status,
+                                            bookingData.paymentStatus,
+                                            4,
+                                            service.paymentServiceStatus
+                                        )
+                                    );
+                                    await Promise.all(serviceStatusPromises);
+                                }
+
+                                const result = await bookingApi.changeBookingStatus(bookingId, 4, bookingData.paymentStatus);
+                                if (result.success) {
+                                    Alert.alert('Thành công', 'Đã hủy đặt phòng thành công');
+                                    fetchBookingDetails();
+                                } else {
+                                    Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái đặt phòng');
+                                }
+                            } catch (error) {
+                                Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái đặt phòng');
+                            } finally {
+                                setLoading(false);
+                            }
+                        }
+                    }
+                ]
+            );
+            return;
+        }
+
         const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 6 : 4;
 
+        let message = '';
+        if (bookingData.paymentStatus === 1) {
+            if (canRefund) {
+                message = `Bạn có thể hủy và được hoàn 100% tiền đặt cọc vì còn ${daysUntilCheckIn} ngày trước khi nhận phòng.`;
+            } else {
+                message = `Bạn đã quá ngày được hoàn tiền, nếu hủy sẽ không được hoàn tiền đặt cọc.`;
+            }
+        } else if (bookingData.paymentStatus === 2) {
+            if (canRefund) {
+                message = `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền đặt phòng vì còn ${daysUntilCheckIn} ngày trước khi nhận phòng.`;
+            } else {
+                message = `Bạn đã quá ngày được hoàn tiền, nếu hủy sẽ không được hoàn tiền.`;
+            }
+        }
+
         Alert.alert(
             'Xác nhận hủy đặt phòng',
-            canRefund
-                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền đặt phòng vì còn ${daysUntilCheckIn} ngày trước khi nhận phòng`
-                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước khi nhận phòng, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
+            message,
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
@@ -267,7 +325,7 @@ const BookingDetailScreen = () => {
             'Xác nhận hủy dịch vụ',
             canRefund
                 ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền dịch vụ vì còn ${daysUntilCheckIn} ngày trước check-in`
-                : `Bạn chỉ còn ${daysUntilCheckIn} ngày trước check-in, nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
+                : `Nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
             [
                 { text: 'Hủy', style: 'cancel' },
                 {
@@ -626,7 +684,7 @@ const BookingDetailScreen = () => {
                                                     <View style={styles.serviceActionIconContainer}>
                                                         <Ionicons name="refresh-outline" size={20} color="#FF9800" />
                                                     </View>
-                                                    <Text style={[styles.serviceActionButtonText, { color: '#FF9800' }]}>Hủy & Hoàn tiền</Text>
+                                                    <Text style={[styles.serviceActionButtonText, { color: '#FF9800' }]}>Hủy</Text>
                                                 </TouchableOpacity>
                                             )}
                                         </View>
@@ -733,8 +791,8 @@ const BookingDetailScreen = () => {
     const renderActionButtons = () => {
         if (!bookingData) return null;
         const canCancel = bookingData.status === 0 || bookingData.status === 1;
-        const canPay = bookingData.paymentStatus === 0 && bookingData.status !== 4;
-        const canBookService = bookingData.status === 1;
+        const canPay = bookingData.paymentStatus === 0 && bookingData.status === 0;
+        const canBookService = bookingData.status === 1 || bookingData.status === 2;
 
         return (
             <View style={styles.actionButtons}>

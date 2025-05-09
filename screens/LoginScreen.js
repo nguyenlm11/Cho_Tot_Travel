@@ -328,21 +328,26 @@ const styles = StyleSheet.create({
         borderColor: "#E0E0E0",
         borderRadius: 16,
         paddingHorizontal: 15,
-        paddingVertical: 14,
+        height: 50,
         marginBottom: 15,
         backgroundColor: "#FAFAFA",
     },
     icon: {
         marginRight: 10,
+        alignSelf: 'center',
     },
     input: {
         flex: 1,
-        height: 25,
+        height: '100%',
         fontSize: Math.max(16, scale * 16),
         color: colors.textPrimary,
+        paddingVertical: 0,
+        textAlignVertical: 'center',
     },
     eyeIcon: {
         padding: 5,
+        marginLeft: 5,
+        alignSelf: 'center',
     },
     optionsContainer: {
         flexDirection: "row",

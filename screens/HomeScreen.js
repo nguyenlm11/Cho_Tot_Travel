@@ -449,37 +449,6 @@ export default function HomeScreen() {
                         ))}
                     </ScrollView>
                 </View>
-
-                {/* Promotions Section */}
-                <View style={styles.promotionsSection}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Ưu đãi đặc biệt</Text>
-                        <TouchableOpacity>
-                            <Text style={styles.viewAllText}>Xem tất cả</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.promotionCard}>
-                        <LinearGradient
-                            colors={['#FF6B6B', '#FF8E53']}
-                            style={styles.promotionGradient}
-                        >
-                            <View style={styles.promotionContent}>
-                                <Text style={styles.promotionTitle}>Giảm 20% cho đặt phòng đầu tiên</Text>
-                                <Text style={styles.promotionDescription}>
-                                    Áp dụng cho khách hàng mới khi đặt phòng lần đầu tiên
-                                </Text>
-                                <TouchableOpacity style={styles.promotionButton}>
-                                    <Text style={styles.promotionButtonText}>Sử dụng ngay</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <Image
-                                // source={require('../assets/promotion.png')}
-                                style={styles.promotionImage}
-                            />
-                        </LinearGradient>
-                    </View>
-                </View>
             </View>
 
             {/* Modals */}
@@ -752,19 +721,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    dateText: {
-        marginLeft: 8,
-        fontSize: 14,
-        color: colors.textSecondary,
-    },
     guestContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    guestText: {
-        marginLeft: 8,
-        fontSize: 14,
-        color: colors.textSecondary,
     },
     filtersContainer: {
         flexDirection: 'row',
@@ -864,54 +823,6 @@ const styles = StyleSheet.create({
         fontWeight: '400',
         color: '#4A4A4A',
         opacity: 0.7,
-    },
-    promotionsSection: {
-        paddingHorizontal: 20,
-        marginBottom: 30,
-    },
-    promotionCard: {
-        borderRadius: 15,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    promotionGradient: {
-        flexDirection: 'row',
-        padding: 20,
-    },
-    promotionContent: {
-        flex: 2,
-    },
-    promotionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#fff',
-        marginBottom: 10,
-    },
-    promotionDescription: {
-        fontSize: 14,
-        color: '#fff',
-        opacity: 0.9,
-        marginBottom: 15,
-    },
-    promotionButton: {
-        backgroundColor: '#fff',
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        borderRadius: 20,
-        alignSelf: 'flex-start',
-    },
-    promotionButtonText: {
-        color: '#FF6B6B',
-        fontWeight: '600',
-    },
-    promotionImage: {
-        flex: 1,
-        height: 100,
-        resizeMode: 'contain',
     },
     viewAllText: {
         fontSize: 14,

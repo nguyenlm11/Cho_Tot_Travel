@@ -1,14 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator, StatusBar, RefreshControl, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, StatusBar, RefreshControl, Dimensions, Platform, SafeAreaView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, ZoomIn, useSharedValue, withSpring } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
 import homeStayApi from '../services/api/homeStayApi';
 import { colors } from '../constants/Colors';
 import { useSearch } from '../contexts/SearchContext';
 import RentalFilterModal from '../components/Modal/RentalFilterModal';
+import DropdownMenuTabs from '../components/DropdownMenuTabs';
+import LoadingScreen from '../components/LoadingScreen';
+
+const { width } = Dimensions.get('window');
+const isSmallDevice = width < 375;
 
 export default function HomestayRentalScreen() {
     const navigation = useNavigation();
@@ -18,8 +22,9 @@ export default function HomestayRentalScreen() {
     const [rentals, setRentals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [isUpdating, setIsUpdating] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [isFilterModalVisible, setFilterModalVisible] = useState(false);
+    const [homestayInfo, setHomestayInfo] = useState(null);
     const [searchParams, setSearchParams] = useState({
         checkInDate: currentSearch?.checkInDate,
         checkOutDate: currentSearch?.checkOutDate,
@@ -31,7 +36,19 @@ export default function HomestayRentalScreen() {
 
     useEffect(() => {
         fetchHomestayRentals();
+        fetchHomestayInfo();
     }, [homestayId]);
+
+    const fetchHomestayInfo = async () => {
+        try {
+            const response = await homeStayApi.getHomeStayDetail(homestayId);
+            if (response?.data) {
+                setHomestayInfo(response.data);
+            }
+        } catch (error) {
+            console.log('Error fetching homestay info:', error);
+        }
+    };
 
     const fetchHomestayRentals = async () => {
         setLoading(true);
@@ -57,11 +74,17 @@ export default function HomestayRentalScreen() {
             setError('Không thể tải thông tin căn hộ. Vui lòng thử lại sau.');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
+    const handleRefresh = () => {
+        setRefreshing(true);
+        fetchHomestayRentals();
+    };
+
     const handleApplyFilter = async (filterParams) => {
-        setIsUpdating(true);
+        setLoading(true);
         try {
             const apiParams = {
                 HomeStayID: homestayId,
@@ -83,7 +106,7 @@ export default function HomestayRentalScreen() {
             console.error('Error applying filter:', err);
             setError('Không thể tải thông tin căn hộ. Vui lòng thử lại sau.');
         } finally {
-            setIsUpdating(false);
+            setLoading(false);
         }
     };
 
@@ -101,158 +124,238 @@ export default function HomestayRentalScreen() {
         const defaultPricing = item.pricing?.find(p => p.isDefault) || item.pricing?.[0];
         const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
         const rentalType = item.rentWhole ? "Nguyên căn" : "Từng phòng";
+
         return (
-            <View style={styles.rentalCard}>
+            <Animated.View
+                entering={FadeInDown.delay(index * 100).springify()}
+                style={styles.cardContainer}
+            >
                 <TouchableOpacity
-                    activeOpacity={0.9}
+                    activeOpacity={0.95}
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     style={styles.cardTouchable}
                 >
-                    <View style={styles.imageContainer}>
+                    <View style={styles.cardHeader}>
                         <Image
                             source={{
                                 uri: item.imageHomeStayRentals?.[0]?.image ||
                                     'https://via.placeholder.com/300x200?text=No+Image'
                             }}
-                            style={styles.image}
+                            style={styles.cardImage}
                             resizeMode="cover"
                         />
+
                         <LinearGradient
-                            colors={['transparent', 'rgba(0,0,0,0.7)']}
-                            style={styles.imageOverlay}
+                            colors={['transparent', 'rgba(0,0,0,0.8)']}
+                            style={styles.imageGradient}
                         />
-                        {price && (
-                            <View style={styles.priceTag}>
-                                <Text style={styles.priceText}>
-                                    {`${price.toLocaleString('vi-VN')}₫`}
-                                    <Text style={styles.nightText}>/đêm</Text>
-                                </Text>
-                            </View>
-                        )}
-                        <View style={styles.typeTag}>
-                            <BlurView intensity={80} tint="dark" style={styles.typeBlur}>
-                                <Text style={styles.typeText}>{rentalType}</Text>
-                            </BlurView>
+
+                        <View style={styles.typeBadge}>
+                            <LinearGradient
+                                colors={[colors.primary, colors.secondary]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.typeBadgeGradient}
+                            >
+                                <Text style={styles.typeBadgeText}>{rentalType}</Text>
+                            </LinearGradient>
+                        </View>
+
+                        <View style={styles.priceContainer}>
+                            <Text style={styles.priceAmount}>
+                                {price?.toLocaleString('vi-VN')}đ
+                            </Text>
+                            <Text style={styles.priceUnit}>/đêm</Text>
                         </View>
                     </View>
 
-                    <View style={styles.contentContainer}>
-                        <Text style={styles.rentalName} numberOfLines={2}>
+                    <View style={styles.cardContent}>
+                        <Text style={[styles.cardTitle, { marginBottom: 6 }]} numberOfLines={2}>
                             {item.name}
                         </Text>
-                        <Text style={styles.homestayName} numberOfLines={1}>
-                            {item.description}
-                        </Text>
 
-                        <View style={styles.infoContainer}>
-                            <View style={styles.infoRow}>
-                                <View style={styles.infoItem}>
-                                    <FontAwesome5 name="bed" size={14} color={colors.primary} />
-                                    <Text style={styles.infoText}>{item.numberBedRoom} phòng ngủ</Text>
-                                </View>
-                                <View style={styles.infoItem}>
-                                    <FontAwesome5 name="bath" size={14} color={colors.primary} />
-                                    <Text style={styles.infoText}>{item.numberBathRoom} phòng tắm</Text>
-                                </View>
-                            </View>
-                            <View style={styles.infoRow}>
-                                <View style={styles.infoItem}>
-                                    <MaterialIcons name="kitchen" size={16} color={colors.primary} />
-                                    <Text style={styles.infoText}>{item.numberKitchen} bếp</Text>
-                                </View>
-                                <View style={styles.infoItem}>
-                                    <MaterialIcons name="wifi" size={16} color={colors.primary} />
-                                    <Text style={styles.infoText}>{item.numberWifi} wifi</Text>
-                                </View>
-                            </View>
-                            <View style={styles.capacityContainer}>
-                                <MaterialIcons name="people" size={16} color={colors.primary} />
-                                <Text style={styles.capacityText}>
-                                    Tối đa {item.maxPeople} khách ({item.maxAdults} người lớn, {item.maxChildren} trẻ em)
-                                </Text>
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.viewDetailButton}
-                                onPress={() => navigation.navigate('HomestayRentalDetail', { rentalId: item.homeStayRentalID, homeStayId: homestayId })}>
-                                <Text style={styles.viewDetailText}>Xem chi tiết</Text>
-                                <Ionicons name="arrow-forward" size={16} color="#fff" />
-                            </TouchableOpacity>
+                        <View style={styles.locationContainer}>
+                            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                            <Text style={styles.locationText} numberOfLines={1}>
+                                {item.description || "Không có mô tả"}
+                            </Text>
                         </View>
+                        <View style={styles.cardDivider} />
+                        <View style={styles.amenitiesGrid}>
+                            <View style={styles.amenityItem}>
+                                <View style={styles.amenityIconContainer}>
+                                    <FontAwesome5 name="bed" size={14} color={colors.primary} />
+                                </View>
+                                <Text style={styles.amenityText}>{item.numberBedRoom} phòng ngủ</Text>
+                            </View>
+
+                            <View style={styles.amenityItem}>
+                                <View style={styles.amenityIconContainer}>
+                                    <FontAwesome5 name="bath" size={14} color={colors.primary} />
+                                </View>
+                                <Text style={styles.amenityText}>{item.numberBathRoom} phòng tắm</Text>
+                            </View>
+
+                            <View style={styles.amenityItem}>
+                                <View style={styles.amenityIconContainer}>
+                                    <MaterialIcons name="kitchen" size={14} color={colors.primary} />
+                                </View>
+                                <Text style={styles.amenityText}>{item.numberKitchen} bếp</Text>
+                            </View>
+
+                            <View style={styles.amenityItem}>
+                                <View style={styles.amenityIconContainer}>
+                                    <MaterialIcons name="wifi" size={14} color={colors.primary} />
+                                </View>
+                                <Text style={styles.amenityText}>{item.numberWifi} wifi</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.capacityBadge}>
+                            <MaterialIcons name="people-alt" size={16} color="#666" />
+                            <Text style={styles.capacityText}>
+                                Tối đa {item.maxPeople} khách • {item.maxAdults} người lớn • {item.maxChildren} trẻ em
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.viewDetailsButton}
+                            onPress={() => navigation.navigate('HomestayRentalDetail', { rentalId: item.homeStayRentalID, homeStayId: homestayId })}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary, colors.secondary]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.viewDetailsGradient}
+                            >
+                                <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
+                                <Ionicons name="chevron-forward" size={16} color="#fff" />
+                            </LinearGradient>
+                        </TouchableOpacity>
                     </View>
-                </TouchableOpacity >
-            </View >
+                </TouchableOpacity>
+            </Animated.View>
         );
     };
 
     const HeaderComponent = () => (
-        <View style={styles.filterContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
-                <TouchableOpacity style={styles.filterChip}>
-                    <Ionicons name="calendar-outline" size={20} color="#ffffff" />
-                    <Text style={styles.filterText} numberOfLines={1}>
-                        {currentSearch?.checkInDate?.split(', ')[1] || 'Ngày nhận'} - {currentSearch?.checkOutDate?.split(', ')[1] || 'Ngày trả'}
-                    </Text>
-                </TouchableOpacity>
+        <View style={styles.headerComponentContainer}>
+            {homestayInfo && (
+                <View style={styles.homestayInfoSection}>
+                    <Text style={styles.homestayName}>{homestayInfo.name}</Text>
+                    {homestayInfo.address && (
+                        <View style={styles.addressRow}>
+                            <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+                            <Text style={styles.addressText} numberOfLines={1}>
+                                {homestayInfo.address}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            )}
 
-                <TouchableOpacity style={styles.filterChip}>
-                    <Ionicons name="people-outline" size={20} color="#ffffff" />
-                    <Text style={styles.filterText} numberOfLines={1}>
-                        {currentSearch.adults || 1} người lớn
-                        {currentSearch.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
-                    </Text>
-                </TouchableOpacity>
-            </ScrollView>
-            <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => setFilterModalVisible(true)}
-            >
-                <Ionicons name="options-outline" size={24} color="#ffffff" />
-            </TouchableOpacity>
-        </View>
-    );
+            <View style={styles.filterContainer}>
+                <Text style={styles.filterTitle}>Thông tin tìm kiếm</Text>
 
-    return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+                <View style={styles.filterChipContainer}>
+                    <TouchableOpacity
+                        style={styles.filterChip}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <View style={styles.filterChipIcon}>
+                            <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                        </View>
+                        <View style={styles.filterChipContent}>
+                            <Text style={styles.filterChipLabel}>Ngày</Text>
+                            <Text style={styles.filterChipText} numberOfLines={1}>
+                                {currentSearch?.checkInDate?.split(', ')[1] || 'Chọn ngày'} - {currentSearch?.checkOutDate?.split(', ')[1] || '...'}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
 
-            <LinearGradient
-                colors={[colors.primary, colors.primary + 'E6']}
-                style={styles.header}
-            >
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="chevron-back" size={24} color="#fff" />
-                </TouchableOpacity>
-                <Animated.Text
-                    entering={FadeInDown.delay(300).springify()}
-                    style={styles.headerTitle}
-                    numberOfLines={1}
-                >
-                    Danh sách căn
-                </Animated.Text>
+                    <TouchableOpacity
+                        style={styles.filterChip}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <View style={styles.filterChipIcon}>
+                            <Ionicons name="people-outline" size={20} color={colors.primary} />
+                        </View>
+                        <View style={styles.filterChipContent}>
+                            <Text style={styles.filterChipLabel}>Khách</Text>
+                            <Text style={styles.filterChipText} numberOfLines={1}>
+                                {currentSearch.adults || 1} người lớn
+                                {currentSearch.children > 0 ? `, ${currentSearch.children} trẻ em` : ''}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={styles.resultCountContainer}>
+                <Text style={styles.resultCount}>
+                    {rentals.length > 0
+                        ? `Tìm thấy ${rentals.length} căn phù hợp`
+                        : "Không tìm thấy căn phù hợp"}
+                </Text>
                 <TouchableOpacity
                     style={styles.filterButton}
                     onPress={() => setFilterModalVisible(true)}
                 >
-                    <Ionicons name="options-outline" size={22} color="#fff" />
+                    <Ionicons name="options-outline" size={20} color={colors.primary} />
+                    <Text style={styles.filterButtonText}>Lọc</Text>
                 </TouchableOpacity>
-            </LinearGradient>
+            </View>
+        </View>
+    );
+
+    return (
+        <SafeAreaView style={styles.safeArea}>
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor="transparent"
+                translucent={true}
+            />
+
+            <View style={styles.header}>
+                <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.headerGradient}
+                >
+                    <View style={styles.headerContent}>
+                        <TouchableOpacity
+                            style={styles.backButton}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <Ionicons name="chevron-back" size={24} color="#fff" />
+                        </TouchableOpacity>
+
+                        <Text style={styles.headerTitle}>Danh sách căn hộ</Text>
+
+                        <DropdownMenuTabs
+                            iconStyle={styles.menuButton}
+                            iconColor="#fff"
+                        />
+                    </View>
+                </LinearGradient>
+            </View>
 
             {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={styles.loadingText}>Đang tải danh sách phòng...</Text>
-                </View>
+                <LoadingScreen
+                    message="Đang tải danh sách căn hộ"
+                    subMessage="Vui lòng đợi trong giây lát..."
+                />
             ) : error ? (
                 <Animated.View
                     entering={ZoomIn.delay(200)}
                     style={styles.errorContainer}
                 >
-                    <Ionicons name="alert-circle-outline" size={60} color={colors.error} />
+                    <Ionicons name="alert-circle-outline" size={80} color={colors.error} />
+                    <Text style={styles.errorTitle}>Rất tiếc!</Text>
                     <Text style={styles.errorText}>{error}</Text>
                     <TouchableOpacity
                         style={styles.retryButton}
@@ -269,14 +372,31 @@ export default function HomestayRentalScreen() {
                     contentContainerStyle={styles.listContainer}
                     showsVerticalScrollIndicator={false}
                     ListHeaderComponent={<HeaderComponent />}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            colors={[colors.primary]}
+                            tintColor={colors.primary}
+                        />
+                    }
                     ListEmptyComponent={
                         <Animated.View
                             entering={FadeInDown.delay(400)}
                             style={styles.emptyContainer}
                         >
-                            <Ionicons name="bed-outline" size={80} color={colors.textSecondary} />
-                            <Text style={styles.emptyText}>Không có phòng phù hợp</Text>
-                            <Text style={styles.emptySubtext}>Vui lòng thử lại với tiêu chí khác</Text>
+                            <Image
+                                source={{ uri: 'https://res.cloudinary.com/dzjofylpf/image/upload/v1742915319/HomeStayImages/empty_search.png' }}
+                                style={styles.emptyImage}
+                            />
+                            <Text style={styles.emptyText}>Không tìm thấy căn hộ phù hợp</Text>
+                            <Text style={styles.emptySubtext}>Vui lòng thử lại với tiêu chí tìm kiếm khác</Text>
+                            <TouchableOpacity
+                                style={styles.changeFilterButton}
+                                onPress={() => setFilterModalVisible(true)}
+                            >
+                                <Text style={styles.changeFilterText}>Thay đổi tìm kiếm</Text>
+                            </TouchableOpacity>
                         </Animated.View>
                     }
                 />
@@ -296,203 +416,352 @@ export default function HomestayRentalScreen() {
                     handleApplyFilter(filterParams);
                 }}
             />
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    safeArea: {
         flex: 1,
         backgroundColor: '#f8f9fa',
-        zIndex: 100,
     },
     header: {
-        padding: 20,
-        paddingTop: 60,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    headerGradient: {
+        paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight + 10,
+        paddingBottom: 15,
+        paddingHorizontal: 16,
+        borderBottomLeftRadius: 15,
+        borderBottomRightRadius: 15,
+    },
+    headerContent: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    backButton: {
-        marginRight: 15,
+        justifyContent: 'space-between',
     },
     headerTitle: {
-        flex: 1,
-        fontSize: 20,
+        fontSize: isSmallDevice ? 16 : 18,
         fontWeight: 'bold',
         color: '#fff',
         textAlign: 'center',
+        flex: 1,
     },
-    filterButton: {
-        marginLeft: 8,
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    filterContainer: {
-        backgroundColor: colors.primary,
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    listContainer: {
+        paddingTop: Platform.OS === 'ios' ? 90 : 90 + (StatusBar.currentHeight || 0),
+        paddingBottom: 20,
+    },
+    headerComponentContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 15,
+    },
+    homestayInfoSection: {
+        marginBottom: 15,
+    },
+    homestayName: {
+        fontSize: isSmallDevice ? 20 : 22,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+    },
+    addressRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
-        marginBottom: 10,
     },
-    filterScrollContent: {
-        paddingHorizontal: 15,
+    addressText: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        marginLeft: 4,
+    },
+    filterContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 15,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
+    },
+    filterTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 12,
+    },
+    filterChipContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
     },
     filterChip: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginRight: 10,
-    },
-    filterText: {
-        color: '#fff',
-        marginLeft: 6,
-        fontSize: 14,
-    },
-    editButton: {
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
         padding: 10,
-        marginRight: 15,
+        marginBottom: 8,
+        width: isSmallDevice ? '100%' : '48%',
+        marginBottom: isSmallDevice ? 8 : 0,
     },
-    listContainer: {
-        paddingBottom: 20,
+    filterChipIcon: {
+        marginRight: 8,
     },
-    rentalCard: {
+    filterChipContent: {
+        flex: 1,
+    },
+    filterChipLabel: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginBottom: 2,
+    },
+    filterChipText: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '500',
+    },
+    resultCountContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 5,
+    },
+    resultCount: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#333',
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: 20,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+    },
+    filterButtonText: {
+        fontSize: 14,
+        fontWeight: '500',
+        marginLeft: 4,
+        color: colors.primary,
+    },
+    cardContainer: {
         marginHorizontal: 16,
-        marginBottom: 16,
+        marginBottom: 20,
         borderRadius: 16,
+        overflow: 'hidden',
         backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
     },
     cardTouchable: {
         borderRadius: 16,
         overflow: 'hidden',
     },
-    imageContainer: {
-        height: 200,
+    cardHeader: {
+        position: 'relative',
+        height: 160,
         width: '100%',
     },
-    image: {
+    cardImage: {
         width: '100%',
         height: '100%',
     },
-    imageOverlay: {
+    imageGradient: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        height: '50%',
+        height: '60%',
     },
-    priceTag: {
+    typeBadge: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    typeBadgeGradient: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+    },
+    typeBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    priceContainer: {
         position: 'absolute',
         bottom: 12,
         right: 12,
-        backgroundColor: colors.primary,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
     },
-    priceText: {
+    priceAmount: {
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
     },
-    nightText: {
+    priceUnit: {
+        color: 'rgba(255,255,255,0.8)',
         fontSize: 12,
-        fontWeight: 'normal',
+        marginLeft: 2,
+        marginBottom: 1,
     },
-    typeTag: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        overflow: 'hidden',
-        borderRadius: 16,
-    },
-    typeBlur: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    typeText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    contentContainer: {
+    cardContent: {
         padding: 16,
     },
-    rentalName: {
+    cardTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
+    },
+    locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginBottom: 12,
     },
-    homestayName: {
+    locationText: {
         fontSize: 14,
         color: colors.textSecondary,
+        marginLeft: 6,
+        flex: 1,
+    },
+    cardDivider: {
+        height: 1,
+        backgroundColor: 'rgba(0,0,0,0.05)',
         marginBottom: 12,
     },
-    infoContainer: {
-        gap: 12,
-    },
-    infoRow: {
+    amenitiesGrid: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        marginBottom: 12,
+    },
+    amenityItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '50%',
         marginBottom: 8,
     },
-    infoItem: {
+    amenityIconContainer: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    amenityText: {
+        fontSize: 13,
+        color: '#555',
+    },
+    capacityBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 16,
     },
-    infoText: {
-        fontSize: 14,
-        color: '#666',
+    capacityText: {
+        fontSize: 13,
+        color: '#555',
+        marginLeft: 8,
+        flex: 1,
     },
-    viewDetailButton: {
+    viewDetailsButton: {
+        borderRadius: 10,
+        overflow: 'hidden',
+    },
+    viewDetailsGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 8,
-        borderRadius: 8,
-        backgroundColor: colors.primary,
-        gap: 8,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 10,
     },
-    viewDetailText: {
-        fontSize: 14,
+    viewDetailsText: {
+        fontSize: 15,
         fontWeight: '600',
         color: '#fff',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: colors.primary,
+        marginRight: 6,
     },
     errorContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        padding: 30,
+    },
+    errorTitle: {
+        marginTop: 10,
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
     },
     errorText: {
-        marginTop: 12,
+        marginTop: 8,
         fontSize: 16,
-        color: colors.error,
+        color: '#666',
         textAlign: 'center',
+        lineHeight: 22,
     },
     retryButton: {
-        marginTop: 16,
+        marginTop: 24,
         paddingHorizontal: 24,
         paddingVertical: 12,
         backgroundColor: colors.primary,
-        borderRadius: 8,
+        borderRadius: 10,
     },
     retryButtonText: {
         color: '#fff',
@@ -500,49 +769,37 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
         padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 40,
     },
+    emptyImage: {
+        width: 180,
+        height: 180,
+        marginBottom: 20,
+    },
     emptyText: {
-        marginTop: 16,
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
+        marginBottom: 6,
     },
     emptySubtext: {
-        marginTop: 8,
-        fontSize: 14,
+        fontSize: 15,
         color: '#666',
         textAlign: 'center',
+        marginBottom: 20,
     },
-    statusTag: {
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        overflow: 'hidden',
-        borderRadius: 16,
+    changeFilterButton: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 10,
     },
-    statusBlur: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    statusText: {
+    changeFilterText: {
         color: '#fff',
-        fontSize: 12,
+        fontSize: 15,
         fontWeight: '600',
-    },
-    capacityContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 8,
-    },
-    capacityText: {
-        fontSize: 14,
-        color: '#666',
-        flex: 1,
     },
 });

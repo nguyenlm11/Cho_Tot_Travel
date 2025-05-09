@@ -1,29 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, StatusBar, ActivityIndicator, FlatList, Dimensions, Platform, Share } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, StatusBar, Dimensions, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
-import Animated, { FadeIn, FadeInDown, } from 'react-native-reanimated';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import Icon from 'react-native-vector-icons/Ionicons';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import { MaterialIcons, FontAwesome5, Ionicons, AntDesign } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import homeStayApi from '../services/api/homeStayApi';
 import ImageViewer from '../components/ImageViewer';
+import LoadingScreen from '../components/LoadingScreen';
+import DropdownMenuTabs from '../components/DropdownMenuTabs';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+const palette = {
+    primary: colors.primary,
+    secondary: colors.secondary,
+    background: '#f8f9fa',
+    card: '#ffffff',
+    cardBorder: 'rgba(0,0,0,0.05)',
+    text: { dark: '#2c3e50', medium: '#546e7a', light: '#78909c' },
+    accent: '#00acc1',
+};
 
 export default function HomestayRentalDetailScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const { rentalId, homeStayId } = route.params;
-    console.log('homeStayId', homeStayId);
     const [rental, setRental] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [expanded, setExpanded] = useState(false);
     const [imageViewerVisible, setImageViewerVisible] = useState(false);
-    const flatListRef = useRef(null);
+    const [showAllPrices, setShowAllPrices] = useState(false);
 
     useEffect(() => {
         fetchRentalDetail();
@@ -49,7 +58,6 @@ export default function HomestayRentalDetailScreen() {
 
     const handleBookNow = () => {
         if (!rental) return;
-
         const bookingData = {
             homeStayId: homeStayId,
             homeStayTypeID: rental.id || rental.homeStayRentalID,
@@ -64,9 +72,6 @@ export default function HomestayRentalDetailScreen() {
                 quantity: 1
             })) || []
         };
-
-        console.log('Booking data:', bookingData);
-
         navigation.navigate('WholeHomestayCheckout', { bookingData });
     };
 
@@ -77,36 +82,6 @@ export default function HomestayRentalDetailScreen() {
         });
     };
 
-    const handleShare = async () => {
-        if (!rental) return;
-        try {
-            await Share.share({
-                message: `Xem Homestay "${rental.name}" tại ${rental.homeStayName}. Một địa điểm nghỉ dưỡng tuyệt vời!`,
-                url: `https://yourappdomain.com/rental/${rentalId}`,
-                title: rental.name,
-            });
-        } catch (error) {
-            console.error('Error sharing:', error);
-        }
-    };
-
-    const renderCoverImageItem = ({ item, index }) => (
-        <TouchableOpacity
-            style={styles.coverImageItem}
-            onPress={() => {
-                setCurrentImageIndex(index);
-                setImageViewerVisible(true);
-            }}
-            activeOpacity={0.9}
-        >
-            <Image source={{ uri: item.uri }} style={styles.coverImage} resizeMode="cover" />
-            <LinearGradient
-                colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.3)']}
-                style={styles.imageGradient}
-            />
-        </TouchableOpacity>
-    );
-
     const renderImageIndicator = (images) => (
         <View style={styles.imageIndicator}>
             {images.map((_, index) => (
@@ -115,11 +90,6 @@ export default function HomestayRentalDetailScreen() {
                     style={styles.indicatorTouchable}
                     onPress={() => {
                         setCurrentImageIndex(index);
-                        flatListRef.current?.scrollToIndex({
-                            index,
-                            animated: true,
-                            viewPosition: 0.5,
-                        });
                     }}
                 >
                     <View
@@ -133,34 +103,31 @@ export default function HomestayRentalDetailScreen() {
         </View>
     );
 
-    const handleViewableItemsChanged = React.useCallback(({ viewableItems }) => {
-        if (viewableItems.length > 0) {
-            setCurrentImageIndex(viewableItems[0].index);
-        }
-    }, []);
-
-    const viewabilityConfig = {
-        itemVisiblePercentThreshold: 50
-    };
-
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Đang tải thông tin...</Text>
-            </View>
+            <LoadingScreen
+                message="Đang tải thông tin căn hộ"
+                subMessage="Vui lòng đợi trong giây lát..."
+            />
         );
     }
 
     if (error) {
         return (
-            <View style={styles.errorContainer}>
-                <Icon name="alert-circle-outline" size={60} color="#ff6b6b" />
+            <Animated.View
+                entering={ZoomIn.delay(200)}
+                style={styles.errorContainer}
+            >
+                <Ionicons name="alert-circle-outline" size={80} color="#ff6b6b" />
+                <Text style={styles.errorTitle}>Rất tiếc!</Text>
                 <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={fetchRentalDetail}>
+                <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={fetchRentalDetail}
+                >
                     <Text style={styles.retryButtonText}>Thử lại</Text>
                 </TouchableOpacity>
-            </View>
+            </Animated.View>
         );
     }
 
@@ -174,44 +141,48 @@ export default function HomestayRentalDetailScreen() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-            <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
-                >
-                    <BlurView intensity={70} tint="dark" style={styles.blurButton}>
-                        <Icon name="chevron-back" size={24} color="#fff" />
-                    </BlurView>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.shareButton}
-                    onPress={handleShare}
-                >
-                    <BlurView intensity={70} tint="dark" style={styles.blurButton}>
-                        <Icon name="share-social-outline" size={22} color="#fff" />
-                    </BlurView>
-                </TouchableOpacity>
+            <View style={styles.headerContainer}>
+                <View style={styles.headerButtons}>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => navigation.goBack()}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <View style={styles.blurButton}>
+                            <Ionicons name="chevron-back" size={24} color="#fff" />
+                        </View>
+                    </TouchableOpacity>
+                    <View style={styles.rightButtons}>
+                        <DropdownMenuTabs iconStyle={styles.blurButton} />
+                    </View>
+                </View>
             </View>
 
             <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
-                bounces={true}
+                bounces={false}
             >
-                <View style={styles.coverImageContainer}>
-                    <FlatList
-                        ref={flatListRef}
-                        data={images}
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        renderItem={renderCoverImageItem}
-                        keyExtractor={(_, index) => `cover-${index}`}
-                        onViewableItemsChanged={handleViewableItemsChanged}
-                        viewabilityConfig={viewabilityConfig}
+                <View style={styles.coverContainer}>
+                    <Image
+                        source={{ uri: images[currentImageIndex].uri }}
+                        style={styles.coverImage}
+                        resizeMode="cover"
+                    />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.5)']}
+                        style={styles.imageGradient}
                     />
                     {renderImageIndicator(images)}
+                    <View style={styles.imageCountBadge}>
+                        <TouchableOpacity
+                            onPress={() => setImageViewerVisible(true)}
+                            style={styles.imageCountButton}
+                        >
+                            <Ionicons name="images-outline" size={18} color="#fff" />
+                            <Text style={styles.imageCountText}>{currentImageIndex + 1}/{images.length}</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 <View style={styles.contentContainer}>
@@ -219,25 +190,33 @@ export default function HomestayRentalDetailScreen() {
                         entering={FadeInDown.delay(200)}
                         style={styles.titleSection}
                     >
-                        <View style={styles.nameContainer}>
-                            <Text style={styles.name}>{rental.name}</Text>
-                            <Text style={styles.homestayName}>{rental.homeStayName}</Text>
-                        </View>
-
-                        <View style={styles.typeBadgeContainer}>
-                            <LinearGradient
-                                colors={[colors.primary + '30', colors.primary + '15']}
-                                style={styles.typeBadge}
-                            >
-                                <FontAwesome5
-                                    name={rental.rentWhole ? "home" : "door-open"}
-                                    size={14}
-                                    color={colors.primary}
-                                />
-                                <Text style={styles.typeBadgeText}>
-                                    {rental.rentWhole ? "Nguyên căn" : "Từng phòng"}
-                                </Text>
-                            </LinearGradient>
+                        <View style={styles.titleContainer}>
+                            <View style={styles.titleWrapper}>
+                                <Text style={styles.hotelName}>{rental.name}</Text>
+                                <View style={styles.locationRow}>
+                                    <Ionicons name="location-outline" size={18} color={palette.text.light} />
+                                    <Text style={styles.locationText} numberOfLines={1}>
+                                        {rental.homeStayName}
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.typeBadgeContainer}>
+                                <LinearGradient
+                                    colors={[colors.primary, colors.secondary]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.typeBadge}
+                                >
+                                    <FontAwesome5
+                                        name={rental.rentWhole ? "home" : "door-open"}
+                                        size={14}
+                                        color="#fff"
+                                    />
+                                    <Text style={styles.typeBadgeText}>
+                                        {rental.rentWhole ? "Nguyên căn" : "Từng phòng"}
+                                    </Text>
+                                </LinearGradient>
+                            </View>
                         </View>
                     </Animated.View>
 
@@ -247,6 +226,7 @@ export default function HomestayRentalDetailScreen() {
                     >
                         <View style={styles.sectionHeader}>
                             <View style={styles.sectionTitleContainer}>
+                                <MaterialIcons name="hotel" size={22} color={palette.primary} style={styles.sectionIcon} />
                                 <Text style={styles.sectionTitle}>Tiện nghi</Text>
                             </View>
                         </View>
@@ -254,28 +234,28 @@ export default function HomestayRentalDetailScreen() {
                         <View style={styles.amenitiesGrid}>
                             <View style={styles.amenityItem}>
                                 <View style={styles.amenityIconContainer}>
-                                    <FontAwesome5 name="bed" size={18} color={colors.primary} />
+                                    <FontAwesome5 name="bed" size={18} color={palette.primary} />
                                 </View>
                                 <Text style={styles.amenityText}>{rental.numberBedRoom} phòng ngủ</Text>
                             </View>
 
                             <View style={styles.amenityItem}>
                                 <View style={styles.amenityIconContainer}>
-                                    <FontAwesome5 name="bath" size={18} color={colors.primary} />
+                                    <FontAwesome5 name="bath" size={18} color={palette.primary} />
                                 </View>
                                 <Text style={styles.amenityText}>{rental.numberBathRoom} phòng tắm</Text>
                             </View>
 
                             <View style={styles.amenityItem}>
                                 <View style={styles.amenityIconContainer}>
-                                    <MaterialIcons name="kitchen" size={20} color={colors.primary} />
+                                    <MaterialIcons name="kitchen" size={20} color={palette.primary} />
                                 </View>
                                 <Text style={styles.amenityText}>{rental.numberKitchen} bếp</Text>
                             </View>
 
                             <View style={styles.amenityItem}>
                                 <View style={styles.amenityIconContainer}>
-                                    <MaterialIcons name="wifi" size={20} color={colors.primary} />
+                                    <MaterialIcons name="wifi" size={20} color={palette.primary} />
                                 </View>
                                 <Text style={styles.amenityText}>{rental.numberWifi} wifi</Text>
                             </View>
@@ -288,31 +268,29 @@ export default function HomestayRentalDetailScreen() {
                     >
                         <View style={styles.sectionHeader}>
                             <View style={styles.sectionTitleContainer}>
+                                <MaterialIcons name="people" size={22} color={palette.primary} style={styles.sectionIcon} />
                                 <Text style={styles.sectionTitle}>Sức chứa</Text>
                             </View>
                         </View>
 
                         <View style={styles.capacityContainer}>
-                            <LinearGradient
-                                colors={[colors.primary + '10', colors.primary + '05']}
-                                style={styles.capacityCard}
-                            >
+                            <View style={styles.capacityCard}>
                                 <View style={styles.capacityRow}>
                                     <View style={styles.capacityItem}>
-                                        <MaterialIcons name="person" size={22} color={colors.primary} />
+                                        <MaterialIcons name="person" size={22} color={palette.primary} />
                                         <Text style={styles.capacityText}>{rental.maxAdults} người lớn</Text>
                                     </View>
                                     <View style={styles.capacityDivider} />
                                     <View style={styles.capacityItem}>
-                                        <MaterialIcons name="child-care" size={22} color={colors.primary} />
+                                        <MaterialIcons name="child-care" size={22} color={palette.primary} />
                                         <Text style={styles.capacityText}>{rental.maxChildren} trẻ em</Text>
                                     </View>
                                 </View>
                                 <View style={styles.totalCapacity}>
-                                    <MaterialIcons name="groups" size={22} color={colors.primary} />
+                                    <MaterialIcons name="groups" size={22} color={palette.primary} />
                                     <Text style={styles.totalCapacityText}>Tối đa {rental.maxPeople} khách</Text>
                                 </View>
-                            </LinearGradient>
+                            </View>
                         </View>
                     </Animated.View>
 
@@ -322,6 +300,7 @@ export default function HomestayRentalDetailScreen() {
                     >
                         <View style={styles.sectionHeader}>
                             <View style={styles.sectionTitleContainer}>
+                                <MaterialIcons name="description" size={22} color={palette.primary} style={styles.sectionIcon} />
                                 <Text style={styles.sectionTitle}>Mô tả</Text>
                             </View>
                         </View>
@@ -342,6 +321,7 @@ export default function HomestayRentalDetailScreen() {
                                     <Text style={styles.readMoreText}>
                                         {expanded ? 'Thu gọn' : 'Xem thêm'}
                                     </Text>
+                                    <AntDesign name={expanded ? "up" : "down"} size={14} color={palette.primary} style={{ marginLeft: 4 }} />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -354,47 +334,97 @@ export default function HomestayRentalDetailScreen() {
                         >
                             <View style={styles.sectionHeader}>
                                 <View style={styles.sectionTitleContainer}>
+                                    <MaterialIcons name="attach-money" size={22} color={palette.primary} style={styles.sectionIcon} />
                                     <Text style={styles.sectionTitle}>Bảng giá</Text>
                                 </View>
                             </View>
 
-                            <View style={styles.priceCardsContainer}>
-                                {rental.pricing.map((pricing, index) => (
-                                    <Animated.View
-                                        key={index}
-                                        entering={FadeInDown.delay(50 * index)}
-                                        style={styles.serviceCard}
-                                    >
-                                        <View style={styles.serviceContentContainer}>
-                                            <View style={styles.serviceHeaderContainer}>
-                                                <View style={styles.priceNameContainer}>
-                                                    <Text style={styles.serviceName}>
-                                                        {pricing.description}
-                                                    </Text>
-                                                </View>
-                                                <Text style={styles.servicePrice}>
-                                                    {pricing.rentPrice?.toLocaleString('vi-VN')}₫
-                                                </Text>
-                                            </View>
-                                            <View style={styles.pricingDetailsContainer}>
-                                                <View style={styles.pricingDetailItem}>
-                                                    <FontAwesome5 name="dollar-sign" size={12} color="#666" />
-                                                    <Text style={styles.serviceDescription}>
-                                                        Giá đơn vị: {pricing.unitPrice?.toLocaleString('vi-VN')}₫
-                                                    </Text>
-                                                </View>
-                                                {pricing.note && (
-                                                    <View style={styles.pricingDetailItem}>
-                                                        <FontAwesome5 name="info-circle" size={12} color="#666" />
-                                                        <Text style={styles.serviceDescription}>
-                                                            {pricing.note}
+                            <View style={styles.pricingContainer}>
+                                {rental.pricing
+                                    .slice(0, showAllPrices ? rental.pricing.length : Math.min(3, rental.pricing.length))
+                                    .map((pricing, index) => {
+                                        const isWeekend = pricing.dayType === 1;
+                                        return (
+                                            <Animated.View
+                                                key={index}
+                                                entering={FadeInDown.delay(50 * index).springify()}
+                                                style={styles.pricingCard}
+                                            >
+                                                <View style={[
+                                                    styles.pricingCardBorder,
+                                                    isWeekend ? styles.weekendBorder : styles.weekdayBorder
+                                                ]} />
+
+                                                <View style={styles.pricingCardContent}>
+                                                    <View style={styles.pricingCardHeader}>
+                                                        <Text style={[
+                                                            styles.pricingTypeBadge,
+                                                            isWeekend ? styles.weekendBadge : styles.weekdayBadge
+                                                        ]}>
+                                                            {isWeekend ? 'CUỐI TUẦN' : 'NGÀY THƯỜNG'}
+                                                        </Text>
+                                                        <Text style={styles.pricingTypeDescription}>
+                                                            {isWeekend ? 'Thứ 7 & Chủ nhật' : 'Thứ 2 - Thứ 6'}
                                                         </Text>
                                                     </View>
-                                                )}
-                                            </View>
-                                        </View>
-                                    </Animated.View>
-                                ))}
+
+                                                    <View style={styles.pricingPrice}>
+                                                        <Text style={[
+                                                            styles.pricingPriceAmount,
+                                                            isWeekend ? styles.weekendPrice : styles.weekdayPrice
+                                                        ]}>
+                                                            {pricing.rentPrice?.toLocaleString('vi-VN')}
+                                                            <Text style={styles.pricingPriceUnit}>₫</Text>
+                                                        </Text>
+                                                        <Text style={styles.pricingPricePerNight}>/đêm</Text>
+                                                    </View>
+
+                                                    <Text style={styles.pricingDescription} numberOfLines={2}>
+                                                        {pricing.description}
+                                                    </Text>
+
+                                                    {pricing.unitPrice !== pricing.rentPrice && (
+                                                        <View style={styles.originalPriceContainer}>
+                                                            <Text style={styles.originalPriceLabel}>Giá gốc: </Text>
+                                                            <Text style={styles.originalPrice}>
+                                                                {pricing.unitPrice?.toLocaleString('vi-VN')}₫
+                                                            </Text>
+                                                            <View style={styles.discountBadge}>
+                                                                <Text style={styles.discountText}>
+                                                                    {Math.round((1 - pricing.rentPrice / pricing.unitPrice) * 100)}% giảm
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </Animated.View>
+                                        );
+                                    })}
+
+                                {rental.pricing.length > 3 && (
+                                    <TouchableOpacity
+                                        style={styles.viewMoreButton}
+                                        onPress={() => setShowAllPrices(!showAllPrices)}
+                                    >
+                                        <Text style={styles.viewMoreText}>
+                                            {showAllPrices ? 'Thu gọn' : `Xem thêm ${rental.pricing.length - 3} bảng giá`}
+                                        </Text>
+                                        <MaterialIcons
+                                            name={showAllPrices ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                                            size={20}
+                                            color={palette.primary}
+                                        />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            <View style={styles.pricingNote}>
+                                <View style={styles.pricingNoteIconContainer}>
+                                    <MaterialIcons name="info-outline" size={20} color={palette.primary} />
+                                </View>
+                                <Text style={styles.pricingNoteText}>
+                                    Giá đã bao gồm thuế và phí dịch vụ. Chưa bao gồm các dịch vụ phát sinh.
+                                </Text>
                             </View>
                         </Animated.View>
                     )}
@@ -405,19 +435,19 @@ export default function HomestayRentalDetailScreen() {
             </ScrollView>
 
             {/* Floating Booking Section */}
-            <Animated.View
-                entering={FadeIn}
-                style={styles.bookingSection}
-            >
-                <BlurView intensity={80} tint="light" style={styles.bookingBlur}>
+            <View style={styles.bookingSection}>
+                <View style={styles.bookingBlur}>
                     {rental.rentWhole ? (
                         <View style={styles.priceContainer}>
                             <Text style={styles.priceLabel}>Giá mỗi đêm</Text>
-                            <Text style={styles.price}>{price?.toLocaleString('vi-VN')}₫</Text>
+                            <Text style={styles.price}>{price?.toLocaleString('vi-VN')} <Text style={styles.priceCurrency}>₫</Text></Text>
                             <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
                         </View>
                     ) : (
-                        <View style={styles.priceContainer}></View>
+                        <View style={styles.priceContainer}>
+                            <Text style={styles.priceLabel}>Xem các loại phòng</Text>
+                            <Text style={styles.priceNote}>Chọn phòng phù hợp với nhu cầu của bạn</Text>
+                        </View>
                     )}
 
                     <TouchableOpacity
@@ -425,7 +455,7 @@ export default function HomestayRentalDetailScreen() {
                         onPress={rental.rentWhole ? handleBookNow : handleViewRoomTypes}
                     >
                         <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
+                            colors={[palette.primary, palette.secondary]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
                             style={styles.gradientButton}
@@ -433,10 +463,11 @@ export default function HomestayRentalDetailScreen() {
                             <Text style={styles.bookButtonText}>
                                 {rental.rentWhole ? 'Đặt ngay' : 'Xem loại phòng'}
                             </Text>
+                            <Ionicons name="chevron-forward" size={16} color="#fff" />
                         </LinearGradient>
                     </TouchableOpacity>
-                </BlurView>
-            </Animated.View>
+                </View>
+            </View>
 
             {/* Image Viewer Modal */}
             <ImageViewer
@@ -452,62 +483,65 @@ export default function HomestayRentalDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: palette.background,
     },
-    header: {
+    headerContainer: {
         position: 'absolute',
-        top: Platform.OS === 'ios' ? 48 : 16,
+        top: 0,
         left: 0,
         right: 0,
+        zIndex: 10,
+        paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+    },
+    headerButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        zIndex: 10,
+        paddingHorizontal: 20,
     },
-    backButton: {
-        width: 40,
-        height: 40,
+    rightButtons: {
+        flexDirection: 'row',
     },
-    shareButton: {
-        width: 40,
-        height: 40,
+    iconButton: {
+        marginHorizontal: 6,
     },
     blurButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
     },
     scrollView: {
         flex: 1,
     },
-    coverImageContainer: {
-        height: 300,
+    coverContainer: {
+        height: height * 0.45,
         position: 'relative',
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 16,
-    },
-    coverImageItem: {
-        width: width,
-        height: 300,
     },
     coverImage: {
         width: '100%',
         height: '100%',
     },
     imageGradient: {
-        ...StyleSheet.absoluteFillObject,
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
     },
     imageIndicator: {
         position: 'absolute',
-        bottom: 16,
-        left: 0,
-        right: 0,
+        bottom: 20,
+        alignSelf: 'center',
         flexDirection: 'row',
-        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderRadius: 30,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
     },
     indicatorTouchable: {
         padding: 5,
@@ -516,132 +550,117 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.5)',
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
+        marginHorizontal: 4,
     },
     indicatorDotActive: {
-        width: 16,
-        height: 8,
-        borderRadius: 4,
         backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 2,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+    },
+    imageCountBadge: {
+        position: 'absolute',
+        right: 16,
+        bottom: 20,
+        overflow: 'hidden',
+    },
+    imageCountButton: {
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 30,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    imageCountText: {
+        color: '#fff',
+        marginLeft: 6,
+        fontWeight: '600',
+        fontSize: 14,
     },
     contentContainer: {
-        padding: 16,
-        paddingTop: 20,
+        backgroundColor: palette.background,
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -24,
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 10,
     },
     titleSection: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 20,
-        paddingBottom: 16,
+        marginBottom: 24,
+        paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(0,0,0,0.05)',
     },
-    nameContainer: {
+    titleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    titleWrapper: {
         flex: 1,
+        marginRight: 16,
     },
-    name: {
-        fontSize: 22,
+    hotelName: {
+        fontSize: 28,
         fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 4,
+        color: palette.text.dark,
+        marginBottom: 10,
+        letterSpacing: -0.5,
     },
-    homestayName: {
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    locationText: {
         fontSize: 16,
-        color: colors.textSecondary,
+        color: palette.text.medium,
+        marginLeft: 6,
+        fontWeight: '500',
     },
     typeBadgeContainer: {
-        marginLeft: 12,
+        marginTop: 5,
     },
     typeBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
         borderRadius: 16,
-        gap: 6,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        gap: 8,
     },
     typeBadgeText: {
         fontSize: 14,
         fontWeight: '600',
-        color: colors.primary,
+        color: '#fff',
     },
     section: {
         marginBottom: 24,
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
     },
     sectionHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 16,
-        paddingBottom: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
     },
     sectionTitleContainer: {
         flexDirection: 'row',
         alignItems: 'center',
     },
+    sectionIcon: {
+        marginRight: 10,
+    },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-    },
-    serviceCard: {
-        flexDirection: 'row',
-        marginBottom: 16,
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    serviceContentContainer: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    serviceHeaderContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 6,
-    },
-    serviceName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-    },
-    servicePrice: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: colors.primary,
-    },
-    serviceDescription: {
-        fontSize: 14,
-        color: '#666',
-        marginLeft: 6,
+        color: palette.text.dark,
+        letterSpacing: -0.3,
     },
     amenitiesGrid: {
         flexDirection: 'row',
@@ -650,35 +669,38 @@ const styles = StyleSheet.create({
     },
     amenityItem: {
         width: '48%',
+        backgroundColor: palette.card,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 16,
-        backgroundColor: colors.primary + '08',
-        borderRadius: 10,
-        padding: 10,
+        borderWidth: 1,
+        borderColor: palette.cardBorder,
     },
     amenityIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary + '15',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: palette.primary + '15',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
     },
     amenityText: {
         fontSize: 15,
-        color: '#555',
+        color: palette.text.dark,
         fontWeight: '500',
     },
     capacityContainer: {
         width: '100%',
     },
     capacityCard: {
+        backgroundColor: palette.card,
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: colors.primary + '20',
+        borderColor: palette.cardBorder,
     },
     capacityRow: {
         flexDirection: 'row',
@@ -689,19 +711,21 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: colors.primary + '10',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: palette.primary + '08',
         borderRadius: 20,
+        minWidth: '40%',
+        justifyContent: 'center',
     },
     capacityDivider: {
         height: '100%',
         width: 1,
-        backgroundColor: colors.primary + '30',
+        backgroundColor: palette.cardBorder,
     },
     capacityText: {
         fontSize: 15,
-        color: '#555',
+        color: palette.text.dark,
         fontWeight: '500',
     },
     totalCapacity: {
@@ -709,136 +733,74 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        paddingTop: 12,
+        paddingTop: 16,
         borderTopWidth: 1,
-        borderTopColor: colors.primary + '20',
+        borderTopColor: palette.cardBorder,
     },
     totalCapacityText: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '600',
-        color: '#444',
+        color: palette.text.dark,
     },
     descriptionContainer: {
-        width: '100%',
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        borderColor: 'rgba(0,0,0,0.05)',
+        backgroundColor: palette.card,
+        borderRadius: 16,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: palette.cardBorder,
     },
     descriptionText: {
         fontSize: 15,
-        lineHeight: 22,
-        color: '#555',
+        color: palette.text.medium,
+        lineHeight: 24,
     },
     readMoreButton: {
-        marginTop: 8,
-        alignSelf: 'flex-start',
-        backgroundColor: colors.primary + '10',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'center',
+        marginTop: 16,
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        backgroundColor: palette.primary + '10',
     },
     readMoreText: {
+        color: palette.primary,
+        fontWeight: '600',
         fontSize: 14,
-        fontWeight: '600',
-        color: colors.primary,
-    },
-    bookingSection: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.05)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 8,
-    },
-    bookingBlur: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-    },
-    priceContainer: {
-        flex: 1,
-    },
-    priceLabel: {
-        fontSize: 13,
-        color: '#666',
-        fontWeight: '500',
-    },
-    price: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginVertical: 2,
-    },
-    priceNote: {
-        fontSize: 12,
-        color: '#888',
-    },
-    bookButton: {
-        borderRadius: 10,
-        overflow: 'hidden',
-        elevation: 4,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-    },
-    gradientButton: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-    },
-    bookButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: colors.primary,
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#fff',
-    },
-    errorText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: '#ff6b6b',
-        textAlign: 'center',
-    },
-    retryButton: {
-        marginTop: 16,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        backgroundColor: colors.primary,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    bottomSpacer: {
-        height: 90,
     },
     priceCardsContainer: {
         marginTop: 8,
+    },
+    serviceCard: {
+        flexDirection: 'row',
+        marginBottom: 12,
+        backgroundColor: palette.card,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: palette.cardBorder,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 2,
+            },
+        }),
+    },
+    serviceContentContainer: {
+        flex: 1,
+        justifyContent: 'center',
+    },
+    serviceHeaderContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     priceNameContainer: {
         flex: 1,
@@ -846,12 +808,286 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         flexWrap: 'wrap',
     },
+    serviceName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: palette.text.dark,
+    },
+    servicePrice: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: palette.primary,
+    },
     pricingDetailsContainer: {
-        marginTop: 4,
+        marginTop: 6,
     },
     pricingDetailItem: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 4,
+    },
+    serviceDescription: {
+        fontSize: 14,
+        color: palette.text.medium,
+        marginLeft: 8,
+    },
+    bottomSpacer: {
+        height: 100,
+    },
+    bookingSection: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: palette.card,
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 16,
+        borderTopWidth: 1,
+        borderColor: palette.cardBorder,
+    },
+    bookingBlur: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    },
+    priceContainer: {
+        flex: 1,
+    },
+    priceLabel: {
+        fontSize: 14,
+        color: palette.text.light,
+        fontWeight: '500',
+    },
+    price: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: palette.primary,
+        marginTop: 4,
+    },
+    priceCurrency: {
+        fontSize: 20,
+    },
+    priceNote: {
+        fontSize: 12,
+        color: palette.text.light,
         marginTop: 2,
+    },
+    bookButton: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        ...Platform.select({
+            ios: {
+                shadowColor: palette.primary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    gradientButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        gap: 6,
+    },
+    bookButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 30,
+    },
+    errorTitle: {
+        marginTop: 10,
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    errorText: {
+        marginTop: 8,
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    retryButton: {
+        marginTop: 24,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        backgroundColor: palette.primary,
+        borderRadius: 10,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    pricingContainer: {
+        marginTop: 8,
+    },
+    pricingCard: {
+        flexDirection: 'row',
+        marginBottom: 16,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        overflow: 'hidden',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.08,
+                shadowRadius: 12,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
+    },
+    pricingCardBorder: {
+        width: 5,
+    },
+    weekdayBorder: {
+        backgroundColor: palette.primary,
+    },
+    weekendBorder: {
+        backgroundColor: palette.secondary,
+    },
+    pricingCardContent: {
+        flex: 1,
+        padding: 16,
+    },
+    pricingCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    pricingTypeBadge: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginRight: 8,
+    },
+    weekdayBadge: {
+        color: palette.primary,
+        backgroundColor: palette.primary + '15',
+    },
+    weekendBadge: {
+        color: palette.secondary,
+        backgroundColor: palette.secondary + '15',
+    },
+    pricingTypeDescription: {
+        fontSize: 13,
+        color: palette.text.medium,
+    },
+    pricingPrice: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        marginBottom: 10,
+    },
+    pricingPriceAmount: {
+        fontSize: 26,
+        fontWeight: 'bold',
+    },
+    weekdayPrice: {
+        color: palette.primary,
+    },
+    weekendPrice: {
+        color: palette.secondary,
+    },
+    pricingPriceUnit: {
+        fontSize: 20,
+    },
+    pricingPricePerNight: {
+        fontSize: 14,
+        color: palette.text.light,
+        marginLeft: 4,
+        marginBottom: 4,
+    },
+    pricingDescription: {
+        fontSize: 14,
+        color: palette.text.medium,
+        marginBottom: 10,
+    },
+    originalPriceContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+    },
+    originalPriceLabel: {
+        fontSize: 13,
+        color: palette.text.light,
+    },
+    originalPrice: {
+        fontSize: 13,
+        color: palette.text.light,
+        textDecorationLine: 'line-through',
+        marginRight: 8,
+    },
+    discountBadge: {
+        backgroundColor: '#4CAF50' + '20',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    discountText: {
+        fontSize: 12,
+        color: '#4CAF50',
+        fontWeight: 'bold',
+    },
+    pricingNote: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: palette.primary + '08',
+        borderRadius: 12,
+        padding: 12,
+        marginTop: 8,
+    },
+    pricingNoteIconContainer: {
+        marginRight: 12,
+        marginTop: 2,
+    },
+    pricingNoteText: {
+        flex: 1,
+        fontSize: 13,
+        color: palette.text.medium,
+        lineHeight: 18,
+    },
+    viewMoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: palette.primary + '10',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        marginTop: 8,
+        marginBottom: 8,
+    },
+    viewMoreText: {
+        color: palette.primary,
+        fontWeight: '600',
+        fontSize: 15,
+        marginRight: 6,
     },
 });

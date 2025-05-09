@@ -423,10 +423,10 @@ const styles = StyleSheet.create({
         borderColor: "#E0E0E0",
         borderRadius: 16,
         paddingHorizontal: 12,
-        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        height: 50,
         marginBottom: 10,
         backgroundColor: "#FAFAFA",
-        width: '48.5%',  // Slightly adjusted width
+        width: '48.5%',
     },
     inputBox: {
         flexDirection: "row",
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
         borderColor: "#E0E0E0",
         borderRadius: 16,
         paddingHorizontal: 15,
-        paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+        height: 50,
         marginBottom: 10,
         backgroundColor: "#FAFAFA",
     },
@@ -445,15 +445,20 @@ const styles = StyleSheet.create({
     },
     icon: {
         marginRight: 10,
+        alignSelf: 'center',
     },
     input: {
         flex: 1,
-        height: 25,
+        height: '100%',
         fontSize: Math.max(15, scale * 15),
         color: colors.textPrimary,
+        paddingVertical: 0,
+        textAlignVertical: 'center',
     },
     eyeIcon: {
         padding: 5,
+        marginLeft: 5,
+        alignSelf: 'center',
     },
     errorContainer: {
         flexDirection: 'row',

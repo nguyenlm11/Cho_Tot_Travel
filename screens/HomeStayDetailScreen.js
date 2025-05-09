@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, StatusBar, FlatList, Share, Platform, Image, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, StatusBar, FlatList, Platform, Image, Linking, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, Ionicons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import ImageViewer from '../components/ImageViewer';
 import LoadingScreen from '../components/LoadingScreen';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DropdownMenuTabs from '../components/DropdownMenuTabs';
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,19 +60,6 @@ export default function HomestayDetailScreen() {
 
   const handleListRoom = () => {
     navigation.navigate('HomestayRental', { homeStayId: homestayId });
-  };
-
-  const handleShare = async () => {
-    if (!homestay) return;
-    try {
-      await Share.share({
-        message: `Xem Homestay "${homestay.name}" tại địa chỉ: ${homestay.address}. Một địa điểm nghỉ dưỡng tuyệt vời!`,
-        url: `https://yourappdomain.com/homestay/${homestayId}`,
-        title: homestay.name,
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
   };
 
   const handleOpenMap = () => {
@@ -271,7 +259,7 @@ export default function HomestayDetailScreen() {
         try {
           const existingConvsString = await AsyncStorage.getItem('recent_conversations');
           const existingConvs = existingConvsString ? JSON.parse(existingConvsString) : [];
-          
+
           // Thêm cuộc trò chuyện mới vào danh sách
           const newConv = {
             conversationID: response.data.data.conversationID,
@@ -283,16 +271,16 @@ export default function HomestayDetailScreen() {
             },
             lastMessage: null
           };
-          
-          const updatedConvs = [newConv, ...existingConvs.filter(c => 
+
+          const updatedConvs = [newConv, ...existingConvs.filter(c =>
             c.conversationID !== response.data.data.conversationID
           )];
-          
+
           await AsyncStorage.setItem('recent_conversations', JSON.stringify(updatedConvs));
         } catch (err) {
           console.log('Error saving recent conversation:', err);
         }
-        
+
         navigation.navigate('ChatDetail', {
           conversationId: response.data.data.conversationID,
           receiverId: homestay.staffID,
@@ -353,15 +341,7 @@ export default function HomestayDetailScreen() {
             </View>
           </TouchableOpacity>
           <View style={styles.rightButtons}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={handleShare}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <View style={styles.blurButton}>
-                <Ionicons name="share-outline" size={22} color="#fff" />
-              </View>
-            </TouchableOpacity>
+            <DropdownMenuTabs style={{ marginLeft: 8 }} iconStyle={styles.blurButton} />
           </View>
         </View>
       </View>
