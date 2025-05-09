@@ -2,54 +2,61 @@ import apiClient, { handleAuthError } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 
-// Hàm tiện ích để lưu thông tin xác thực
 const saveAuthData = async (data) => {
   if (!data) return null;
 
-  // Lưu token - hỗ trợ cả hai cách đặt tên token
-  if (data.token || data['access-token']) {
-    const accessToken = data.token || data['access-token'];
-    await AsyncStorage.setItem('token', accessToken);
-  }
-
-  // Lưu refresh token - hỗ trợ cả hai cách đặt tên
-  if (data.refreshToken || data['refresh-token']) {
-    const refreshToken = data.refreshToken || data['refresh-token'];
-    await AsyncStorage.setItem('refreshToken', refreshToken);
-  }
-
-  // Lưu thông tin người dùng
   try {
-    const token = data.token || data['access-token'];
-    const userInfo = token ? getUserFromToken(token) : {};
+    if (data.token || data['access-token']) {
+      const accessToken = data.token || data['access-token'];
+      await AsyncStorage.setItem('token', accessToken);
+      console.log('Token saved successfully:', accessToken.substring(0, 10) + '...');
+    }
 
-    // Chuẩn hóa dữ liệu để đảm bảo tính nhất quán
-    const normalizedData = {
-      ...data,
-      token: data.token || data['access-token'],
-      refreshToken: data.refreshToken || data['refresh-token']
-    };
+    if (data.refreshToken || data['refresh-token']) {
+      const refreshToken = data.refreshToken || data['refresh-token'];
+      await AsyncStorage.setItem('refreshToken', refreshToken);
+      console.log('Refresh token saved successfully');
+    }
 
-    // Xóa các key không cần thiết
-    delete normalizedData['access-token'];
-    delete normalizedData['refresh-token'];
+    try {
+      const token = data.token || data['access-token'];
+      const userInfo = token ? getUserFromToken(token) : {};
 
-    // Kết hợp thông tin từ response và token
-    const userData = {
-      ...normalizedData,
-      ...userInfo
-    };
+      const normalizedData = {
+        ...data,
+        token: data.token || data['access-token'],
+        refreshToken: data.refreshToken || data['refresh-token']
+      };
 
-    await AsyncStorage.setItem('user', JSON.stringify(userData));
-    return userData;
+      delete normalizedData['access-token'];
+      delete normalizedData['refresh-token'];
+
+      const userData = {
+        ...normalizedData,
+        ...userInfo
+      };
+
+      const userDataString = JSON.stringify(userData);
+      await AsyncStorage.setItem('user', userDataString);
+      console.log('User data saved successfully, length:', userDataString.length);
+      
+      if (userInfo.userId) {
+        await AsyncStorage.setItem('userId', userInfo.userId.toString());
+      }
+      
+      return userData;
+    } catch (error) {
+      console.error('Error saving user data:', error);
+      const userDataString = JSON.stringify(data);
+      await AsyncStorage.setItem('user', userDataString);
+      return data;
+    }
   } catch (error) {
-    console.error('Error saving user data:', error);
-    await AsyncStorage.setItem('user', JSON.stringify(data));
+    console.error('Critical error saving auth data:', error);
     return data;
   }
 };
 
-// Lấy thông tin người dùng từ token
 const getUserFromToken = (token) => {
   try {
     const decoded = jwtDecode(token);
@@ -66,7 +73,6 @@ const getUserFromToken = (token) => {
   }
 };
 
-// Thêm hàm kiểm tra role
 const validateCustomerRole = (userData) => {
   if (!userData || userData.role !== 'Customer') {
     throw new Error('Tài khoản không có quyền truy cập. Chỉ khách hàng mới được phép đăng nhập.');
@@ -74,7 +80,6 @@ const validateCustomerRole = (userData) => {
 };
 
 const authApi = {
-  // Đăng ký tài khoản
   register: async (userData) => {
     try {
       const response = await apiClient.post('/api/account/register-Customer', userData);
@@ -84,7 +89,6 @@ const authApi = {
     }
   },
 
-  // Xác nhận tài khoản bằng OTP
   confirmAccount: async (email, code) => {
     try {
       const response = await apiClient.post(`/api/account/confirmation/${email}/${code}`);
@@ -94,7 +98,6 @@ const authApi = {
     }
   },
 
-  // Gửi lại mã OTP
   resendOTP: async (email) => {
     try {
       const response = await apiClient.post(`/api/account/resend-otp/${email}`);
@@ -104,12 +107,9 @@ const authApi = {
     }
   },
 
-  // Đăng nhập
   login: async (credentials) => {
     try {
       const response = await apiClient.post('/api/account/login', credentials);
-
-      // Kiểm tra và giải mã token để lấy thông tin role
       const token = response.data.token || response.data['access-token'];
       if (token) {
         const userData = getUserFromToken(token);
@@ -122,7 +122,6 @@ const authApi = {
     }
   },
 
-  // Làm mới token
   refreshToken: async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -140,14 +139,12 @@ const authApi = {
       const userData = await saveAuthData(response.data);
       return userData;
     } catch (error) {
-      // Xóa token nếu refresh thất bại
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('refreshToken');
       throw new Error(handleAuthError(error));
     }
   },
 
-  // Quên mật khẩu - Yêu cầu token reset
   forgotPassword: async (email) => {
     try {
       const response = await apiClient.post('/api/account/Reset-Password-Token', { email });
@@ -157,7 +154,6 @@ const authApi = {
     }
   },
 
-  // Đặt lại mật khẩu với token
   resetPassword: async (resetData) => {
     try {
       const response = await apiClient.post('/api/account/Reset-Password', resetData);
@@ -167,7 +163,6 @@ const authApi = {
     }
   },
 
-  // Đổi mật khẩu
   changePassword: async (changeData) => {
     try {
       const response = await apiClient.post('/api/account/change-password', changeData);
@@ -177,37 +172,93 @@ const authApi = {
     }
   },
 
-  // Kiểm tra xác thực
   checkAuth: async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      if (!token) return false;
+      console.log('Checking auth, token exists:', !!token);
+      
+      if (!token) {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          console.log('Found userId, attempting to refresh session');
+          try {
+            const refreshToken = await AsyncStorage.getItem('refreshToken');
+            if (refreshToken) {
+              await authApi.refreshToken();
+              return true;
+            }
+          } catch (refreshError) {
+            console.error('Failed to refresh token from userId:', refreshError);
+            await AsyncStorage.removeItem('userId');
+          }
+        }
+        return false;
+      }
 
-      // Kiểm tra token có hết hạn chưa
-      const decoded = getUserFromToken(token);
-      if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-        // Token đã hết hạn, thử refresh
+      try {
+        const decoded = getUserFromToken(token);
+        if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+          console.log('Token expired, trying to refresh');
+          try {
+            await authApi.refreshToken();
+            return true;
+          } catch (refreshError) {
+            console.error('Error refreshing token:', refreshError);
+            await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('refreshToken');
+            await AsyncStorage.removeItem('user');
+            await AsyncStorage.removeItem('userId');
+            return false;
+          }
+        }
+        return true;
+      } catch (tokenError) {
+        console.error('Error decoding token:', tokenError);
         try {
           await authApi.refreshToken();
           return true;
         } catch (refreshError) {
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('refreshToken');
+          await AsyncStorage.removeItem('user');
+          await AsyncStorage.removeItem('userId');
           return false;
         }
       }
-
-      return true;
     } catch (error) {
       console.error('Error checking auth:', error);
       return false;
     }
   },
 
-  // Đăng xuất
   logout: async () => {
     try {
-      await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('refreshToken');
-      await AsyncStorage.removeItem('user');
+      const keysToRemove = [
+        'token', 
+        'refreshToken', 
+        'user', 
+        'userId',
+      ];
+      
+      const results = await Promise.all(
+        keysToRemove.map(async (key) => {
+          try {
+            await AsyncStorage.removeItem(key);
+            console.log(`Successfully removed ${key} from storage`);
+            return { key, success: true };
+          } catch (error) {
+            console.error(`Error removing ${key}:`, error);
+            return { key, success: false, error };
+          }
+        })
+      );
+      
+      const allSuccessful = results.every(result => result.success);
+      if (!allSuccessful) {
+        console.warn('Some items could not be removed during logout', 
+          results.filter(r => !r.success).map(r => r.key));
+      }
+      
       return true;
     } catch (error) {
       console.error('Error during logout:', error);
@@ -215,7 +266,6 @@ const authApi = {
     }
   },
 
-  // Lấy thông tin người dùng
   getUserInfo: async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
@@ -229,7 +279,6 @@ const authApi = {
     }
   },
 
-  // Cập nhật thông tin người dùng
   updateUserInfo: async (userData) => {
     try {
       if (!userData.userId) {
@@ -237,7 +286,6 @@ const authApi = {
       }
       const { userId, ...updateData } = userData;
 
-      // Gọi API với userId trong query parameter
       const response = await apiClient.put(`/api/account/Update-Account?userId=${userId}`, {
         userName: updateData.username,
         email: updateData.email,

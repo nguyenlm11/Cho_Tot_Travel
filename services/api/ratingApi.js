@@ -79,7 +79,7 @@ const ratingApi = {
         }
     },
 
-    updateRating: async (ratingId, formData) => {
+    updateRating: async (formData) => {
         try {
             const userString = await AsyncStorage.getItem('user');
             if (!userString) {
@@ -90,11 +90,11 @@ const ratingApi = {
             if (!userId) {
                 throw new Error('Không tìm thấy ID người dùng');
             }
-
-            // Thêm ratingID vào formData
-            formData.append('RatingID', ratingId);
             
-            const response = await apiClient.put('/api/rating/UpdateRating', formData, {
+            // Lấy ratingID từ formData
+            const ratingID = formData.get('ratingID');
+            
+            const response = await apiClient.put(`/api/rating/UpdateRating/${ratingID}`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -132,6 +132,28 @@ const ratingApi = {
             return {
                 success: false,
                 error: 'Không thể tải thông tin đánh giá. Vui lòng thử lại sau.'
+            };
+        }
+    },
+
+    getRatingDetail: async (ratingId) => {
+        try {
+            const response = await apiClient.get(`/api/rating/GetRatingDetail/${ratingId}`);
+            if (response.data?.statusCode === 200 && response.data?.data) {
+                return {
+                    success: true,
+                    data: response.data.data
+                };
+            }
+            return {
+                success: false,
+                error: 'Không tìm thấy chi tiết đánh giá'
+            };
+        } catch (error) {
+            console.error('Lỗi khi lấy chi tiết đánh giá:', error);
+            return {
+                success: false,
+                error: 'Không thể tải chi tiết đánh giá. Vui lòng thử lại sau.'
             };
         }
     }

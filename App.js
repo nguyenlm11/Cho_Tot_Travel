@@ -10,7 +10,6 @@ import { colors } from './constants/Colors';
 import { UserProvider } from './contexts/UserContext';
 import { CartProvider } from './contexts/CartContext';
 
-// Component để kiểm tra trạng thái xác thực ban đầu
 const AppContent = () => {
   const [isReady, setIsReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState('Splash');
@@ -19,8 +18,35 @@ const AppContent = () => {
     const checkInitialAuth = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
+        const userId = await AsyncStorage.getItem('userId');
+        console.log('Initial auth check - Token exists:', !!token, 'UserId exists:', !!userId);
+
         if (token) {
-          setInitialRoute('MainTabs');
+          try {
+            const userString = await AsyncStorage.getItem('user');
+            if (userString) {
+              const userData = JSON.parse(userString);
+              // console.log('User data found in storage', userData);
+            }
+            setInitialRoute('MainTabs');
+          } catch (parseError) {
+            console.error('Error parsing stored user data:', parseError);
+            setInitialRoute('MainTabs');
+          }
+        } else if (userId) {
+          const refreshToken = await AsyncStorage.getItem('refreshToken');
+          if (refreshToken) {
+            try {
+              const authApi = require('./services/api/authApi').default;
+              await authApi.refreshToken();
+              setInitialRoute('MainTabs');
+            } catch (refreshError) {
+              console.error('Error refreshing token on startup:', refreshError);
+              setInitialRoute('Onboarding');
+            }
+          } else {
+            setInitialRoute('Onboarding');
+          }
         } else {
           setInitialRoute('Onboarding');
         }
@@ -31,7 +57,6 @@ const AppContent = () => {
         setIsReady(true);
       }
     };
-
     checkInitialAuth();
   }, []);
 

@@ -103,6 +103,22 @@ const homeStayApi = {
         error: error.response?.data?.message || 'Không thể lấy thông tin chính sách hủy phòng'
       };
     }
+  },
+
+  getTrendingHomeStays: async (top = 5) => {
+    try {
+      const response = await apiClient.get(`/api/homestay/GetTrendingHomeStays?top=${top}`);
+      return {
+        success: true,
+        data: response.data.data || []
+      };
+    } catch (error) {
+      console.error('Error fetching trending homestays:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: handleError(error)
+      };
+    }
   }
 };
 
