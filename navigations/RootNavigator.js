@@ -31,6 +31,7 @@ import BookingSuccess from '../screens/BookingSuccess';
 import BookingFailed from '../screens/BookingFailed';
 import WholeHomestayCheckout from '../screens/WholeHomestayCheckout';
 import WriteReviewScreen from '../screens/WriteReviewScreen';
+import RatingDetailScreen from '../screens/RatingDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -110,6 +111,7 @@ const MainStack = () => {
             <Stack.Screen name="BookingSuccess" component={BookingSuccess} />
             <Stack.Screen name="BookingFailed" component={BookingFailed} />
             <Stack.Screen name="Review" component={WriteReviewScreen} />
+            <Stack.Screen name="RatingDetail" component={RatingDetailScreen} />
             {/* Modal Screens */}
             <Stack.Group screenOptions={modalScreenOptions}>
                 <Stack.Screen

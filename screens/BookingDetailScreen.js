@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, StatusBar, Animated } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, StatusBar, Animated, Modal } from 'react-native';
+import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -10,6 +10,7 @@ import { FadeInDown } from 'react-native-reanimated';
 import ServicesModal from '../components/Modal/ServicesModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import homeStayApi from '../services/api/homeStayApi';
+import LoadingScreen from '../components/LoadingScreen';
 
 const BookingDetailScreen = () => {
     const navigation = useNavigation();
@@ -23,6 +24,10 @@ const BookingDetailScreen = () => {
     const [isServicesModalVisible, setIsServicesModalVisible] = useState(false);
     const [selectedServices, setSelectedServices] = useState([]);
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
+    const [ratingModalVisible, setRatingModalVisible] = useState(false);
+    const [rating, setRating] = useState(0);
+    const [ratingComment, setRatingComment] = useState('');
+    const [submittingRating, setSubmittingRating] = useState(false);
 
     const bookingStatusMapping = useMemo(() => ({
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
@@ -111,8 +116,6 @@ const BookingDetailScreen = () => {
             Alert.alert('Lỗi', 'Không thể lấy thông tin đặt phòng hoặc chính sách hủy');
             return;
         }
-
-        // Kiểm tra nếu chưa thanh toán (status = 0 và paymentStatus = 0)
         if (bookingData.status === 0 && bookingData.paymentStatus === 0) {
             Alert.alert(
                 'Xác nhận hủy đặt phòng',
@@ -231,7 +234,6 @@ const BookingDetailScreen = () => {
                 Alert.alert('Lỗi', 'Không tìm thấy thông tin homestay');
                 return;
             }
-
             setLoading(true);
             const userData = await AsyncStorage.getItem('user');
             const userInfo = userData ? JSON.parse(userData) : null;
@@ -239,7 +241,6 @@ const BookingDetailScreen = () => {
                 Alert.alert('Lỗi', 'Vui lòng đăng nhập để thực hiện chức năng này');
                 return;
             }
-
             const invalidServices = selectedServices.filter(service =>
                 service.serviceType === 2 && (!service.startDate || !service.endDate)
             );
@@ -410,6 +411,40 @@ const BookingDetailScreen = () => {
     const handleBookService = useCallback(() => {
         setIsServicesModalVisible(true);
     }, []);
+
+    const handleRateBooking = () => {
+        setRatingModalVisible(true);
+    };
+
+    const handleSubmitRating = async () => {
+        if (rating === 0) {
+            Alert.alert('Lỗi', 'Vui lòng chọn số sao đánh giá');
+            return;
+        }
+
+        try {
+            setSubmittingRating(true);
+            // Replace with your actual API endpoint
+            const response = await homeStayApi.rateHomeStay(
+                bookingData.homeStay.homeStayID, 
+                rating, 
+                ratingComment
+            );
+            
+            if (response.success) {
+                Alert.alert('Thành công', 'Cảm ơn bạn đã đánh giá');
+                setRatingModalVisible(false);
+                fetchBookingDetails();
+            } else {
+                Alert.alert('Lỗi', response.error || 'Không thể gửi đánh giá');
+            }
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi gửi đánh giá');
+        } finally {
+            setSubmittingRating(false);
+        }
+    };
 
     const renderStatus = (status, statusMapping) => {
         const statusInfo = statusMapping[status] || {
@@ -594,103 +629,9 @@ const BookingDetailScreen = () => {
                             <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
                         </View>
                         <View style={styles.sectionContent}>
-                            {bookingData.bookingServices.map((service) => (
-                                <View key={service.bookingServicesID} style={styles.serviceItem}>
-                                    <View style={styles.serviceHeader}>
-                                        <View style={styles.serviceHeaderLeft}>
-                                            <MaterialIcons name="event" size={18} color={colors.primary} />
-                                            <Text style={styles.serviceDate}>
-                                                {formatDateTime(service.bookingServicesDate)}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.serviceStatusBadge}>
-                                            <Text style={styles.serviceStatusText}>
-                                                {service.status === 0 ? 'Chờ thanh toán' :
-                                                    service.status === 1 ? 'Đã thanh toán' :
-                                                        service.status === 2 ? 'Đang phục vụ' :
-                                                            service.status === 3 ? 'Đã hoàn thành' :
-                                                                service.status === 4 ? 'Đã hủy' :
-                                                                    service.status === 5 ? 'Yêu cầu hoàn tiền' :
-                                                                        service.status === 6 ? 'Đã hoàn tiền' : 'Không xác định'}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={styles.serviceDetails}>
-                                        {service.bookingServicesDetails.map((detail) => (
-                                            <View key={detail.bookingServicesDetailID} style={styles.serviceDetailItem}>
-                                                <View style={styles.serviceDetailInfo}>
-                                                    <View style={styles.serviceDetailHeader}>
-                                                        <MaterialIcons name="local-offer" size={20} color={colors.primary} />
-                                                        <Text style={styles.serviceName}>{detail.services?.servicesName}</Text>
-                                                    </View>
-                                                    <View style={styles.serviceDetailMeta}>
-                                                        <View style={styles.serviceMetaItem}>
-                                                            <MaterialIcons name="shopping-cart" size={16} color="#666" />
-                                                            <Text style={styles.serviceMetaText}>Số lượng: {detail.quantity}</Text>
-                                                        </View>
-                                                    </View>
-                                                </View>
-                                                <View style={styles.serviceDetailPrice}>
-                                                    <Text style={styles.serviceDetailPriceLabel}>Thành tiền</Text>
-                                                    <Text style={styles.serviceDetailPriceValue}>
-                                                        {formatCurrency(detail.totalAmount)}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        ))}
-                                    </View>
-
-                                    <View style={styles.serviceFooter}>
-                                        <View style={styles.serviceTotal}>
-                                            <Text style={styles.serviceTotalLabel}>Tổng tiền dịch vụ</Text>
-                                            <Text style={styles.serviceTotalValue}>{formatCurrency(service.total)}</Text>
-                                        </View>
-                                        <View style={styles.serviceActions}>
-                                            {service.status === 0 && (
-                                                <>
-                                                    <TouchableOpacity
-                                                        style={[styles.serviceActionButton, styles.cancelButton]}
-                                                        onPress={() => handleCancelService(service.bookingServicesID, false)}
-                                                    >
-                                                        <View style={styles.serviceActionIconContainer}>
-                                                            <Ionicons name="close-circle-outline" size={20} color="#FF5252" />
-                                                        </View>
-                                                        <Text style={[styles.serviceActionButtonText, { color: '#FF5252' }]}>Hủy</Text>
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity
-                                                        style={[styles.serviceActionButton, styles.payButton]}
-                                                        onPress={() => handleServicePayment(service.bookingServicesID)}
-                                                        disabled={processingPayment}
-                                                    >
-                                                        {processingPayment ? (
-                                                            <ActivityIndicator color="#FFF" size="small" />
-                                                        ) : (
-                                                            <>
-                                                                <View style={styles.serviceActionIconContainer}>
-                                                                    <Ionicons name="card-outline" size={20} color="#FFF" />
-                                                                </View>
-                                                                <Text style={[styles.serviceActionButtonText, { color: '#FFF' }]}>Thanh toán</Text>
-                                                            </>
-                                                        )}
-                                                    </TouchableOpacity>
-                                                </>
-                                            )}
-                                            {service.status === 1 && (
-                                                <TouchableOpacity
-                                                    style={[styles.serviceActionButton, styles.refundButton]}
-                                                    onPress={() => handleCancelService(service.bookingServicesID, true)}
-                                                >
-                                                    <View style={styles.serviceActionIconContainer}>
-                                                        <Ionicons name="refresh-outline" size={20} color="#FF9800" />
-                                                    </View>
-                                                    <Text style={[styles.serviceActionButtonText, { color: '#FF9800' }]}>Hủy</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    </View>
-                                </View>
-                            ))}
+                            {bookingData.bookingServices.map((service) =>
+                                renderSimpleServiceItem(service)
+                            )}
                         </View>
                     </View>
                 )}
@@ -833,12 +774,114 @@ const BookingDetailScreen = () => {
         );
     };
 
+    const renderSimpleServiceItem = (service) => {
+        // Hàm lấy thông tin trạng thái từ mã số
+        const getStatusInfo = (status) => {
+            switch (status) {
+                case 0: return { text: 'Chờ thanh toán', color: '#FF9800', bgColor: '#FFF3E0' };
+                case 1: return { text: 'Đã thanh toán', color: '#4CAF50', bgColor: '#E8F5E9' };
+                case 2: return { text: 'Đang phục vụ', color: '#2196F3', bgColor: '#E3F2FD' };
+                case 3: return { text: 'Đã hoàn thành', color: '#9C27B0', bgColor: '#F3E5F5' };
+                case 4: return { text: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE' };
+                case 5: return { text: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7' };
+                case 6: return { text: 'Đã hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5' };
+                default: return { text: 'Không xác định', color: '#607D8B', bgColor: '#ECEFF1' };
+            }
+        };
+
+        const statusInfo = getStatusInfo(service.status);
+
+        return (
+            <View key={service.bookingServicesID} style={styles.simpleServiceCard}>
+                {/* Header with timestamp and status */}
+                <View style={styles.simpleServiceHeader}>
+                    <View style={styles.simpleServiceTimeContainer}>
+                        <Ionicons name="time-outline" size={16} color="#4CAF50" />
+                        <Text style={styles.simpleServiceTime}>
+                            {formatDateTime(service.bookingServicesDate)}
+                        </Text>
+                    </View>
+                    <View style={[styles.simpleServiceStatus, { backgroundColor: statusInfo.bgColor }]}>
+                        <Text style={[styles.simpleServiceStatusText, { color: statusInfo.color }]}>
+                            {statusInfo.text}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Service info */}
+                <View style={styles.simpleServiceInfo}>
+                    <View style={styles.simpleServiceName}>
+                        <Ionicons name="pricetag-outline" size={18} color="#555" />
+                        <Text style={styles.simpleServiceNameText}>
+                            {service.bookingServicesDetails?.[0]?.services?.servicesName || 'Dịch vụ'}
+                        </Text>
+                    </View>
+
+                    <View style={styles.simpleServiceQuantity}>
+                        <Ionicons name="cart-outline" size={16} color="#777" />
+                        <Text style={styles.simpleServiceQuantityText}>
+                            Số lượng: {service.bookingServicesDetails?.[0]?.quantity || 1}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Price */}
+                <View style={styles.simpleServicePrice}>
+                    <Text style={styles.simpleServicePriceLabel}>Thành tiền</Text>
+                    <Text style={styles.simpleServicePriceValue}>
+                        {formatCurrency(service.total)}
+                    </Text>
+                </View>
+
+                {/* Action buttons - tuỳ theo trạng thái */}
+                {service.status === 0 && (
+                    <View style={styles.simpleServiceButtons}>
+                        <TouchableOpacity
+                            style={styles.simpleServiceCancelButton}
+                            onPress={() => handleCancelService(service.bookingServicesID, false)}
+                        >
+                            <Ionicons name="close-circle-outline" size={18} color="#FF5252" />
+                            <Text style={styles.simpleServiceCancelText}>Hủy</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.simpleServicePayButton}
+                            onPress={() => handleServicePayment(service.bookingServicesID)}
+                            disabled={processingPayment}
+                        >
+                            {processingPayment ? (
+                                <ActivityIndicator color="#FFF" size="small" />
+                            ) : (
+                                <>
+                                    <Ionicons name="card-outline" size={18} color="#fff" />
+                                    <Text style={styles.simpleServicePayText}>Thanh toán</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Nút yêu cầu hoàn tiền cho dịch vụ đã thanh toán */}
+                {service.status === 1 && bookingData.status === 3 && (
+                    <View style={styles.simpleServiceButtons}>
+                        <TouchableOpacity
+                            style={styles.simpleServiceRefundButton}
+                            onPress={() => handleCancelService(service.bookingServicesID, true)}
+                        >
+                            <Text style={styles.simpleServiceRefundText}>Hủy dịch vụ</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+        );
+    };
+
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Đang tải thông tin đặt phòng...</Text>
-            </View>
+            <LoadingScreen
+                message="Đang tải thông tin đặt phòng"
+                subMessage="Vui lòng đợi trong giây lát..."
+            />
         );
     }
 
@@ -1114,7 +1157,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
         paddingBottom: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
@@ -1162,7 +1205,7 @@ const styles = StyleSheet.create({
             }
         }
     },
-    serviceDetails: { marginBottom: 16 },
+    serviceDetails: { marginBottom: 12 },
     serviceDetailItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1216,7 +1259,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginTop: 8,
-        paddingTop: 16,
+        paddingTop: 12,
         borderTopWidth: 1,
         borderTopColor: '#f0f0f0',
     },
@@ -1245,11 +1288,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     serviceActionIconContainer: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
         marginRight: 4,
     },
     serviceActionButtonText: {
@@ -1361,17 +1399,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 14,
         marginLeft: 8,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: colors.textSecondary,
     },
     errorContainer: {
         flex: 1,
@@ -1526,6 +1553,134 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         textAlign: 'center',
     },
+    simpleServiceCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+    },
+    simpleServiceHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        justifyContent: 'space-between',
+    },
+    simpleServiceTimeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    simpleServiceTime: {
+        fontSize: 14,
+        color: '#4CAF50',
+        marginLeft: 6,
+        fontWeight: '500',
+    },
+    simpleServiceStatus: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 16,
+    },
+    simpleServiceStatusText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    simpleServiceInfo: {
+        marginBottom: 12,
+    },
+    simpleServiceName: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    simpleServiceNameText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginLeft: 8,
+    },
+    simpleServiceQuantity: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    simpleServiceQuantityText: {
+        fontSize: 14,
+        color: '#666',
+        marginLeft: 6,
+    },
+    simpleServicePrice: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    simpleServicePriceLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginRight: 6,
+    },
+    simpleServicePriceValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#4CAF50',
+    },
+    simpleServiceButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    simpleServiceCancelButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: '#FF5252',
+        borderRadius: 8,
+    },
+    simpleServiceCancelText: {
+        color: '#FF5252',
+        fontWeight: '600',
+        fontSize: 14,
+        marginLeft: 4,
+    },
+    simpleServicePayButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        backgroundColor: '#4CAF50',
+        borderRadius: 8,
+    },
+    simpleServicePayText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
+        marginLeft: 4,
+    },
+    simpleServiceRefundButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        backgroundColor: '#FF0000',
+        borderRadius: 8,
+    },
+    simpleServiceRefundText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 14,
+        marginLeft: 4,
+    }
 });
 
 export default BookingDetailScreen;

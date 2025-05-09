@@ -134,24 +134,25 @@ const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => {
                                 style={[styles.actionButton, styles.reviewButton, item.isRating && styles.editReviewButton]}
                                 onPress={() => {
                                     if (item.isRating) {
-                                        navigation.navigate('WriteReview', { 
-                                            bookingId: item.bookingID, 
+                                        navigation.navigate('RatingDetail', {
+                                            bookingId: item.bookingID,
                                             homeStayID: item.homeStayID,
                                             isEditing: true,
                                             ratingID: item.ratingID
                                         });
+                                        console.log('item.isRating', item.ratingID);
                                     } else {
-                                        navigation.navigate('Review', { 
-                                            bookingId: item.bookingID, 
-                                            homeStayID: item.homeStayID 
+                                        navigation.navigate('Review', {
+                                            bookingId: item.bookingID,
+                                            homeStayID: item.homeStayID
                                         });
                                     }
                                 }}
                             >
-                                <Ionicons 
-                                    name={item.isRating ? "create-outline" : "star-outline"} 
-                                    size={16} 
-                                    color="#fff" 
+                                <Ionicons
+                                    name={item.isRating ? "create-outline" : "star-outline"}
+                                    size={16}
+                                    color="#fff"
                                 />
                                 <Text style={styles.actionButtonText}>
                                     {item.isRating ? 'Sửa đánh giá' : 'Đánh giá'}
@@ -240,7 +241,7 @@ export default function BookingListScreen() {
             }
 
             const result = await bookingApi.getBookingsByAccountID(userData.userID, pageNum, ITEMS_PER_PAGE);
-            
+
             if (result?.success && Array.isArray(result.data)) {
                 const sortedBookings = result.data.sort((a, b) =>
                     new Date(b.bookingDate) - new Date(a.bookingDate)

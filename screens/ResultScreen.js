@@ -65,7 +65,7 @@ const ResultCard = React.memo(({ item, index, onPress }) => {
                     <View style={styles.priceContainer}>
                         <View style={styles.priceInfo}>
                             <Text style={styles.priceLabel}>Giá từ</Text>
-                            <Text style={styles.priceValue}>{item.defaultRentPrice?.toLocaleString() || '0'}đ</Text>
+                            <Text style={styles.priceValue}>{item.defaultRentPrice?.toLocaleString() || '200.000'}đ</Text>
                         </View>
                         <TouchableOpacity
                             style={styles.viewButton}

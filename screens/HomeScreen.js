@@ -17,32 +17,12 @@ import LoadingScreen from '../components/LoadingScreen';
 
 const { width } = Dimensions.get('window');
 
-const trendingHomestays = [
-    {
-        name: 'Dalat Green Valley',
-        image: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8',
-        rating: 4.8,
-        reviews: 156,
-        price: '850,000',
-        location: 'Đà Lạt'
-    },
-    {
-        name: 'Vung Tau Beach House',
-        image: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e',
-        rating: 4.9,
-        reviews: 203,
-        price: '1,200,000',
-        location: 'Vũng Tàu'
-    }
-];
-
 export default function HomeScreen() {
     const today = new Date();
     const formattedToday = `${today.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
     const defaultCheckOut = new Date(today);
     defaultCheckOut.setDate(defaultCheckOut.getDate() + 1);
     const formattedCheckOut = `${defaultCheckOut.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${defaultCheckOut.getDate()}/${defaultCheckOut.getMonth() + 1}/${defaultCheckOut.getFullYear()}`;
-
     const [isLocationModalVisible, setLocationModalVisible] = useState(false);
     const [isCalendarVisible, setCalendarVisible] = useState(false);
     const [checkInDate, setCheckInDate] = useState(formattedToday);
@@ -63,16 +43,16 @@ export default function HomeScreen() {
     const [isLoading, setIsLoading] = useState(false);
     const { updateCurrentSearch, addToSearchHistory, searchHistory, clearSearchHistory, updateSearchResults, loadHistoryResults } = useSearch();
     const [error, setError] = useState('');
+    const [trendingHomestays, setTrendingHomestays] = useState([]);
+    const [loadingTrending, setLoadingTrending] = useState(false);
 
     const handleSearch = async () => {
         setIsLoading(true);
         try {
             const checkInDateParts = checkInDate.split(', ')[1].split('/');
             const checkOutDateParts = checkOutDate.split(', ')[1].split('/');
-
             const formattedCheckIn = `${checkInDateParts[2]}-${checkInDateParts[1].padStart(2, '0')}-${checkInDateParts[0].padStart(2, '0')}`;
             const formattedCheckOut = `${checkOutDateParts[2]}-${checkOutDateParts[1].padStart(2, '0')}-${checkOutDateParts[0].padStart(2, '0')}`;
-
             const searchData = {
                 location,
                 checkInDate,
@@ -90,11 +70,7 @@ export default function HomeScreen() {
                 minPrice: priceFrom ? parseFloat(priceFrom) : null,
                 maxPrice: priceTo ? parseFloat(priceTo) : null
             };
-
-            console.log("HomeScreen - Search data:", searchData);
-
             updateCurrentSearch(searchData);
-
             const filterParams = {
                 CheckInDate: formattedCheckIn,
                 CheckOutDate: formattedCheckOut,
@@ -145,7 +121,6 @@ export default function HomeScreen() {
                     setLocation("Vị trí gần bạn");
                 }
             };
-
             fetchLocation();
             setLocation("Vị trí gần bạn");
             setCheckInDate(formattedToday);
@@ -301,6 +276,21 @@ export default function HomeScreen() {
         }
     };
 
+    useEffect(() => {
+        const fetchTrendingHomestays = async () => {
+            setLoadingTrending(true);
+            try {
+                const response = await homeStayApi.getTrendingHomeStays(5);
+                setTrendingHomestays(response.data);
+            } catch (error) {
+                console.error('Error fetching trending homestays:', error);
+            } finally {
+                setLoadingTrending(false);
+            }
+        };
+        fetchTrendingHomestays();
+    }, []);
+
     if (isLoading) {
         return (
             <LoadingScreen
@@ -313,8 +303,6 @@ export default function HomeScreen() {
     return (
         <ScrollView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-
-            {/* Header */}
             <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 style={styles.header}
@@ -330,7 +318,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
             </LinearGradient>
 
-            {/* Search Section */}
             <View style={styles.searchSection}>
                 <TouchableOpacity
                     style={styles.searchBar}
@@ -402,62 +389,68 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.scrollView}>
-                {/* Recent Searches */}
                 {searchHistory.length > 0 && renderSearchHistory()}
-
-                {/* Trending Section */}
                 <View style={styles.trendingSection}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Xu hướng tìm kiếm</Text>
+                        <Text style={styles.sectionTitle}>Homestay nổi bật</Text>
                         <TouchableOpacity>
                             <Text style={styles.viewAllText}>Xem tất cả</Text>
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.trendingList}
-                    >
-                        {trendingHomestays.map((item, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                style={styles.trendingItem}
-                                onPress={() => navigation.navigate('HomeStayDetail', { id: index + 1 })}
-                            >
-                                <Image
-                                    source={{ uri: item.image }}
-                                    style={styles.trendingImage}
-                                />
-                                <View style={styles.trendingContent}>
-                                    <Text style={styles.trendingName}>{item.name}</Text>
-                                    <View style={styles.trendingLocation}>
-                                        <Icon name="location-outline" size={14} color="#4A4A4A" />
-                                        <Text style={styles.locationText}>{item.location}</Text>
+                    {loadingTrending ? (
+                        <View style={styles.loadingTrending}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                            <Text style={styles.loadingText}>Đang tải xu hướng...</Text>
+                        </View>
+                    ) : (
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.trendingList}
+                        >
+                            {trendingHomestays.map((item, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={styles.trendingItem}
+                                    onPress={() => navigation.navigate('HomeStayDetail', { id: item.homeStays.homeStayID })}
+                                >
+                                    <Image
+                                        source={{ uri: item.homeStays.imageHomeStays[0]?.image || 'https://via.placeholder.com/150' }}
+                                        style={styles.trendingImage}
+                                        resizeMode="cover"
+                                    />
+                                    <View style={styles.ratingBadge}>
+                                        <Text style={styles.ratingBadgeText}>{item.avgRating.toFixed(1)}</Text>
+                                        <Icon name="star" size={12} color="#FFD700" />
                                     </View>
-                                    <View style={styles.trendingRating}>
-                                        <Icon name="star" size={14} color="#FFD700" />
-                                        <Text style={styles.ratingText}>
-                                            {item.rating} ({item.reviews} đánh giá)
-                                        </Text>
+                                    <View style={styles.trendingContent}>
+                                        <Text style={styles.trendingName} numberOfLines={1}>{item.homeStays.name}</Text>
+                                        <View style={styles.trendingLocation}>
+                                            <Icon name="location-outline" size={14} color="#4A4A4A" />
+                                            <Text style={styles.locationText} numberOfLines={1}>
+                                                {item.homeStays.address.split(',').slice(-2).join(', ')}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.trendingRating}>
+                                            <Icon name="star" size={14} color="#FFD700" />
+                                            <Text style={styles.ratingText}>
+                                                {item.avgRating.toFixed(1)} ({item.ratingCount} đánh giá)
+                                            </Text>
+                                        </View>
                                     </View>
-                                    <Text style={styles.trendingPrice}>
-                                        {item.price} <Text style={styles.priceUnit}>đ/đêm</Text>
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    )}
                 </View>
             </View>
 
-            {/* Modals */}
             <LocationSearchModal
                 visible={isLocationModalVisible}
                 onClose={() => setLocationModalVisible(false)}
                 onLocationSelected={handleLocationSelected}
             />
-
             <CalendarModal
                 visible={isCalendarVisible}
                 onClose={() => setCalendarVisible(false)}
@@ -763,69 +756,88 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginBottom: 20,
     },
+    viewAllText: {
+        color: colors.primary,
+        fontSize: 14,
+        fontWeight: '500',
+    },
     trendingList: {
-        marginBottom: 10,
+        marginTop: 10,
     },
     trendingItem: {
-        backgroundColor: '#fff',
-        borderRadius: 15,
-        marginRight: 15,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-        elevation: 2,
         width: width * 0.7,
+        marginRight: 15,
+        borderRadius: 16,
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
         overflow: 'hidden',
     },
     trendingImage: {
         width: '100%',
         height: 150,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
     },
     trendingContent: {
-        padding: 15,
+        padding: 12,
     },
     trendingName: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#4A4A4A',
-        marginBottom: 5,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 8,
     },
     trendingLocation: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 5,
-    },
-    locationText: {
-        fontSize: 14,
-        color: '#4A4A4A',
-        opacity: 0.7,
-        marginLeft: 5,
+        marginBottom: 8,
     },
     trendingRating: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 5,
-    },
-    ratingText: {
-        fontSize: 14,
-        color: '#4A4A4A',
-        opacity: 0.7,
-        marginLeft: 5,
+        marginBottom: 8,
     },
     trendingPrice: {
         fontSize: 16,
-        fontWeight: '700',
+        fontWeight: 'bold',
         color: colors.primary,
     },
     priceUnit: {
         fontSize: 14,
-        fontWeight: '400',
-        color: '#4A4A4A',
-        opacity: 0.7,
+        fontWeight: 'normal',
+        color: '#777',
     },
-    viewAllText: {
+    loadingTrending: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    loadingText: {
+        marginLeft: 10,
         fontSize: 14,
         color: colors.primary,
+    },
+    ratingBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    ratingBadgeText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginRight: 4,
     },
 });

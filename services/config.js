@@ -8,6 +8,7 @@ const apiClient = axios.create({
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': '*/*'
   },
 });
 
@@ -20,9 +21,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Hàm xử lý lỗi chung
