@@ -344,6 +344,7 @@ export default function HomestayRentalDetailScreen() {
                                     .slice(0, showAllPrices ? rental.pricing.length : Math.min(3, rental.pricing.length))
                                     .map((pricing, index) => {
                                         const isWeekend = pricing.dayType === 1;
+                                        const isHoliday = pricing.dayType === 2;
                                         return (
                                             <Animated.View
                                                 key={index}
@@ -361,10 +362,10 @@ export default function HomestayRentalDetailScreen() {
                                                             styles.pricingTypeBadge,
                                                             isWeekend ? styles.weekendBadge : styles.weekdayBadge
                                                         ]}>
-                                                            {isWeekend ? 'CUỐI TUẦN' : 'NGÀY THƯỜNG'}
+                                                            {isWeekend ? 'CUỐI TUẦN' : isHoliday ? 'NGÀY LỄ' : 'NGÀY THƯỜNG'}
                                                         </Text>
                                                         <Text style={styles.pricingTypeDescription}>
-                                                            {isWeekend ? 'Thứ 7 & Chủ nhật' : 'Thứ 2 - Thứ 6'}
+                                                            {isWeekend ? 'Thứ 7 & Chủ nhật' : isHoliday ? 'Ngày lễ' : 'Thứ 2 - Thứ 6'}
                                                         </Text>
                                                     </View>
 
@@ -389,11 +390,6 @@ export default function HomestayRentalDetailScreen() {
                                                             <Text style={styles.originalPrice}>
                                                                 {pricing.unitPrice?.toLocaleString('vi-VN')}₫
                                                             </Text>
-                                                            <View style={styles.discountBadge}>
-                                                                <Text style={styles.discountText}>
-                                                                    {Math.round((1 - pricing.rentPrice / pricing.unitPrice) * 100)}% giảm
-                                                                </Text>
-                                                            </View>
                                                         </View>
                                                     )}
                                                 </View>
@@ -417,24 +413,13 @@ export default function HomestayRentalDetailScreen() {
                                     </TouchableOpacity>
                                 )}
                             </View>
-
-                            <View style={styles.pricingNote}>
-                                <View style={styles.pricingNoteIconContainer}>
-                                    <MaterialIcons name="info-outline" size={20} color={palette.primary} />
-                                </View>
-                                <Text style={styles.pricingNoteText}>
-                                    Giá đã bao gồm thuế và phí dịch vụ. Chưa bao gồm các dịch vụ phát sinh.
-                                </Text>
-                            </View>
                         </Animated.View>
                     )}
 
-                    {/* Spacer to ensure content isn't hidden behind booking section */}
                     <View style={styles.bottomSpacer} />
                 </View>
             </ScrollView>
 
-            {/* Floating Booking Section */}
             <View style={styles.bookingSection}>
                 <View style={styles.bookingBlur}>
                     {rental.rentWhole ? (
@@ -469,7 +454,6 @@ export default function HomestayRentalDetailScreen() {
                 </View>
             </View>
 
-            {/* Image Viewer Modal */}
             <ImageViewer
                 visible={imageViewerVisible}
                 images={images}
@@ -1043,35 +1027,6 @@ const styles = StyleSheet.create({
         color: palette.text.light,
         textDecorationLine: 'line-through',
         marginRight: 8,
-    },
-    discountBadge: {
-        backgroundColor: '#4CAF50' + '20',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    discountText: {
-        fontSize: 12,
-        color: '#4CAF50',
-        fontWeight: 'bold',
-    },
-    pricingNote: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        backgroundColor: palette.primary + '08',
-        borderRadius: 12,
-        padding: 12,
-        marginTop: 8,
-    },
-    pricingNoteIconContainer: {
-        marginRight: 12,
-        marginTop: 2,
-    },
-    pricingNoteText: {
-        flex: 1,
-        fontSize: 13,
-        color: palette.text.medium,
-        lineHeight: 18,
     },
     viewMoreButton: {
         flexDirection: 'row',

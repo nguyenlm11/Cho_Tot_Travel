@@ -67,13 +67,13 @@ const BottomTabNavigator = () => {
                     tabBarLabel: 'Đặt phòng',
                 }}
             />
-            <Tab.Screen
+            {/* <Tab.Screen
                 name="Notification"
                 component={NotificationScreen}
                 options={{
                     tabBarLabel: 'Thông báo',
                 }}
-            />
+            /> */}
             <Tab.Screen
                 name="Chat"
                 component={ChatScreen}

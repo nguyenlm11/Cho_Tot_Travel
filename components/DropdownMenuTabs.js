@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 const TABS = [
   { name: 'Home', label: 'Trang chủ', icon: 'home-outline' },
   { name: 'Booking', label: 'Đặt phòng', icon: 'calendar-outline' },
-  { name: 'Notification', label: 'Thông báo', icon: 'notifications-outline' },
+  // { name: 'Notification', label: 'Thông báo', icon: 'notifications-outline' },
   { name: 'Chat', label: 'Trò chuyện', icon: 'chatbubbles-outline' },
   { name: 'Settings', label: 'Cài đặt', icon: 'settings-outline' },
 ];
