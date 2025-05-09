@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Dimensions, Alert, Platform, KeyboardAvoidingView, SafeAreaView } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { FontAwesome } from 'react-native-vector-icons';
+import { FontAwesome, Ionicons } from 'react-native-vector-icons';
 import { colors } from '../../constants/Colors';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown, SlideOutDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { height } = Dimensions.get('window');
+const { height, width } = Dimensions.get('window');
 
 export default function CalendarModal({ visible, onClose, onDateSelect, selectedDate }) {
     const [step, setStep] = useState(1);
@@ -152,140 +152,201 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
     };
 
     return (
-        <Modal animationType="slide" transparent={true} visible={visible} onRequestClose={handleModalClose}>
-            <Animated.View
-                entering={FadeInDown}
-                style={styles.modalBackground}
-            >
-                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-                <Animated.View
-                    entering={FadeInDown}
-                    exiting={SlideOutDown}
-                    style={styles.calendarContainer}
+        <Modal 
+            animationType="fade" 
+            transparent={true} 
+            visible={visible} 
+            onRequestClose={handleModalClose}
+            statusBarTranslucent={true}
+            hardwareAccelerated={true}
+        >
+            <SafeAreaView style={styles.safeArea}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.modalBackground}
                 >
-                    <LinearGradient
-                        colors={[colors.primary, colors.primary + 'E6']}
-                        style={styles.header}
-                    >
-                        <TouchableOpacity style={styles.closeButton} onPress={handleModalClose}>
-                            <BlurView intensity={80} tint="dark" style={styles.blurButton}>
-                                <FontAwesome name="close" size={20} color="#fff" />
-                            </BlurView>
-                        </TouchableOpacity>
-                        <Text style={styles.modalTitle}>
-                            {step === 1 ? 'Chọn bắt đầu' : 'Chọn kết thúc'}
-                        </Text>
-                        {renderStepIndicator()}
-                    </LinearGradient>
-
-                    <Animated.View entering={FadeIn}>
-                        <Calendar
-                            minDate={step === 1 ? new Date().toISOString().split('T')[0] : getMinDate()}
-                            maxDate={step === 2 ? getMaxDate() : undefined}
-                            markedDates={getMarkedDates()}
-                            onDayPress={handleDayPress}
-                            monthFormat={'MM/yyyy'}
-                            markingType={'period'}
-                            theme={{
-                                selectedDayBackgroundColor: colors.primary,
-                                selectedDayTextColor: '#fff',
-                                todayTextColor: colors.primary,
-                                arrowColor: colors.primary,
-                                textSectionTitleColor: '#333',
-                                textDayFontSize: 16,
-                                textMonthFontSize: 16,
-                                textDayHeaderFontSize: 14,
-                                'stylesheet.calendar.header': {
-                                    week: { marginTop: 5, flexDirection: 'row', justifyContent: 'space-around' }
-                                }
-                            }}
-                        />
-
-                        {step === 2 && checkInDate && checkOutDate && (
-                            <View style={styles.datePreview}>
-                                <View style={styles.dateRow}>
-                                    <Text style={styles.dateLabel}>Ngày nhận phòng:</Text>
-                                    <Text style={styles.dateValue}>{formatDisplayDate(checkInDate)}</Text>
-                                </View>
-                                <View style={[styles.dateRow, styles.checkoutRow]}>
-                                    <Text style={styles.dateLabel}>Ngày trả phòng:</Text>
-                                    <Text style={[styles.dateValue, styles.checkoutDate]}>
-                                        {formatDisplayDate(checkOutDate)}
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
-
-                        {step === 1 ? (
-                            <View style={styles.continueButtonContainer}>
-                                <TouchableOpacity
-                                    style={[styles.continueButton, !checkInDate && styles.disabledButton]}
-                                    onPress={() => setStep(2)}
-                                    disabled={!checkInDate}
-                                >
-                                    <LinearGradient
-                                        colors={[colors.primary, colors.primary + 'E6']}
-                                        style={styles.gradientButton}
-                                    >
-                                        <Text style={styles.confirmButtonText}>Tiếp tục</Text>
-                                    </LinearGradient>
+                    <View style={styles.overlay}>
+                        <Animated.View
+                            entering={FadeInDown}
+                            exiting={SlideOutDown}
+                            style={[
+                                styles.calendarContainer,
+                                Platform.OS === 'android' && styles.androidCalendarContainer
+                            ]}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary, colors.primary + 'E6']}
+                                style={styles.header}
+                            >
+                                <TouchableOpacity style={styles.closeButton} onPress={handleModalClose}>
+                                    <View style={styles.blurButton}>
+                                        <Ionicons name="close" size={22} color="#fff" />
+                                    </View>
                                 </TouchableOpacity>
-                            </View>
-                        ) : (
-                            <View style={styles.buttonContainer}>
-                                <TouchableOpacity
-                                    style={styles.backButton}
-                                    onPress={handleBack}
-                                >
-                                    <Text style={{ color: colors.primary, fontWeight: '500', textAlign: 'center' }}>
-                                        Quay lại
-                                    </Text>
-                                </TouchableOpacity>
+                                <Text style={styles.modalTitle}>
+                                    {step === 1 ? 'Chọn ngày nhận phòng' : 'Chọn ngày trả phòng'}
+                                </Text>
+                                {renderStepIndicator()}
+                            </LinearGradient>
 
-                                <TouchableOpacity
-                                    style={[styles.confirmButton, !checkOutDate && styles.disabledButton]}
-                                    onPress={handleConfirm}
-                                    disabled={!checkOutDate}
-                                >
-                                    <LinearGradient
-                                        colors={[colors.primary, colors.primary + 'E6']}
-                                        style={styles.gradientButton}
-                                    >
-                                        <Text style={styles.confirmButtonText}>Xác nhận</Text>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-                    </Animated.View>
-                </Animated.View>
-            </Animated.View>
+                            <Animated.View entering={FadeIn} style={styles.calendarWrapper}>
+                                <Calendar
+                                    minDate={step === 1 ? new Date().toISOString().split('T')[0] : getMinDate()}
+                                    maxDate={step === 2 ? getMaxDate() : undefined}
+                                    markedDates={getMarkedDates()}
+                                    onDayPress={handleDayPress}
+                                    monthFormat={'MM/yyyy'}
+                                    markingType={'period'}
+                                    theme={{
+                                        selectedDayBackgroundColor: colors.primary,
+                                        selectedDayTextColor: '#fff',
+                                        todayTextColor: colors.primary,
+                                        arrowColor: colors.primary,
+                                        textSectionTitleColor: '#333',
+                                        textDayFontSize: 16,
+                                        textMonthFontSize: 16,
+                                        textDayHeaderFontSize: 14,
+                                        'stylesheet.calendar.header': {
+                                            week: { marginTop: 5, flexDirection: 'row', justifyContent: 'space-around' }
+                                        }
+                                    }}
+                                />
+
+                                {step === 2 && checkInDate && checkOutDate && (
+                                    <View style={styles.datePreview}>
+                                        <View style={styles.dateRow}>
+                                            <Text style={styles.dateLabel}>Ngày nhận phòng:</Text>
+                                            <Text style={styles.dateValue}>{formatDisplayDate(checkInDate)}</Text>
+                                        </View>
+                                        <View style={[styles.dateRow, styles.checkoutRow]}>
+                                            <Text style={styles.dateLabel}>Ngày trả phòng:</Text>
+                                            <Text style={[styles.dateValue, styles.checkoutDate]}>
+                                                {formatDisplayDate(checkOutDate)}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                {step === 1 ? (
+                                    <View style={styles.continueButtonContainer}>
+                                        <TouchableOpacity
+                                            style={[styles.continueButton, !checkInDate && styles.disabledButton]}
+                                            onPress={() => setStep(2)}
+                                            disabled={!checkInDate}
+                                        >
+                                            <LinearGradient
+                                                colors={[colors.primary, colors.secondary]}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.gradientButton}
+                                            >
+                                                <Text style={styles.confirmButtonText}>Tiếp tục</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    <View style={styles.buttonContainer}>
+                                        <TouchableOpacity
+                                            style={styles.backButton}
+                                            onPress={handleBack}
+                                        >
+                                            <Text style={styles.backButtonText}>
+                                                Quay lại
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.confirmButton, !checkOutDate && styles.disabledButton]}
+                                            onPress={handleConfirm}
+                                            disabled={!checkOutDate}
+                                        >
+                                            <LinearGradient
+                                                colors={[colors.primary, colors.secondary]}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 0 }}
+                                                style={styles.gradientButton}
+                                            >
+                                                <Text style={styles.confirmButtonText}>Xác nhận</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            </Animated.View>
+                        </Animated.View>
+                    </View>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+        backgroundColor: 'transparent',
+    },
     modalBackground: {
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        width: '100%',
+        height: '100%',
+    },
+    overlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        width: '100%',
     },
     calendarContainer: {
+        width: '100%',
         backgroundColor: '#fff',
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
         maxHeight: height * 0.9,
+        overflow: 'hidden',
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -10 },
+                shadowOpacity: 0.1,
+                shadowRadius: 10,
+            },
+            android: {
+                elevation: 24,
+                zIndex: 999,
+                width: '100%',
+                left: 0,
+                right: 0,
+                position: 'absolute',
+                bottom: 0,
+            }
+        }),
+    },
+    androidCalendarContainer: {
+        width: '100%',
+        zIndex: 999,
+        left: 0,
+        right: 0,
+        position: 'absolute',
+        bottom: 0,
+    },
+    calendarWrapper: {
+        backgroundColor: '#fff',
+        width: '100%',
     },
     header: {
         padding: 20,
         borderTopLeftRadius: 25,
         borderTopRightRadius: 25,
         alignItems: 'center',
+        width: '100%',
     },
     closeButton: {
         position: 'absolute',
         top: 20,
         right: 20,
-        zIndex: 1,
+        zIndex: 10,
     },
     blurButton: {
         width: 36,
@@ -293,6 +354,7 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
         overflow: 'hidden',
     },
     modalTitle: {
@@ -374,6 +436,13 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backButtonText: {
+        color: colors.primary,
+        fontWeight: '600',
+        fontSize: 16,
     },
     confirmButton: {
         flex: 1,

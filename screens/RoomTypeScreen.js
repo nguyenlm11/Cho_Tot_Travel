@@ -1,13 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, StatusBar, ActivityIndicator, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, StatusBar, RefreshControl, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, useSharedValue, withSpring } from 'react-native-reanimated';
-import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
 import { useCart } from '../contexts/CartContext';
 import CartBadge from '../components/CartBadge';
+import DropdownMenuTabs from '../components/DropdownMenuTabs';
+import LoadingScreen from '../components/LoadingScreen';
+
+const palette = {
+    primary: colors.primary,
+    secondary: colors.secondary,
+    background: '#f8f9fa',
+    card: '#ffffff',
+    cardBorder: '#eaeaea',
+    text: { dark: '#2c3e50', medium: '#546e7a', light: '#78909c' },
+};
 
 export default function RoomTypeScreen() {
     const navigation = useNavigation();
@@ -17,6 +28,7 @@ export default function RoomTypeScreen() {
     const [roomTypes, setRoomTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
     const { getRoomsByType, getCartCount, setHomeStay, setRental } = useCart();
 
     useEffect(() => {
@@ -51,9 +63,19 @@ export default function RoomTypeScreen() {
         }
     };
 
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchRoomTypes();
+        setRefreshing(false);
+    }, []);
+
     const params = {};
     if (homeStayId) params.homeStayId = homeStayId;
     if (rentalId) params.rentalId = rentalId;
+
+    console.log("RoomTypeScreen params:", params);
+    console.log("Cart count:", getCartCount(params));
+
     const handleSelectRoom = (roomType) => {
         const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name };
         if (homeStayId) navParams.homeStayId = homeStayId;
@@ -66,15 +88,17 @@ export default function RoomTypeScreen() {
         const handlePressIn = () => {
             scale.value = withSpring(0.98);
         };
-
         const handlePressOut = () => {
             scale.value = withSpring(1);
         };
-
         const defaultPricing = item.pricings?.find(p => p.isDefault) || item.pricings?.[0];
         const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
 
-        const selectedRoomsCount = getRoomsByType(item.roomTypeID, params).length;
+        // Cố gắng lấy roomTypeID đúng từ dữ liệu phòng
+        const roomTypeID = item.roomTypeID || item.roomTypesID;
+        console.log(`Room type ${item.name} ID:`, roomTypeID);
+        
+        const selectedRoomsCount = getRoomsByType(roomTypeID, params).length;
 
         return (
             <Animated.View
@@ -86,7 +110,7 @@ export default function RoomTypeScreen() {
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                 >
-                    <Animated.View style={[styles.roomCard]}>
+                    <Animated.View style={[styles.roomCard, { transform: [{ scale }] }]}>
                         <View style={styles.imageContainer}>
                             <Image
                                 source={{
@@ -102,7 +126,7 @@ export default function RoomTypeScreen() {
                             />
                             <View style={styles.priceBadge}>
                                 <LinearGradient
-                                    colors={[colors.primary + 'CC', colors.secondary + 'CC']}
+                                    colors={[palette.primary, palette.secondary]}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
                                     style={styles.priceGradient}
@@ -115,12 +139,11 @@ export default function RoomTypeScreen() {
                             </View>
                         </View>
 
-                        {/* Room Info */}
                         <View style={styles.roomInfo}>
                             <View style={styles.roomHeader}>
-                                <Text style={styles.roomName}>{item.name}</Text>
+                                <Text style={styles.roomName} numberOfLines={1}>{item.name}</Text>
                                 <View style={styles.capacityBadge}>
-                                    <FontAwesome5 name="users" size={14} color={colors.primary} />
+                                    <FontAwesome5 name="users" size={14} color={palette.primary} />
                                     <Text style={styles.capacityText}>
                                         {item.maxPeople} người
                                     </Text>
@@ -128,66 +151,69 @@ export default function RoomTypeScreen() {
                             </View>
 
                             <Text style={styles.roomDescription} numberOfLines={2}>
-                                {item.description}
+                                {item.description || 'Không có mô tả'}
                             </Text>
 
                             <View style={styles.amenitiesContainer}>
                                 <View style={styles.amenityItem}>
                                     <View style={styles.amenityIconContainer}>
-                                        <FontAwesome5 name="bed" size={14} color={colors.primary} />
+                                        <FontAwesome5 name="bed" size={14} color={palette.primary} />
                                     </View>
-                                    <Text style={styles.amenityText}>{item.numberBedRoom}</Text>
+                                    <Text style={styles.amenityText}>{item.numberBedRoom || 0} giường</Text>
                                 </View>
 
-                                <View style={styles.amenityItem}>
-                                    <View style={styles.amenityIconContainer}>
-                                        <FontAwesome5 name="bath" size={14} color={colors.primary} />
-                                    </View>
-                                    <Text style={styles.amenityText}>{item.numberBathRoom}</Text>
-                                </View>
-
-                                <View style={styles.amenityItem}>
-                                    <View style={styles.amenityIconContainer}>
-                                        <FontAwesome5 name="wifi" size={14} color={colors.primary} />
-                                    </View>
-                                    <Text style={styles.amenityText}>{item.numberWifi}</Text>
-                                </View>
                                 <View style={styles.amenityDivider} />
-                                <View style={styles.amenityItem}>
-                                    <View style={styles.amenityIconContainer}>
-                                        <MaterialIcons name="person" size={14} color={colors.primary} />
-                                    </View>
-                                    <Text style={styles.amenityText}>{item.maxAdults}</Text>
-                                </View>
 
                                 <View style={styles.amenityItem}>
                                     <View style={styles.amenityIconContainer}>
-                                        <MaterialIcons name="child-care" size={14} color={colors.primary} />
+                                        <FontAwesome5 name="bath" size={14} color={palette.primary} />
                                     </View>
-                                    <Text style={styles.amenityText}>{item.maxChildren}</Text>
+                                    <Text style={styles.amenityText}>{item.numberBathRoom || 0} phòng tắm</Text>
+                                </View>
+
+                                <View style={styles.amenityDivider} />
+
+                                <View style={styles.amenityItem}>
+                                    <View style={styles.amenityIconContainer}>
+                                        <FontAwesome5 name="wifi" size={14} color={palette.primary} />
+                                    </View>
+                                    <Text style={styles.amenityText}>{item.numberWifi || 0} WiFi</Text>
                                 </View>
                             </View>
 
-                            <TouchableOpacity
-                                style={styles.selectButton}
-                                onPress={() => handleSelectRoom(item)}
-                            >
-                                <LinearGradient
-                                    colors={[colors.primary, colors.secondary]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.selectButtonGradient}
+                            <View style={styles.bottomSection}>
+                                <View style={styles.infoContainer}>
+                                    <View style={styles.infoItem}>
+                                        <MaterialIcons name="child-care" size={16} color={palette.text.medium} />
+                                        <Text style={styles.infoText}>{item.maxChildren || 0} trẻ em</Text>
+                                    </View>
+                                    <View style={styles.infoItem}>
+                                        <MaterialIcons name="person" size={16} color={palette.text.medium} />
+                                        <Text style={styles.infoText}>{item.maxAdults || 0} người lớn</Text>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.selectButton}
+                                    onPress={() => handleSelectRoom(item)}
                                 >
-                                    <FontAwesome5 name="check-circle" size={16} color="#fff" style={styles.selectIcon} />
-                                    <Text style={styles.selectButtonText}>Chọn phòng</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                                    <LinearGradient
+                                        colors={[palette.primary, palette.secondary]}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                        style={styles.selectButtonGradient}
+                                    >
+                                        <Text style={styles.selectButtonText}>Chọn phòng</Text>
+                                        <AntDesign name="arrowright" size={16} color="#fff" style={styles.selectIcon} />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {selectedRoomsCount > 0 && (
                             <View style={styles.selectedBadge}>
                                 <LinearGradient
-                                    colors={[colors.primary, colors.secondary]}
+                                    colors={[palette.primary, palette.secondary]}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
                                     style={styles.selectedBadgeGradient}
@@ -202,22 +228,23 @@ export default function RoomTypeScreen() {
         );
     };
 
-    if (loading) {
+    if (loading && !refreshing) {
         return (
-            <View style={styles.loadingContainer}>
-                <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Đang tải thông tin phòng...</Text>
-            </View>
+            <LoadingScreen 
+                message="Đang tải thông tin phòng" 
+                subMessage="Vui lòng đợi trong giây lát..." 
+            />
         );
     }
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+            <StatusBar barStyle="light-content" backgroundColor={palette.primary} />
 
             <LinearGradient
-                colors={[colors.primary, colors.primary + 'E6']}
+                colors={[palette.primary, palette.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.header}
             >
                 <TouchableOpacity
@@ -231,9 +258,11 @@ export default function RoomTypeScreen() {
                     style={styles.headerTitle}
                     numberOfLines={1}
                 >
-                    Danh sách phòng
+                    Danh sách loại phòng
                 </Animated.Text>
-                <View style={styles.rightPlaceholder} />
+                <DropdownMenuTabs
+                    iconStyle={styles.menuButton}
+                />
             </LinearGradient>
 
             <FlatList
@@ -242,22 +271,42 @@ export default function RoomTypeScreen() {
                 renderItem={({ item, index }) => <RoomTypeCard item={item} index={index} />}
                 contentContainerStyle={[
                     styles.listContainer,
-                    { paddingBottom: getCartCount(params) > 0 ? 80 : 16 }
+                    { paddingBottom: getCartCount(params) > 0 ? 100 : 20 }
                 ]}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={palette.primary}
+                        colors={[palette.primary]}
+                    />
+                }
                 ListEmptyComponent={
                     !loading && error ? (
                         <View style={styles.emptyContainer}>
-                            <Ionicons name="bed-outline" size={80} color={colors.textSecondary} />
+                            <Ionicons name="bed-outline" size={80} color={palette.text.light} />
                             <Text style={styles.emptyText}>{error}</Text>
                             <TouchableOpacity style={styles.retryButton} onPress={fetchRoomTypes}>
-                                <Text style={styles.retryText}>Thử lại</Text>
+                                <LinearGradient
+                                    colors={[palette.primary, palette.secondary]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.retryGradient}
+                                >
+                                    <Text style={styles.retryText}>Thử lại</Text>
+                                </LinearGradient>
                             </TouchableOpacity>
                         </View>
                     ) : null
                 }
             />
-            <CartBadge params={params} />
+            
+            {getCartCount(params) > 0 && (
+                <View style={styles.cartBadgeContainer}>
+                    <CartBadge params={params} />
+                </View>
+            )}
         </View>
     );
 }
@@ -265,7 +314,11 @@ export default function RoomTypeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: palette.background,
+        position: 'relative',
+        zIndex: 1,
+        elevation: 1,
+        overflow: 'visible',
     },
     header: {
         paddingTop: Platform.OS === 'ios' ? 50 : 40,
@@ -274,6 +327,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
     },
     backButton: {
         width: 40,
@@ -281,28 +336,24 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)',
     },
     headerTitle: {
         fontSize: 18,
         fontWeight: '600',
         color: '#fff',
     },
-    rightPlaceholder: {
-        width: 40,
-    },
     listContainer: {
+        paddingTop: 20,
         paddingBottom: 20,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 16,
-        color: colors.primary,
     },
     emptyContainer: {
         flex: 1,
@@ -312,36 +363,41 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: '#666',
+        color: palette.text.medium,
         marginTop: 12,
         marginBottom: 16,
         textAlign: 'center',
     },
     retryButton: {
-        backgroundColor: colors.primary,
+        borderRadius: 10,
+        overflow: 'hidden',
+        marginTop: 10,
+    },
+    retryGradient: {
         paddingHorizontal: 24,
         paddingVertical: 12,
-        borderRadius: 8,
     },
     retryText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 14,
+        fontSize: 16,
     },
     cardContainer: {
         marginTop: 10,
-        marginHorizontal: 14,
+        marginHorizontal: 16,
         marginBottom: 20,
     },
     roomCard: {
-        backgroundColor: '#fff',
+        backgroundColor: palette.card,
         borderRadius: 16,
         overflow: 'hidden',
-        elevation: 16,
-        shadowColor: colors.primary + '90',
-        shadowOffset: { width: 0, height: 9 },
-        shadowOpacity: 1,
-        shadowRadius: 20,
+        shadowColor: palette.primary + '40',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: palette.cardBorder,
     },
     imageContainer: {
         height: 180,
@@ -359,12 +415,12 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 12,
         right: 12,
-        borderRadius: 8,
+        borderRadius: 10,
         overflow: 'hidden',
     },
     priceGradient: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
     },
     priceText: {
         color: '#fff',
@@ -382,72 +438,94 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 10,
     },
     roomName: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: '#333',
+        color: palette.text.dark,
         flex: 1,
+        marginRight: 10,
     },
     capacityBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.primary + '15',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
+        backgroundColor: palette.primary + '15',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
         borderRadius: 12,
-        gap: 4,
+        gap: 6,
     },
     capacityText: {
-        fontSize: 12,
-        color: colors.primary,
+        fontSize: 13,
+        color: palette.primary,
         fontWeight: '600',
     },
     roomDescription: {
         fontSize: 14,
-        color: '#666',
+        color: palette.text.medium,
         marginBottom: 16,
         lineHeight: 20,
     },
     amenitiesContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
-        paddingVertical: 10,
-        paddingHorizontal: 8,
-        backgroundColor: 'rgba(0,0,0,0.02)',
-        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        backgroundColor: palette.background,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: palette.cardBorder,
     },
     amenityItem: {
         alignItems: 'center',
-        justifyContent: 'center',
+        flex: 1,
+        flexDirection: 'column',
     },
     amenityIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: colors.primary + '15',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: palette.primary + '15',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     amenityText: {
         fontSize: 12,
-        color: '#555',
+        color: palette.text.medium,
+        textAlign: 'center',
     },
     amenityDivider: {
         width: 1,
-        height: 30,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        marginHorizontal: 4,
+        height: 40,
+        backgroundColor: palette.cardBorder,
+        marginHorizontal: 8,
+    },
+    bottomSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    infoContainer: {
+        flex: 1,
+    },
+    infoItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    infoText: {
+        marginLeft: 8,
+        fontSize: 13,
+        color: palette.text.medium,
     },
     selectButton: {
         borderRadius: 10,
         overflow: 'hidden',
         elevation: 2,
-        shadowColor: colors.primary,
+        shadowColor: palette.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -457,22 +535,24 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingVertical: 12,
+        paddingHorizontal: 16,
     },
     selectIcon: {
-        marginRight: 8,
+        marginLeft: 8,
     },
     selectButtonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 16,
+        fontSize: 15,
     },
     selectedBadge: {
         position: 'absolute',
         top: 12,
         right: 12,
-        borderRadius: 12,
+        borderRadius: 10,
         overflow: 'hidden',
         zIndex: 10,
+        elevation: 5,
     },
     selectedBadgeGradient: {
         paddingHorizontal: 10,
@@ -482,5 +562,14 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 12,
+    },
+    cartBadgeContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 16,
+        zIndex: 1000,
+        elevation: 10,
     },
 }); 
