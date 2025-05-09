@@ -122,7 +122,7 @@ export default function ChatDetailScreen({ route, navigation }) {
       const data = await chatApi.getMessages(conversationId);
       const sortedMessages = data.sort((a, b) => new Date(a.sentAt) - new Date(b.sentAt));
       setMessages(sortedMessages);
-      
+
       markMessagesAsRead();
     } catch (err) {
       setError(err.message || 'Không thể tải tin nhắn');
@@ -133,14 +133,14 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   const markMessagesAsRead = useCallback(async () => {
     if (!userId || !conversationId) return;
-    
+
     try {
       if (homeStayId) {
         await chatApi.markAsReadWithHomeStayId(homeStayId);
       } else {
         await chatApi.markAsRead(conversationId);
       }
-      
+
       if (signalRService.isConnected()) {
         await signalRService.markMessagesAsRead(conversationId, userId);
       }
@@ -197,48 +197,52 @@ export default function ChatDetailScreen({ route, navigation }) {
 
   const sendMessage = async () => {
     if ((!inputText.trim() && selectedImages.length === 0) || !userId) return;
+
+    let tempMessageID = Date.now().toString();
+
     try {
       setSending(true);
       const messageText = inputText.trim();
       setInputText('');
-      const imagesToSend = [...selectedImages];
+
+      const imagesToSend = selectedImages.map(img => ({
+        uri: img.uri,
+        type: img.type || 'image/jpeg',
+        name: img.name || `image_${Date.now()}.jpg`,
+      }));
+
       setSelectedImages([]);
       const userString = await AsyncStorage.getItem('user');
       const user = JSON.parse(userString);
       const userID = user?.userId || user?.AccountID;
       const senderName = user.accountName || user.userName || 'Customer';
-      
+
       if (!receiverId) {
         throw new Error('ReceiverID không hợp lệ');
       }
-
-      // Create temporary message object
       const tempMessage = {
-        messageID: Date.now().toString(), // Temporary ID
+        messageID: tempMessageID,
         senderID: userID,
         senderName: senderName,
         receiverID: receiverId,
         content: messageText || (imagesToSend.length > 0 ? "[Hình ảnh]" : ""),
         sentAt: new Date().toISOString(),
         isRead: false,
-        images: imagesToSend
+        images: imagesToSend.map(img => img.uri)
       };
 
-      // Add message to state immediately
       setMessages(prevMessages => [...prevMessages, tempMessage]);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-      
+
       if (!homeStayId) {
         try {
           const conversationsString = await AsyncStorage.getItem('recent_conversations');
           const conversations = conversationsString ? JSON.parse(conversationsString) : [];
           const currentConv = conversations.find(conv => conv.conversationID === conversationId);
-          
           if (currentConv && currentConv.homeStayID) {
             const retrievedHomeStayId = currentConv.homeStayID;
-            
             const response = await chatApi.sendMessageMultipart(
               receiverId,
               senderName,
@@ -247,12 +251,11 @@ export default function ChatDetailScreen({ route, navigation }) {
               messageText,
               imagesToSend
             );
-            
+
             if (response && response.messageID) {
-              // Update message with real ID from server
-              setMessages(prevMessages => 
-                prevMessages.map(msg => 
-                  msg.messageID === tempMessage.messageID 
+              setMessages(prevMessages =>
+                prevMessages.map(msg =>
+                  msg.messageID === tempMessage.messageID
                     ? { ...msg, messageID: response.messageID }
                     : msg
                 )
@@ -268,35 +271,35 @@ export default function ChatDetailScreen({ route, navigation }) {
                   sentAt: new Date().toISOString(),
                   isRead: false
                 };
-                
+
                 const recentConvsString = await AsyncStorage.getItem('recent_conversations');
                 let recentConvs = recentConvsString ? JSON.parse(recentConvsString) : [];
-                
-                const existingIndex = recentConvs.findIndex(conv => 
+
+                const existingIndex = recentConvs.findIndex(conv =>
                   conv.conversationID === conversationId
                 );
-                
+
                 if (existingIndex !== -1) {
                   recentConvs[existingIndex].lastMessage = lastMessage;
                   const updatedConv = recentConvs.splice(existingIndex, 1)[0];
                   recentConvs = [updatedConv, ...recentConvs];
                 }
-                
+
                 await AsyncStorage.setItem('recent_conversations', JSON.stringify(recentConvs));
               } catch (err) {
                 console.log('Error updating last message in AsyncStorage:', err);
               }
             }
-            
+
             return;
           }
         } catch (err) {
           console.log('Error retrieving homeStayId from AsyncStorage:', err);
         }
-        
+
         throw new Error('HomeStayID không hợp lệ');
       }
-      
+
       const response = await chatApi.sendMessageMultipart(
         receiverId,
         senderName,
@@ -305,12 +308,11 @@ export default function ChatDetailScreen({ route, navigation }) {
         messageText,
         imagesToSend
       );
-      
+
       if (response && response.messageID) {
-        // Update message with real ID from server
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.messageID === tempMessage.messageID 
+        setMessages(prevMessages =>
+          prevMessages.map(msg =>
+            msg.messageID === tempMessage.messageID
               ? { ...msg, messageID: response.messageID }
               : msg
           )
@@ -326,20 +328,20 @@ export default function ChatDetailScreen({ route, navigation }) {
             sentAt: new Date().toISOString(),
             isRead: false
           };
-          
+
           const recentConvsString = await AsyncStorage.getItem('recent_conversations');
           let recentConvs = recentConvsString ? JSON.parse(recentConvsString) : [];
-          
-          const existingIndex = recentConvs.findIndex(conv => 
+
+          const existingIndex = recentConvs.findIndex(conv =>
             conv.conversationID === conversationId
           );
-          
+
           if (existingIndex !== -1) {
             recentConvs[existingIndex].lastMessage = lastMessage;
             const updatedConv = recentConvs.splice(existingIndex, 1)[0];
             recentConvs = [updatedConv, ...recentConvs];
           }
-          
+
           await AsyncStorage.setItem('recent_conversations', JSON.stringify(recentConvs));
         } catch (err) {
           console.log('Error updating last message in AsyncStorage:', err);
@@ -349,7 +351,7 @@ export default function ChatDetailScreen({ route, navigation }) {
       console.error('Send message error:', error);
       Alert.alert('Lỗi', error.message || 'Không thể gửi tin nhắn. Vui lòng thử lại sau.');
       // Remove temporary message if send fails
-      setMessages(prevMessages => 
+      setMessages(prevMessages =>
         prevMessages.filter(msg => msg.messageID !== tempMessage.messageID)
       );
     } finally {
@@ -405,10 +407,25 @@ export default function ChatDetailScreen({ route, navigation }) {
       imageURLs.push(messageContent);
       messageContent = '';
     }
+
+    // Đảm bảo images là mảng và lọc ra các URI hợp lệ
     if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-      imageURLs = [...imageURLs, ...item.images];
+      const validImages = item.images.map(img => {
+        // Nếu img là object có thuộc tính uri, lấy uri
+        if (img && typeof img === 'object' && img.uri) {
+          return img.uri;
+        }
+        // Nếu img là string, dùng trực tiếp
+        else if (typeof img === 'string') {
+          return img;
+        }
+        // Trường hợp khác, trả về null
+        return null;
+      }).filter(uri => uri !== null); // Lọc bỏ các giá trị null
+
+      imageURLs = [...imageURLs, ...validImages];
     }
-    
+
     return (
       <>
         {showDate && (
@@ -440,8 +457,16 @@ export default function ChatDetailScreen({ route, navigation }) {
               {imageURLs.length > 0 && (
                 <View style={styles.imageContainer}>
                   {imageURLs.map((url, imgIndex) => (
-                    <TouchableOpacity key={`img-${imgIndex}-${item.messageID}`} onPress={() => setViewImage(url)} activeOpacity={0.9}>
-                      <Image source={{ uri: url }} style={styles.messageImage} resizeMode="cover" />
+                    <TouchableOpacity
+                      key={`img-${imgIndex}-${item.messageID}`}
+                      onPress={() => handleViewImage(url)}
+                      activeOpacity={0.9}
+                    >
+                      <Image
+                        source={{ uri: typeof url === 'string' ? url : url?.uri || null }}
+                        style={styles.messageImage}
+                        resizeMode="cover"
+                      />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -458,8 +483,16 @@ export default function ChatDetailScreen({ route, navigation }) {
               {imageURLs.length > 0 && (
                 <View style={styles.imageContainer}>
                   {imageURLs.map((url, imgIndex) => (
-                    <TouchableOpacity key={`img-${imgIndex}-${item.messageID}`} onPress={() => setViewImage(url)} activeOpacity={0.9}>
-                      <Image source={{ uri: url }} style={styles.messageImage} resizeMode="cover" />
+                    <TouchableOpacity
+                      key={`img-${imgIndex}-${item.messageID}`}
+                      onPress={() => handleViewImage(url)}
+                      activeOpacity={0.9}
+                    >
+                      <Image
+                        source={{ uri: typeof url === 'string' ? url : url?.uri || null }}
+                        style={styles.messageImage}
+                        resizeMode="cover"
+                      />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -490,15 +523,24 @@ export default function ChatDetailScreen({ route, navigation }) {
       d1.getDate() === d2.getDate();
   };
 
+  const handleViewImage = (url) => {
+    // Đảm bảo url là string
+    if (typeof url === 'string') {
+      setViewImage(url);
+    } else if (url && typeof url === 'object' && url.uri) {
+      setViewImage(url.uri);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       {renderHeader()}
       <View style={styles.mainContainer}>
         {loading ? (
-          <LoadingScreen 
-            message="Đang tải tin nhắn..." 
-            subMessage="Vui lòng đợi trong giây lát" 
+          <LoadingScreen
+            message="Đang tải tin nhắn..."
+            subMessage="Vui lòng đợi trong giây lát"
           />
         ) : error ? (
           <View style={styles.centered}>
@@ -641,7 +683,7 @@ export default function ChatDetailScreen({ route, navigation }) {
           >
             <Icon name="close" size={28} color="#fff" />
           </TouchableOpacity>
-          {viewImage && (
+          {viewImage && typeof viewImage === 'string' && (
             <Image
               source={{ uri: viewImage }}
               style={styles.fullImage}
