@@ -862,7 +862,7 @@ const BookingDetailScreen = () => {
                 )}
 
                 {/* Nút yêu cầu hoàn tiền cho dịch vụ đã thanh toán */}
-                {service.status === 1 && bookingData.status === 3 && (
+                {(service.status === 1 && bookingData.status === 1 || bookingData.status === 2) && (
                     <View style={styles.simpleServiceButtons}>
                         <TouchableOpacity
                             style={styles.simpleServiceRefundButton}

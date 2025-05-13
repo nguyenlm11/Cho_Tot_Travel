@@ -9,7 +9,6 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useCart } from '../contexts/CartContext';
 import bookingApi from '../services/api/bookingApi';
-import ServicesModal from '../components/Modal/ServicesModal';
 
 const CheckoutScreen = () => {
   const navigation = useNavigation();
@@ -37,8 +36,7 @@ const CheckoutScreen = () => {
   const [totalPrice, setTotalPrice] = useState(0);
   const selectedRooms = getRoomsByParams(params);
   const numberOfNights = calculateNumberOfNights();
-  const [selectedServices, setSelectedServices] = useState([]);
-  const [servicesModalVisible, setServicesModalVisible] = useState(false);
+  const [showAllRooms, setShowAllRooms] = useState(false);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -81,32 +79,6 @@ const CheckoutScreen = () => {
     return roomPrices[roomID] || null;
   };
 
-  const calculateRoomTotal = () => {
-    return totalPrice;
-  };
-
-  const calculateServiceTotal = () => {
-    return selectedServices.reduce((sum, service) => {
-      const price = service.servicesPrice || 0;
-      const quantity = service.quantity || 0;
-
-      if (service.serviceType === 2 && service.startDate && service.endDate) {
-        // For daily rental services, calculate based on number of days
-        const start = new Date(service.startDate);
-        const end = new Date(service.endDate);
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        return sum + (price * quantity * days);
-      }
-
-      // For regular services (serviceType === 0)
-      return sum + (price * quantity);
-    }, 0);
-  };
-
-  const calculateTotal = () => {
-    return calculateRoomTotal() + calculateServiceTotal();
-  };
-
   function calculateNumberOfNights() {
     if (!selectedRooms || selectedRooms.length === 0) return 1;
     const checkIn = new Date(selectedRooms[0].checkInDate);
@@ -121,10 +93,6 @@ const CheckoutScreen = () => {
       ...formData,
       [field]: value
     });
-  };
-
-  const handleServicesChange = (newSelectedServices) => {
-    setSelectedServices(newSelectedServices);
   };
 
   const validateForm = () => {
@@ -156,11 +124,6 @@ const CheckoutScreen = () => {
       return null;
     }
 
-    console.log('=== BOOKING DATA PREPARATION ===');
-    console.log('Selected Rooms:', selectedRooms);
-    console.log('Selected Services:', selectedServices);
-    console.log('Current Search:', currentSearch);
-
     const bookingDetails = selectedRooms.map(room => ({
       homeStayTypeID: rentalId || room.rentalId || 0,
       roomTypeID: room.roomTypeID || 0,
@@ -169,29 +132,13 @@ const CheckoutScreen = () => {
       checkOutDate: room.checkOutDate
     }));
 
-    const bookingServicesDetails = selectedServices.map(service => ({
-      quantity: service.quantity,
-      servicesID: service.servicesID,
-      startDate: service.serviceType === 0 ? null : service.startDate,
-      endDate: service.serviceType === 0 ? null : service.endDate,
-      rentHour: null
-    }));
-
     const bookingData = {
       numberOfChildren: currentSearch?.children || 0,
       numberOfAdults: currentSearch?.adults || 1,
       accountID: userData?.userID,
       homeStayID: homeStayId,
-      bookingDetails: bookingDetails,
-      bookingOfServices: {
-        bookingServicesDetails: bookingServicesDetails
-      }
+      bookingDetails: bookingDetails
     };
-
-    console.log('=== FINAL BOOKING DATA ===');
-    console.log('Booking Details:', bookingDetails);
-    console.log('Services Details:', bookingServicesDetails);
-    console.log('Complete Booking Data:', JSON.stringify(bookingData, null, 2));
 
     return bookingData;
   };
@@ -201,19 +148,15 @@ const CheckoutScreen = () => {
     const bookingData = createBookingData();
     if (!bookingData) return;
 
-    console.log('=== SENDING BOOKING REQUEST ===');
-    console.log('Booking Data being sent:', JSON.stringify(bookingData, null, 2));
     setLoading(true);
     try {
       const result = await bookingApi.createBooking(bookingData, 1);
-      console.log("Create booking API response:", result);
       if (result.success) {
         clearCart();
         let bookingId = null;
         if (result.data) {
           bookingId = result.data.data;
         }
-        console.log("Extracted BookingID:", bookingId);
         if (!bookingId) {
           throw new Error("Không nhận được mã đặt phòng từ máy chủ");
         }
@@ -232,18 +175,13 @@ const CheckoutScreen = () => {
   const handlePayment = async (bookingId) => {
     setLoading(true);
     try {
-      console.log("Bắt đầu lấy URL thanh toán cho bookingId:", bookingId);
       const paymentResult = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
-      console.log("Payment result:", paymentResult);
       if (paymentResult.success && paymentResult.paymentUrl) {
-        console.log("Redirecting to payment URL:", paymentResult.paymentUrl);
         navigation.navigate('PaymentWebView', {
           paymentUrl: paymentResult.paymentUrl,
           bookingId: bookingId
         });
       } else {
-        console.error('Payment URL error:', paymentResult.error);
-
         if (paymentResult.nullRefError ||
           (paymentResult.error && paymentResult.error.includes('NullReference')) ||
           (paymentResult.data && typeof paymentResult.data === 'string' &&
@@ -268,7 +206,6 @@ const CheckoutScreen = () => {
         throw new Error(paymentResult.error || "Không thể tạo liên kết thanh toán");
       }
     } catch (paymentError) {
-      console.error("Lỗi khi xử lý thanh toán:", paymentError);
       Alert.alert(
         'Lỗi thanh toán',
         `Không thể khởi tạo thanh toán (${paymentError.message || "Lỗi từ hệ thống"}). Bạn có thể xem chi tiết đặt phòng trong danh sách đặt phòng.`,
@@ -296,12 +233,12 @@ const CheckoutScreen = () => {
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              isFullPayment == true && styles.paymentOptionSelected
+              isFullPayment && styles.paymentOptionSelected
             ]}
             onPress={() => setIsFullPayment(true)}
           >
             <View style={styles.radioButton}>
-              {isFullPayment == true && <View style={styles.radioButtonInner} />}
+              {isFullPayment && <View style={styles.radioButtonInner} />}
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
@@ -309,7 +246,7 @@ const CheckoutScreen = () => {
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={styles.paymentOptionDescription}>
-                  Thanh toán toàn bộ số tiền {calculateTotal().toLocaleString('vi-VN')}đ
+                  Thanh toán toàn bộ số tiền {totalPrice.toLocaleString('vi-VN')}đ
                 </Text>
               )}
             </View>
@@ -318,12 +255,12 @@ const CheckoutScreen = () => {
           <TouchableOpacity
             style={[
               styles.paymentOption,
-              isFullPayment == false && styles.paymentOptionSelected
+              !isFullPayment && styles.paymentOptionSelected
             ]}
             onPress={() => setIsFullPayment(false)}
           >
             <View style={styles.radioButton}>
-              {isFullPayment == false && <View style={styles.radioButtonInner} />}
+              {!isFullPayment && <View style={styles.radioButtonInner} />}
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
@@ -331,7 +268,7 @@ const CheckoutScreen = () => {
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={styles.paymentOptionDescription}>
-                  Thanh toán 30% đặt cọc {(calculateTotal() * 0.3).toLocaleString('vi-VN')}đ
+                  Thanh toán 30% đặt cọc {(totalPrice * 0.3).toLocaleString('vi-VN')}đ
                 </Text>
               )}
             </View>
@@ -341,97 +278,74 @@ const CheckoutScreen = () => {
     );
   };
 
-
-  const renderServicesSection = () => {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
-        <View>
-          <TouchableOpacity
-            style={styles.addServiceButton}
-            onPress={() => setServicesModalVisible(true)}
-          >
-            <LinearGradient
-              colors={[colors.primary + '20', colors.primary + '10']}
-              style={styles.addServiceButtonInner}
-            >
-              <Icon name="add-circle-outline" size={24} color={colors.primary} />
-              <Text style={styles.addServiceButtonText}>
-                {selectedServices.length > 0
-                  ? `Đã chọn ${selectedServices.length} dịch vụ - Nhấn để sửa`
-                  : 'Thêm dịch vụ'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {selectedServices.length > 0 && (
-            <View style={styles.selectedServicesList}>
-              {selectedServices.map(service => (
-                <View
-                  key={`service-${service.servicesID}`}
-                  style={styles.selectedServiceItem}
-                >
-                  <View style={styles.selectedServiceInfo}>
-                    <Text style={styles.selectedServiceName}>
-                      {service.servicesName}
-                      {service.serviceType === 2 && (
-                        <Text style={styles.serviceType}> (Thuê theo ngày)</Text>
-                      )}
-                    </Text>
-                    {service.serviceType === 2 && service.startDate && service.endDate && (
-                      <Text style={styles.serviceDates}>
-                        {new Date(service.startDate).toLocaleDateString('vi-VN')} - {new Date(service.endDate).toLocaleDateString('vi-VN')}
-                      </Text>
-                    )}
-                    <Text style={styles.serviceQuantity}>
-                      Số lượng: {service.quantity}
-                    </Text>
-                  </View>
-                  <View style={styles.selectedServicePriceContainer}>
-                    <Text style={styles.selectedServicePrice}>
-                      {(service.servicesPrice || 0).toLocaleString('vi-VN')}₫
-                      {service.serviceType === 2 && <Text style={styles.perDay}>/ngày</Text>}
-                    </Text>
-                    {service.serviceType === 2 && service.startDate && service.endDate && (
-                      <Text style={styles.totalDays}>
-                        {Math.ceil((new Date(service.endDate) - new Date(service.startDate)) / (1000 * 60 * 60 * 24))} ngày
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  };
-
   const renderSelectedRooms = () => {
-    return selectedRooms.map(room => (
-      <View key={room.id} style={styles.roomItem}>
-        <Image
-          source={{ uri: room.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
-          style={styles.roomImage}
-        />
-        <View style={styles.roomDetails}>
-          <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
-          <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
-          <View style={styles.priceRow}>
-            {calculating ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <View>
-                <Text style={styles.roomPrice}>
-                  {(getRoomPrice(room.roomID) || room.price || 0).toLocaleString('vi-VN')}₫
-                </Text>
-                <Text style={styles.roomPriceNote}>Tổng giá thuê cho toàn bộ thời gian lưu trú</Text>
+    const roomsToDisplay = showAllRooms ? selectedRooms : selectedRooms.slice(0, 3);
+    const hasMoreRooms = selectedRooms.length > 3;
+    
+    return (
+      <>
+        {roomsToDisplay.map(room => {
+          const roomPrice = getRoomPrice(room.roomID) || room.price || 0;
+          const pricePerNight = roomPrice / numberOfNights;
+          
+          return (
+            <View key={room.id} style={styles.roomItem}>
+              <Image
+                source={{ uri: room.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                style={styles.roomImage}
+              />
+              <View style={styles.roomDetails}>
+                <View style={styles.roomInfo}>
+                  <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
+                  <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
+                </View>
+                
+                {calculating ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <View style={styles.priceDetails}>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
+                      <Text style={styles.priceValue}>{pricePerNight.toLocaleString('vi-VN')}₫</Text>
+                    </View>
+                    
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceLabel}>Số đêm:</Text>
+                      <Text style={styles.priceValue}>{numberOfNights} đêm</Text>
+                    </View>
+                    
+                    <View style={styles.totalPriceRow}>
+                      <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
+                      <Text style={styles.totalPriceValue}>{roomPrice.toLocaleString('vi-VN')}₫</Text>
+                    </View>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-        </View>
-      </View>
-    ));
+            </View>
+          );
+        })}
+        
+        {hasMoreRooms && !showAllRooms && (
+          <TouchableOpacity 
+            style={styles.viewMoreButton} 
+            onPress={() => setShowAllRooms(true)}
+          >
+            <Text style={styles.viewMoreText}>Xem tất cả {selectedRooms.length} phòng</Text>
+            <Icon name="chevron-down" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+        
+        {showAllRooms && selectedRooms.length > 3 && (
+          <TouchableOpacity 
+            style={styles.viewLessButton} 
+            onPress={() => setShowAllRooms(false)}
+          >
+            <Text style={styles.viewMoreText}>Thu gọn</Text>
+            <Icon name="chevron-up" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </>
+    );
   };
 
   return (
@@ -521,7 +435,6 @@ const CheckoutScreen = () => {
             />
           </View>
         </View>
-        {renderServicesSection()}
         {renderPaymentMethodSelector()}
 
         {/* Tổng cộng */}
@@ -533,16 +446,11 @@ const CheckoutScreen = () => {
             ) : (
               <View>
                 <Text style={styles.summaryValue}>
-                  {calculateRoomTotal().toLocaleString('vi-VN')}đ
+                  {totalPrice.toLocaleString('vi-VN')}đ
                 </Text>
                 <Text style={styles.summaryValueNote}>Tổng giá thuê</Text>
               </View>
             )}
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Dịch vụ ({selectedServices.length})</Text>
-            <Text style={styles.summaryValue}>{calculateServiceTotal().toLocaleString('vi-VN')}đ</Text>
           </View>
 
           <View style={styles.summaryRow}>
@@ -558,7 +466,7 @@ const CheckoutScreen = () => {
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text style={styles.totalPrice}>
-                {isFullPayment ? calculateTotal().toLocaleString('vi-VN') : (calculateTotal() * 0.3).toLocaleString('vi-VN')}đ
+                {isFullPayment ? totalPrice.toLocaleString('vi-VN') : (totalPrice * 0.3).toLocaleString('vi-VN')}đ
               </Text>
             )}
           </View>
@@ -600,16 +508,6 @@ const CheckoutScreen = () => {
           </Text>
         </View>
       </Animated.View>
-
-      <ServicesModal
-        visible={servicesModalVisible}
-        onClose={() => setServicesModalVisible(false)}
-        onSelect={handleServicesChange}
-        selectedServices={selectedServices}
-        homestayId={homeStayId}
-        checkInDate={selectedRooms[0]?.checkInDate}
-        checkOutDate={selectedRooms[0]?.checkOutDate}
-      />
     </ScrollView>
   );
 };
@@ -667,13 +565,17 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   roomImage: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     borderRadius: 8,
   },
   roomDetails: {
     flex: 1,
     marginLeft: 12,
+    justifyContent: 'space-between',
+  },
+  roomInfo: {
+    marginBottom: 8,
   },
   roomTypeName: {
     fontSize: 16,
@@ -684,21 +586,40 @@ const styles = StyleSheet.create({
   roomNumber: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 8,
+  },
+  priceDetails: {
+    marginTop: 4,
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  roomPrice: {
+  priceLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  priceValue: {
+    fontSize: 14,
+    color: '#333',
+  },
+  totalPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  totalPriceLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  totalPriceValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.primary,
-  },
-  roomPriceNote: {
-    fontSize: 12,
-    color: '#888',
-    fontStyle: 'italic',
   },
   dateContainer: {
     flexDirection: 'row',
@@ -744,77 +665,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 16,
     color: '#333',
-  },
-  addServiceButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  addServiceButtonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-  },
-  addServiceButtonText: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  selectedServicesList: {
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-  },
-  selectedServiceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  selectedServiceInfo: {
-    flex: 1,
-  },
-  selectedServiceName: {
-    fontSize: 15,
-    color: '#333',
-    marginBottom: 4,
-  },
-  serviceType: {
-    fontSize: 13,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  serviceDates: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 2,
-  },
-  serviceQuantity: {
-    fontSize: 13,
-    color: '#666',
-  },
-  selectedServicePriceContainer: {
-    alignItems: 'flex-end',
-  },
-  selectedServicePrice: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  perDay: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: 'normal',
-  },
-  totalDays: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
   },
   paymentOptions: {
     marginTop: 8,
@@ -958,6 +808,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  viewMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
+  viewLessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
+  viewMoreText: {
+    color: colors.primary,
+    fontWeight: '600',
+    marginRight: 8,
   },
 });
 
