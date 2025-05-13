@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function CartBadge({ params = {} }) {
     const navigation = useNavigation();
-    const { getCartCount, getRoomsByParams, removeRoomFromCart, calculateTotalPrice, fetchRoomPrice } = useCart();
+    const { getCartCount, getRoomsByParams, removeRoomFromCart, fetchRoomPrice } = useCart();
     const [modalVisible, setModalVisible] = useState(false);
     const [loading, setLoading] = useState(false);
     const [totalPrice, setTotalPrice] = useState(0);
@@ -21,7 +21,6 @@ export default function CartBadge({ params = {} }) {
     const selectedRooms = getRoomsByParams(safeParams);
 
     useEffect(() => {
-        // Tính tổng giá khi danh sách phòng thay đổi
         const fetchPrices = async () => {
             if (selectedRooms.length === 0) {
                 setTotalPrice(0);
@@ -30,7 +29,6 @@ export default function CartBadge({ params = {} }) {
 
             setLoading(true);
             try {
-                // Lấy giá từng phòng đồng thời bằng Promise.all
                 const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
                 const prices = await Promise.all(pricePromises);
 
@@ -43,7 +41,6 @@ export default function CartBadge({ params = {} }) {
                         newRoomPrices[room.roomID] = price;
                         total += price;
                     } else {
-                        // Sử dụng giá mặc định nếu không lấy được từ API
                         newRoomPrices[room.roomID] = room.price || 0;
                         total += room.price || 0;
                     }
@@ -59,8 +56,17 @@ export default function CartBadge({ params = {} }) {
         };
 
         fetchPrices();
-        // Chỉ gọi lại khi selectedRooms thay đổi ID
     }, [selectedRooms.map(room => room.roomID).join(','), fetchRoomPrice]);
+
+    // Tính số đêm dựa trên ngày checkin và checkout
+    const calculateNumberOfNights = (room) => {
+        if (!room || !room.checkInDate || !room.checkOutDate) return 1;
+        const checkIn = new Date(room.checkInDate);
+        const checkOut = new Date(room.checkOutDate);
+        const diffTime = Math.abs(checkOut - checkIn);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays || 1;
+    };
 
     if (cartCount === 0) return null;
 
@@ -111,34 +117,51 @@ export default function CartBadge({ params = {} }) {
                         <FlatList
                             data={selectedRooms}
                             keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => (
-                                <View style={styles.roomItem}>
-                                    <Image
-                                        source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
-                                        style={styles.roomImage}
-                                    />
-                                    <View style={styles.roomInfo}>
-                                        <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
-                                        <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
-                                        <Text style={styles.roomPrice}>
+                            renderItem={({ item }) => {
+                                const roomPrice = roomPrices[item.roomID] || item.price || 0;
+                                const nights = calculateNumberOfNights(item);
+                                const pricePerNight = roomPrice / nights;
+                                
+                                return (
+                                    <View style={styles.roomItem}>
+                                        <Image
+                                            source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                                            style={styles.roomImage}
+                                        />
+                                        <View style={styles.roomInfo}>
+                                            <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
+                                            <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
+                                            
                                             {loading ? (
                                                 <ActivityIndicator size="small" color={colors.primary} />
                                             ) : (
-                                                `${(roomPrices[item.roomID] ? roomPrices[item.roomID].toLocaleString('vi-VN') : (item.price || 0).toLocaleString('vi-VN'))}₫`
+                                                <View style={styles.priceDetails}>
+                                                    <View style={styles.priceRow}>
+                                                        <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
+                                                        <Text style={styles.priceValue}>{pricePerNight.toLocaleString('vi-VN')}₫</Text>
+                                                    </View>
+                                                    <View style={styles.priceRow}>
+                                                        <Text style={styles.priceLabel}>Số đêm:</Text>
+                                                        <Text style={styles.priceValue}>{nights} đêm</Text>
+                                                    </View>
+                                                    <View style={styles.totalPriceRow}>
+                                                        <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
+                                                        <Text style={styles.totalPriceValue}>{roomPrice.toLocaleString('vi-VN')}₫</Text>
+                                                    </View>
+                                                </View>
                                             )}
-                                        </Text>
-                                        <Text style={styles.priceNote}>Tổng giá thuê cho toàn bộ thời gian lưu trú</Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={styles.removeButton}
+                                            onPress={() => handleRemoveRoom(item.roomID)}
+                                        >
+                                            <BlurView intensity={80} tint="dark" style={styles.removeButtonBlur}>
+                                                <Ionicons name="trash-outline" size={18} color="#fff" />
+                                            </BlurView>
+                                        </TouchableOpacity>
                                     </View>
-                                    <TouchableOpacity
-                                        style={styles.removeButton}
-                                        onPress={() => handleRemoveRoom(item.roomID)}
-                                    >
-                                        <BlurView intensity={80} tint="dark" style={styles.removeButtonBlur}>
-                                            <Ionicons name="trash-outline" size={18} color="#fff" />
-                                        </BlurView>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
+                                );
+                            }}
                             contentContainerStyle={styles.roomsList}
                             ListEmptyComponent={
                                 <View style={styles.emptyCart}>
@@ -354,18 +377,41 @@ const styles = StyleSheet.create({
     roomNumber: {
         fontSize: 14,
         color: '#666',
-        marginBottom: 4,
+        marginBottom: 8,
     },
-    roomPrice: {
+    priceDetails: {
+        marginTop: 4,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 2,
+    },
+    priceLabel: {
+        fontSize: 13,
+        color: '#666',
+    },
+    priceValue: {
+        fontSize: 13,
+        color: '#333',
+    },
+    totalPriceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 2,
+        paddingTop: 2,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    totalPriceLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    totalPriceValue: {
         fontSize: 14,
         fontWeight: 'bold',
         color: colors.primary,
-        marginBottom: 2,
-    },
-    priceNote: {
-        fontSize: 12,
-        color: '#888',
-        fontStyle: 'italic',
     },
     removeButton: {
         width: 36,
