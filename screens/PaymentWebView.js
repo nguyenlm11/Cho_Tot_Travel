@@ -10,7 +10,7 @@ import axios from 'axios';
 export default function PaymentWebView() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { paymentUrl, bookingId } = route.params || {};
+    const { paymentUrl, bookingId, homeStayId } = route.params || {};
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const webViewRef = useRef(null);
@@ -68,7 +68,6 @@ export default function PaymentWebView() {
                 setLoadingTime(prev => prev + 1);
             }, 1000);
         }
-
         return () => {
             if (interval) clearInterval(interval);
         };
@@ -82,11 +81,7 @@ export default function PaymentWebView() {
                         "Tải trang thanh toán chậm",
                         "Việc kết nối đến cổng thanh toán đang mất nhiều thời gian hơn bình thường. Bạn có muốn chuyển sang phương thức khác?",
                         [
-                            {
-                                text: "Quay lại",
-                                style: "cancel",
-                                onPress: () => navigation.goBack()
-                            },
+                            { text: "Quay lại", style: "cancel", onPress: () => navigation.goBack() },
                             {
                                 text: "Thử lại",
                                 onPress: () => {
@@ -108,18 +103,9 @@ export default function PaymentWebView() {
                                                 "Đã mở trình duyệt",
                                                 "Sau khi hoàn thành thanh toán trong trình duyệt, vui lòng quay lại ứng dụng và chọn trạng thái thanh toán của bạn.",
                                                 [
-                                                    {
-                                                        text: "Đã thanh toán",
-                                                        onPress: () => handlePaymentSuccess()
-                                                    },
-                                                    {
-                                                        text: "Đã hủy thanh toán",
-                                                        onPress: () => handlePaymentCancel()
-                                                    },
-                                                    {
-                                                        text: "Gặp lỗi khác",
-                                                        onPress: () => handlePaymentError("99")
-                                                    }
+                                                    { text: "Đã thanh toán", onPress: () => handlePaymentSuccess() },
+                                                    { text: "Đã hủy thanh toán", onPress: () => handlePaymentCancel() },
+                                                    { text: "Gặp lỗi khác", onPress: () => handlePaymentError("99") }
                                                 ]
                                             );
                                         }, 500);
@@ -132,7 +118,6 @@ export default function PaymentWebView() {
                     );
                 }
             }, 10000);
-
             return () => clearTimeout(timeoutId);
         }
     }, [loading, paymentUrl]);
@@ -151,7 +136,6 @@ export default function PaymentWebView() {
             }
             const responseCode = params.vnp_ResponseCode || '';
             updatePaymentStatusOnBackend(params);
-
             if (webViewRef.current) {
                 try {
                     webViewRef.current.injectJavaScript(`
@@ -164,7 +148,6 @@ export default function PaymentWebView() {
                     console.error('Error stopping WebView:', error);
                 }
             }
-
             setTimeout(() => {
                 if (responseCode === '00') {
                     navigation.replace('BookingSuccess', {
@@ -178,7 +161,8 @@ export default function PaymentWebView() {
                         errorCode: errorCode,
                         isFullPayment: route.params?.isFullPayment || true,
                         isBookingService: route.params?.isBookingService || false,
-                        onPaymentComplete: route.params?.onPaymentComplete
+                        onPaymentComplete: route.params?.onPaymentComplete,
+                        homeStayId: homeStayId
                     });
                 }
             }, 300);
@@ -189,7 +173,8 @@ export default function PaymentWebView() {
                 bookingId: bookingId,
                 isFullPayment: route.params?.isFullPayment || true,
                 isBookingService: route.params?.isBookingService || false,
-                onPaymentComplete: route.params?.onPaymentComplete
+                onPaymentComplete: route.params?.onPaymentComplete,
+                homeStayId: route.params?.homeStayId
             });
         } finally {
             setIsProcessingPayment(false);
@@ -224,10 +209,10 @@ export default function PaymentWebView() {
                     }
                 );
             } catch (error) {
-                // Vẫn tiếp tục xử lý ngay cả khi gặp lỗi API
+                // console.error('Error updating payment status on backend:', error);
             }
         } catch (error) {
-            // Bỏ qua lỗi và tiếp tục xử lý
+            // console.error('Error updating payment status on backend:', error);
         }
     };
 
@@ -245,7 +230,6 @@ export default function PaymentWebView() {
                 return false;
             }
         }
-
         if (navState.url && navState.url.includes('vnp_ResponseCode=')) {
             handleVNPayResponse(navState.url);
             return false;
@@ -258,7 +242,6 @@ export default function PaymentWebView() {
 
     const handleLoadEnd = () => { setLoading(false) };
     const handleLoadStart = () => { setLoading(true) };
-
     const renderExternalBrowserButton = () => {
         if (loadingTime < 10 || !paymentUrl) return null;
         return (
@@ -269,10 +252,7 @@ export default function PaymentWebView() {
                         "Mở trình duyệt bên ngoài",
                         "Bạn có muốn mở trang thanh toán VNPay trong trình duyệt bên ngoài không?",
                         [
-                            {
-                                text: "Hủy",
-                                style: "cancel"
-                            },
+                            { text: "Hủy", style: "cancel" },
                             {
                                 text: "Mở trình duyệt",
                                 onPress: async () => {
@@ -287,14 +267,8 @@ export default function PaymentWebView() {
                                                     "Đã mở trình duyệt",
                                                     "Sau khi hoàn thành thanh toán trong trình duyệt, vui lòng quay lại ứng dụng và chọn 'Đã thanh toán'.",
                                                     [
-                                                        {
-                                                            text: "Đã thanh toán",
-                                                            onPress: () => handlePaymentSuccess()
-                                                        },
-                                                        {
-                                                            text: "Đã hủy",
-                                                            onPress: () => handlePaymentCancel()
-                                                        }
+                                                        { text: "Đã thanh toán", onPress: () => handlePaymentSuccess() },
+                                                        { text: "Đã hủy", onPress: () => handlePaymentCancel() }
                                                     ]
                                                 );
                                             }, 1000);
@@ -418,13 +392,11 @@ export default function PaymentWebView() {
             setLoading(false);
             setError(null);
             setIsProcessingPayment(false);
-
             currentUrl.current = '';
             redirectCount.current = 0;
         };
     }, []);
 
-    // Thêm hàm xử lý message từ WebView
     const handleWebViewMessage = (event) => {
         console.log("WebView message received:", event.nativeEvent.data);
         if (event.nativeEvent.data === 'WEBVIEW_CLEANUP_COMPLETE') {
@@ -432,7 +404,6 @@ export default function PaymentWebView() {
         }
     };
 
-    // Tạo hàm mới để xử lý việc quay lại
     const handleGoBack = () => {
         if (isProcessingPayment) {
             Alert.alert(
@@ -444,7 +415,6 @@ export default function PaymentWebView() {
                         text: 'Hủy thanh toán',
                         style: 'destructive',
                         onPress: () => {
-                            // Dọn dẹp WebView trước khi quay lại
                             if (webViewRef.current) {
                                 try {
                                     webViewRef.current.injectJavaScript(`
@@ -467,7 +437,6 @@ export default function PaymentWebView() {
                 ]
             );
         } else {
-            // Dọn dẹp WebView trước khi quay lại
             if (webViewRef.current) {
                 try {
                     webViewRef.current.injectJavaScript(`
@@ -520,7 +489,6 @@ export default function PaymentWebView() {
                 </TouchableOpacity>
             </LinearGradient>
 
-            {/* WebView */}
             {error ? renderError() : (
                 <>
                     {paymentUrl ? (

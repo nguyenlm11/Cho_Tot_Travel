@@ -8,8 +8,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useSearch } from '../contexts/SearchContext';
 import { useUser } from '../contexts/UserContext';
 import { useCart } from '../contexts/CartContext';
-import ServicesModal from '../components/Modal/ServicesModal';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import homeStayApi from '../services/api/homeStayApi';
 
 const WholeHomestayCheckout = () => {
     const navigation = useNavigation();
@@ -23,9 +23,9 @@ const WholeHomestayCheckout = () => {
     const [loading, setLoading] = useState(false);
     const [calculating, setCalculating] = useState(false);
     const [totalPrice, setTotalPrice] = useState(0);
-    const [selectedServices, setSelectedServices] = useState([]);
-    const [servicesModalVisible, setServicesModalVisible] = useState(false);
     const [isFullPayment, setIsFullPayment] = useState(true);
+    const [commissionRate, setCommissionRate] = useState(null);
+    const [loadingCommission, setLoadingCommission] = useState(true);
 
     const [formData, setFormData] = useState({
         fullName: userData?.name || '',
@@ -42,6 +42,27 @@ const WholeHomestayCheckout = () => {
         setTotalPrice(bookingData.price || 0);
     }, [bookingData, navigation]);
 
+    useEffect(() => {
+        const fetchCommissionRate = async () => {
+            if (!homeStayId) return;
+            try {
+                const response = await homeStayApi.getCommissionRateByHomeStay(homeStayId);
+                try {
+                    setCommissionRate(response.data);
+                    console.log("Commission Rate:", response.data);
+                } catch (parseError) {
+                    Alert.alert('Lỗi', 'Không thể tải tỷ lệ hoa hồng');
+                }
+            } catch (error) {
+                Alert.alert('Lỗi', 'Không thể tải tỷ lệ hoa hồng');
+            } finally {
+                setLoadingCommission(false);
+            }
+        };
+
+        fetchCommissionRate();
+    }, [homeStayId]);
+
     const calculateNumberOfNights = () => {
         if (!currentSearch?.checkInDate || !currentSearch?.checkOutDate) return 1;
         const checkIn = new Date(convertVietnameseDateToISO(currentSearch.checkInDate));
@@ -51,24 +72,10 @@ const WholeHomestayCheckout = () => {
         return diffDays || 1;
     };
 
-    const calculateServiceTotal = () => {
-        return selectedServices.reduce((sum, service) => {
-            const price = service.servicesPrice || 0;
-            const quantity = service.quantity || 0;
-            if (service.serviceType === 2 && service.startDate && service.endDate) {
-                const start = new Date(service.startDate);
-                const end = new Date(service.endDate);
-                const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-                return sum + (price * quantity * days);
-            }
-            return sum + (price * quantity);
-        }, 0);
-    };
-
     const calculateTotal = () => {
         const nights = calculateNumberOfNights();
         const basePrice = (bookingData?.price || 0) * nights;
-        return basePrice + calculateServiceTotal();
+        return basePrice;
     };
 
     const handleInputChange = (field, value) => {
@@ -76,10 +83,6 @@ const WholeHomestayCheckout = () => {
             ...formData,
             [field]: value
         });
-    };
-
-    const handleServicesChange = (newSelectedServices) => {
-        setSelectedServices(newSelectedServices);
     };
 
     const validateForm = () => {
@@ -122,23 +125,13 @@ const WholeHomestayCheckout = () => {
             checkInDate: checkInDate,
             checkOutDate: checkOutDate
         }];
-        const bookingServicesDetails = selectedServices.map(service => ({
-            quantity: service.quantity,
-            servicesID: service.servicesID,
-            startDate: service.serviceType === 0 ? null : service.startDate,
-            endDate: service.serviceType === 0 ? null : service.endDate,
-            rentHour: null
-        }));
 
         const bookingData = {
             numberOfChildren: currentSearch?.children || 0,
             numberOfAdults: currentSearch?.adults || 1,
             accountID: userData?.userID,
             homeStayID: homeStayId,
-            bookingDetails: bookingDetails,
-            bookingOfServices: {
-                bookingServicesDetails: bookingServicesDetails
-            }
+            bookingDetails: bookingDetails
         };
         return bookingData;
     };
@@ -156,7 +149,6 @@ const WholeHomestayCheckout = () => {
                 if (result.data) {
                     bookingId = result.data.data;
                 }
-                console.log("Extracted BookingID:", bookingId);
                 if (!bookingId) {
                     throw new Error("Không nhận được mã đặt phòng từ máy chủ");
                 }
@@ -178,7 +170,8 @@ const WholeHomestayCheckout = () => {
             if (paymentResult.success && paymentResult.paymentUrl) {
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: paymentResult.paymentUrl,
-                    bookingId: bookingId
+                    bookingId: bookingId,
+                    homeStayId: homeStayId
                 });
             } else {
                 if (paymentResult.nullRefError ||
@@ -189,14 +182,8 @@ const WholeHomestayCheckout = () => {
                         'Đặt phòng thành công',
                         'Đặt phòng đã được xác nhận nhưng không thể thanh toán online vào lúc này. Bạn có thể thanh toán sau hoặc liên hệ với chủ homestay.',
                         [
-                            {
-                                text: 'Xem đặt phòng',
-                                onPress: () => navigation.navigate('BookingList')
-                            },
-                            {
-                                text: 'Quay lại',
-                                onPress: () => navigation.navigate('HomeTabs')
-                            }
+                            { text: 'Xem đặt phòng', onPress: () => navigation.navigate('BookingList') },
+                            { text: 'Quay lại', onPress: () => navigation.navigate('HomeTabs') }
                         ]
                     );
                     return;
@@ -204,19 +191,12 @@ const WholeHomestayCheckout = () => {
                 throw new Error(paymentResult.error || "Không thể tạo liên kết thanh toán");
             }
         } catch (paymentError) {
-            console.error("Lỗi khi xử lý thanh toán:", paymentError);
             Alert.alert(
                 'Lỗi thanh toán',
                 `Không thể khởi tạo thanh toán (${paymentError.message || "Lỗi từ hệ thống"}). Bạn có thể xem chi tiết đặt phòng trong danh sách đặt phòng.`,
                 [
-                    {
-                        text: 'Xem đặt phòng',
-                        onPress: () => navigation.navigate('BookingList')
-                    },
-                    {
-                        text: 'Quay lại',
-                        onPress: () => navigation.navigate('HomeTabs')
-                    }
+                    { text: 'Xem đặt phòng', onPress: () => navigation.navigate('BookingList') },
+                    { text: 'Quay lại', onPress: () => navigation.navigate('HomeTabs') }
                 ]
             );
         } finally {
@@ -224,7 +204,19 @@ const WholeHomestayCheckout = () => {
         }
     };
 
+    const getDepositAmount = () => {
+        if (!commissionRate || commissionRate === null) {
+            const totalAmount = calculateTotal();
+            return totalAmount * 0.2;
+        }
+        const totalAmount = calculateTotal();
+        return totalAmount * commissionRate.platformShare;
+    };
+
     const renderPaymentMethodSelector = () => {
+        const depositAmount = getDepositAmount();
+        const depositPercentage = commissionRate && commissionRate.platformShare ? commissionRate.platformShare * 100 : 20;
+
         return (
             <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
@@ -232,16 +224,16 @@ const WholeHomestayCheckout = () => {
                     <TouchableOpacity
                         style={[
                             styles.paymentOption,
-                            isFullPayment == true && styles.paymentOptionSelected
+                            isFullPayment === true && styles.paymentOptionSelected
                         ]}
                         onPress={() => setIsFullPayment(true)}
                     >
                         <View style={styles.radioButton}>
-                            {isFullPayment == true && <View style={styles.radioButtonInner} />}
+                            {isFullPayment === true && <View style={styles.radioButtonInner} />}
                         </View>
                         <View style={styles.paymentOptionContent}>
                             <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
-                            {calculating ? (
+                            {calculating || loadingCommission ? (
                                 <ActivityIndicator size="small" color={colors.primary} />
                             ) : (
                                 <Text style={styles.paymentOptionDescription}>
@@ -254,20 +246,20 @@ const WholeHomestayCheckout = () => {
                     <TouchableOpacity
                         style={[
                             styles.paymentOption,
-                            isFullPayment == false && styles.paymentOptionSelected
+                            isFullPayment === false && styles.paymentOptionSelected
                         ]}
                         onPress={() => setIsFullPayment(false)}
                     >
                         <View style={styles.radioButton}>
-                            {isFullPayment == false && <View style={styles.radioButtonInner} />}
+                            {isFullPayment === false && <View style={styles.radioButtonInner} />}
                         </View>
                         <View style={styles.paymentOptionContent}>
                             <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
-                            {calculating ? (
+                            {calculating || loadingCommission ? (
                                 <ActivityIndicator size="small" color={colors.primary} />
                             ) : (
                                 <Text style={styles.paymentOptionDescription}>
-                                    Thanh toán 30% đặt cọc {(calculateTotal() * 0.3).toLocaleString('vi-VN')}đ
+                                    Thanh toán {depositPercentage}% đặt cọc {depositAmount.toLocaleString('vi-VN')}đ
                                 </Text>
                             )}
                         </View>
@@ -277,73 +269,11 @@ const WholeHomestayCheckout = () => {
         );
     };
 
-    const renderServicesSection = () => {
-        return (
-            <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
-                <View>
-                    <TouchableOpacity
-                        style={styles.addServiceButton}
-                        onPress={() => setServicesModalVisible(true)}
-                    >
-                        <LinearGradient
-                            colors={[colors.primary + '20', colors.primary + '10']}
-                            style={styles.addServiceButtonInner}
-                        >
-                            <Icon name="add-circle-outline" size={24} color={colors.primary} />
-                            <Text style={styles.addServiceButtonText}>
-                                {selectedServices.length > 0
-                                    ? `Đã chọn ${selectedServices.length} dịch vụ - Nhấn để sửa`
-                                    : 'Thêm dịch vụ'}
-                            </Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                    {selectedServices.length > 0 && (
-                        <View style={styles.selectedServicesList}>
-                            {selectedServices.map(service => (
-                                <View
-                                    key={`service-${service.servicesID}`}
-                                    style={styles.selectedServiceItem}
-                                >
-                                    <View style={styles.selectedServiceInfo}>
-                                        <Text style={styles.selectedServiceName}>
-                                            {service.servicesName}
-                                            {service.serviceType === 2 && (
-                                                <Text style={styles.serviceType}> (Thuê theo ngày)</Text>
-                                            )}
-                                        </Text>
-                                        {service.serviceType === 2 && service.startDate && service.endDate && (
-                                            <Text style={styles.serviceDates}>
-                                                {new Date(service.startDate).toLocaleDateString('vi-VN')} - {new Date(service.endDate).toLocaleDateString('vi-VN')}
-                                            </Text>
-                                        )}
-                                        <Text style={styles.serviceQuantity}>
-                                            Số lượng: {service.quantity}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.selectedServicePriceContainer}>
-                                        <Text style={styles.selectedServicePrice}>
-                                            {(service.servicesPrice || 0).toLocaleString('vi-VN')}₫
-                                            {service.serviceType === 2 && <Text style={styles.perDay}>/ngày</Text>}
-                                        </Text>
-                                        {service.serviceType === 2 && service.startDate && service.endDate && (
-                                            <Text style={styles.totalDays}>
-                                                {Math.ceil((new Date(service.endDate) - new Date(service.startDate)) / (1000 * 60 * 60 * 24))} ngày
-                                            </Text>
-                                        )}
-                                    </View>
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </View>
-            </View>
-        );
-    };
-
     const renderHomestayInfo = () => {
         if (!bookingData) return null;
+        const nights = calculateNumberOfNights();
+        const pricePerNight = bookingData.price || 0;
+        const totalPrice = pricePerNight * nights;
 
         return (
             <View style={styles.roomItem}>
@@ -352,20 +282,31 @@ const WholeHomestayCheckout = () => {
                     style={styles.roomImage}
                 />
                 <View style={styles.roomDetails}>
-                    <Text style={styles.roomTypeName}>{bookingData.homestayName}</Text>
-                    <Text style={styles.roomNumber}>Toàn bộ homestay</Text>
-                    <View style={styles.priceRow}>
-                        {calculating ? (
-                            <ActivityIndicator size="small" color={colors.primary} />
-                        ) : (
-                            <View>
-                                <Text style={styles.roomPrice}>
-                                    {(bookingData.price || 0).toLocaleString('vi-VN')}₫
-                                </Text>
-                                <Text style={styles.roomPriceNote}>Giá mỗi đêm</Text>
-                            </View>
-                        )}
+                    <View style={styles.roomInfo}>
+                        <Text style={styles.roomTypeName}>{bookingData.homestayName}</Text>
+                        <Text style={styles.roomNumber}>Toàn bộ homestay</Text>
                     </View>
+
+                    {calculating ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                        <View style={styles.priceDetails}>
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
+                                <Text style={styles.priceValue}>{pricePerNight.toLocaleString('vi-VN')}₫</Text>
+                            </View>
+
+                            <View style={styles.priceRow}>
+                                <Text style={styles.priceLabel}>Số đêm:</Text>
+                                <Text style={styles.priceValue}>{nights} đêm</Text>
+                            </View>
+
+                            <View style={styles.totalPriceRow}>
+                                <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
+                                <Text style={styles.totalPriceValue}>{totalPrice.toLocaleString('vi-VN')}₫</Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -454,7 +395,6 @@ const WholeHomestayCheckout = () => {
                         />
                     </View>
                 </View>
-                {renderServicesSection()}
                 {renderPaymentMethodSelector()}
 
                 {/* Tổng cộng */}
@@ -474,11 +414,6 @@ const WholeHomestayCheckout = () => {
                     </View>
 
                     <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Dịch vụ ({selectedServices.length})</Text>
-                        <Text style={styles.summaryValue}>{calculateServiceTotal().toLocaleString('vi-VN')}đ</Text>
-                    </View>
-
-                    <View style={styles.summaryRow}>
                         <Text style={styles.summaryLabel}>Số đêm</Text>
                         <Text style={styles.summaryValue}>{calculateNumberOfNights()} đêm</Text>
                     </View>
@@ -487,11 +422,11 @@ const WholeHomestayCheckout = () => {
 
                     <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>Tổng cộng</Text>
-                        {calculating ? (
+                        {calculating || loadingCommission ? (
                             <ActivityIndicator size="small" color={colors.primary} />
                         ) : (
                             <Text style={styles.totalPrice}>
-                                {isFullPayment ? calculateTotal().toLocaleString('vi-VN') : (calculateTotal() * 0.3).toLocaleString('vi-VN')}đ
+                                {isFullPayment ? calculateTotal().toLocaleString('vi-VN') : getDepositAmount().toLocaleString('vi-VN')}đ
                             </Text>
                         )}
                     </View>
@@ -533,16 +468,6 @@ const WholeHomestayCheckout = () => {
                     </Text>
                 </View>
             </Animated.View>
-
-            <ServicesModal
-                visible={servicesModalVisible}
-                onClose={() => setServicesModalVisible(false)}
-                onSelect={handleServicesChange}
-                selectedServices={selectedServices}
-                homestayId={homeStayId}
-                checkInDate={convertVietnameseDateToISO(currentSearch.checkInDate)}
-                checkOutDate={convertVietnameseDateToISO(currentSearch.checkOutDate)}
-            />
         </ScrollView>
     );
 };
@@ -608,30 +533,57 @@ const styles = StyleSheet.create({
         flex: 1,
         marginLeft: 12,
     },
+    roomInfo: {
+        marginBottom: 8,
+    },
     roomTypeName: {
         fontSize: 16,
         fontWeight: 'bold',
         color: '#333',
-        marginBottom: 4,
     },
     roomNumber: {
         fontSize: 14,
         color: '#666',
-        marginBottom: 8,
+    },
+    priceDetails: {
+        marginTop: 4,
+        paddingTop: 4,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        padding: 8,
     },
     priceRow: {
         flexDirection: 'row',
-        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
     },
-    roomPrice: {
+    priceLabel: {
+        fontSize: 14,
+        color: '#666',
+    },
+    priceValue: {
+        fontSize: 14,
+        color: '#333',
+    },
+    totalPriceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 4,
+        paddingTop: 4,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    totalPriceLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    totalPriceValue: {
         fontSize: 16,
         fontWeight: 'bold',
         color: colors.primary,
-    },
-    roomPriceNote: {
-        fontSize: 12,
-        color: '#888',
-        fontStyle: 'italic',
     },
     dateContainer: {
         flexDirection: 'row',
@@ -677,77 +629,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         fontSize: 16,
         color: '#333',
-    },
-    addServiceButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        marginTop: 8,
-    },
-    addServiceButtonInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        gap: 12,
-    },
-    addServiceButtonText: {
-        fontSize: 16,
-        color: colors.primary,
-        fontWeight: '500',
-    },
-    selectedServicesList: {
-        marginTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-        paddingTop: 12,
-    },
-    selectedServiceItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    selectedServiceInfo: {
-        flex: 1,
-    },
-    selectedServiceName: {
-        fontSize: 15,
-        color: '#333',
-        marginBottom: 4,
-    },
-    serviceType: {
-        fontSize: 13,
-        color: '#666',
-        fontStyle: 'italic',
-    },
-    serviceDates: {
-        fontSize: 13,
-        color: '#666',
-        marginBottom: 2,
-    },
-    serviceQuantity: {
-        fontSize: 13,
-        color: '#666',
-    },
-    selectedServicePriceContainer: {
-        alignItems: 'flex-end',
-    },
-    selectedServicePrice: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: colors.primary,
-    },
-    perDay: {
-        fontSize: 12,
-        color: '#666',
-        fontWeight: 'normal',
-    },
-    totalDays: {
-        fontSize: 12,
-        color: '#666',
-        marginTop: 2,
     },
     paymentOptions: {
         marginTop: 8,

@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, StatusBar, Animated, Modal } from 'react-native';
-import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import bookingApi from '../services/api/bookingApi';
 import { colors } from '../constants/Colors';
 import { FadeInDown } from 'react-native-reanimated';
-import ServicesModal from '../components/Modal/ServicesModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import homeStayApi from '../services/api/homeStayApi';
 import LoadingScreen from '../components/LoadingScreen';
+import ServicesModal from '../components/Modal/ServicesModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BookingDetailScreen = () => {
     const navigation = useNavigation();
@@ -21,17 +21,14 @@ const BookingDetailScreen = () => {
     const [error, setError] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
     const [processingPayment, setProcessingPayment] = useState(false);
-    const [isServicesModalVisible, setIsServicesModalVisible] = useState(false);
-    const [selectedServices, setSelectedServices] = useState([]);
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
-    const [ratingModalVisible, setRatingModalVisible] = useState(false);
-    const [rating, setRating] = useState(0);
-    const [ratingComment, setRatingComment] = useState('');
-    const [submittingRating, setSubmittingRating] = useState(false);
+    const [commissionRate, setCommissionRate] = useState(null);
+    const [servicesModalVisible, setServicesModalVisible] = useState(false);
+    const [selectedServices, setSelectedServices] = useState([]);
 
     const bookingStatusMapping = useMemo(() => ({
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
-        1: { label: 'Đã xác nhận', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
+        1: { label: 'Chờ nhận phòng', color: '#4CAF50', bgColor: '#E8F5E9', icon: 'checkmark-circle-outline' },
         2: { label: 'Đang lưu trú', color: '#2196F3', bgColor: '#E3F2FD', icon: 'home-outline' },
         3: { label: 'Đã trả phòng', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'exit-outline' },
         4: { label: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE', icon: 'close-circle-outline' },
@@ -54,6 +51,7 @@ const BookingDetailScreen = () => {
                 return;
             }
             const response = await bookingApi.getBookingDetails(bookingId);
+
             if (response.success) {
                 setBookingData(response.data);
                 setError(null);
@@ -61,6 +59,7 @@ const BookingDetailScreen = () => {
                 setError(response.error || 'Không tìm thấy thông tin đặt phòng');
             }
         } catch (error) {
+            console.error('Error fetching booking details:', error);
             setError('Đã có lỗi xảy ra khi tải thông tin đặt phòng');
         } finally {
             setLoading(false);
@@ -76,15 +75,38 @@ const BookingDetailScreen = () => {
         }
     }, []);
 
+    const fetchCommissionRate = useCallback(async (homeStayId) => {
+        try {
+            if (!homeStayId) {
+                console.log("Warning: homeStayId is null or undefined in fetchCommissionRate");
+                return;
+            }
+
+            const response = await homeStayApi.getCommissionRateByHomeStay(homeStayId);
+            try {
+                setCommissionRate(response.data);
+            } catch (parseError) {
+                console.error('Error processing commission rate:', parseError);
+                setCommissionRate(null);
+            }
+        } catch (error) {
+            console.error('Error fetching commission rate:', error);
+            setCommissionRate(null);
+        }
+    }, []);
+
     useEffect(() => {
         fetchBookingDetails();
     }, [fetchBookingDetails]);
 
     useEffect(() => {
-        if (bookingData?.homeStay?.homeStayID) {
+        if (bookingData && bookingData.homeStay && bookingData.homeStay.homeStayID) {
             fetchCancellationPolicy(bookingData.homeStay.homeStayID);
+            fetchCommissionRate(bookingData.homeStay.homeStayID);
+        } else if (bookingData) {
+            console.log("bookingData available but homeStayID is missing");
         }
-    }, [bookingData?.homeStay?.homeStayID, fetchCancellationPolicy]);
+    }, [bookingData, fetchCancellationPolicy, fetchCommissionRate]);
 
     const formatDate = useCallback((dateString) => {
         if (!dateString) return '';
@@ -159,13 +181,11 @@ const BookingDetailScreen = () => {
             );
             return;
         }
-
         const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 6 : 4;
-
         let message = '';
         if (bookingData.paymentStatus === 1) {
             if (canRefund) {
@@ -228,74 +248,20 @@ const BookingDetailScreen = () => {
         );
     }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
 
-    const handleServiceSelected = useCallback(async (selectedServices) => {
-        try {
-            if (!bookingData?.homeStay?.homeStayID) {
-                Alert.alert('Lỗi', 'Không tìm thấy thông tin homestay');
-                return;
-            }
-            setLoading(true);
-            const userData = await AsyncStorage.getItem('user');
-            const userInfo = userData ? JSON.parse(userData) : null;
-            if (!userInfo?.userId) {
-                Alert.alert('Lỗi', 'Vui lòng đăng nhập để thực hiện chức năng này');
-                return;
-            }
-            const invalidServices = selectedServices.filter(service =>
-                service.serviceType === 2 && (!service.startDate || !service.endDate)
-            );
-            if (invalidServices.length > 0) {
-                Alert.alert('Lỗi', 'Vui lòng chọn ngày cho các dịch vụ thuê theo ngày');
-                return;
-            }
-
-            const bookingServiceData = {
-                bookingID: bookingId,
-                bookingServicesDate: new Date().toISOString(),
-                accountID: userInfo.userId,
-                homeStayID: bookingData.homeStay.homeStayID,
-                bookingServicesDetails: selectedServices.map(service => ({
-                    quantity: service.quantity,
-                    servicesID: service.servicesID,
-                    startDate: service.serviceType === 2 ? service.startDate : null,
-                    endDate: service.serviceType === 2 ? service.endDate : null,
-                    rentHour: null
-                }))
-            };
-
-            const response = await bookingApi.createBookingServices(bookingServiceData);
-            console.log('response', response);
-            if (response.success) {
-                const bookingServiceId = response.data?.data?.bookingServicesID;
-                if (bookingServiceId) {
-                    setIsServicesModalVisible(false);
-                    handleServicePayment(bookingServiceId);
-                } else {
-                    Alert.alert('Lỗi', 'Không nhận được mã đặt dịch vụ');
-                }
-            } else {
-                Alert.alert('Lỗi', response.message || 'Không thể thêm dịch vụ');
-            }
-        } catch (error) {
-            console.error('Error adding services:', error);
-            Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi thêm dịch vụ');
-        } finally {
-            setLoading(false);
-        }
-    }, [bookingId, handleServicePayment, bookingData]);
-
     const handleServicePayment = useCallback(async (bookingServiceId) => {
         if (processingPayment) return;
         try {
             setProcessingPayment(true);
             const response = await bookingApi.getBookingServicePaymentUrl(bookingServiceId, true);
             if (response.success) {
+                const homeStayId = bookingData?.homeStay?.homeStayID;
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: response.paymentUrl,
                     bookingId: bookingServiceId,
                     onPaymentComplete: fetchBookingDetails,
                     isFullPayment: true,
-                    isBookingService: true
+                    isBookingService: true,
+                    homeStayId: homeStayId
                 });
             } else {
                 Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
@@ -305,17 +271,15 @@ const BookingDetailScreen = () => {
         } finally {
             setProcessingPayment(false);
         }
-    }, [processingPayment, navigation, fetchBookingDetails]);
+    }, [processingPayment, navigation, fetchBookingDetails, bookingData]);
 
     const handleCancelService = useCallback(async (bookingServiceId, isRefund = false) => {
         if (!bookingData || !cancellationPolicy) return;
-
         const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 5 : 4;
-
         const bookingService = bookingData.bookingServices.find(service => service.bookingServicesID === bookingServiceId);
         if (!bookingService) {
             Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
@@ -377,13 +341,22 @@ const BookingDetailScreen = () => {
             setProcessingPayment(true);
             const response = await bookingApi.getPaymentUrl(bookingId, isFullPayment);
             if (response.success && response.paymentUrl) {
+                const homeStayId = bookingData?.homeStay?.homeStayID;
+
                 navigation.navigate('PaymentWebView', {
                     paymentUrl: response.paymentUrl,
                     bookingId: bookingId,
                     onPaymentComplete: fetchBookingDetails,
                     isFullPayment: isFullPayment,
-                    isBookingService: false
+                    isBookingService: false,
+                    homeStayId: homeStayId
                 });
+
+                if (homeStayId) {
+                    console.log("homeStayId: " + homeStayId);
+                } else {
+                    console.log("Warning: homeStayId is null or undefined");
+                }
             } else {
                 Alert.alert('Lỗi', response.error || 'Không thể tạo URL thanh toán');
             }
@@ -393,58 +366,97 @@ const BookingDetailScreen = () => {
         } finally {
             setProcessingPayment(false);
         }
-    }, [processingPayment, navigation, fetchBookingDetails]);
+    }, [processingPayment, navigation, fetchBookingDetails, bookingData]);
 
     const handlePayNow = useCallback(async (bookingId) => {
         if (processingPayment) return;
+
+        const depositPercentage = commissionRate && commissionRate.platformShare ? Math.round(commissionRate.platformShare * 100) : 20;
+
         Alert.alert(
             'Chọn phương thức thanh toán',
-            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
+            `Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc ${depositPercentage}%?`,
             [
                 { text: 'Thanh toán đầy đủ', onPress: () => processPayment(bookingId, true) },
                 { text: 'Thanh toán đặt cọc', onPress: () => processPayment(bookingId, false) },
                 { text: 'Hủy', style: 'cancel' }
             ]
         );
-    }, [processingPayment, processPayment]);
+    }, [processingPayment, processPayment, commissionRate]);
 
-    const handleBookService = useCallback(() => {
-        setIsServicesModalVisible(true);
-    }, []);
-
-    const handleRateBooking = () => {
-        setRatingModalVisible(true);
-    };
-
-    const handleSubmitRating = async () => {
-        if (rating === 0) {
-            Alert.alert('Lỗi', 'Vui lòng chọn số sao đánh giá');
-            return;
-        }
-
+    const handleSelectServices = useCallback(async (services, paymentImmediately = false) => {
+        if (!services || services.length === 0 || !bookingId) return;
         try {
-            setSubmittingRating(true);
-            // Replace with your actual API endpoint
-            const response = await homeStayApi.rateHomeStay(
-                bookingData.homeStay.homeStayID, 
-                rating, 
-                ratingComment
-            );
-            
+            setLoading(true);
+            let accountID;
+            try {
+                const userString = await AsyncStorage.getItem('user');
+                if (userString) {
+                    const userData = JSON.parse(userString);
+                    accountID = userData.accountId || userData.accountID || userData.userId || userData.userID;
+                    console.log('User data found, accountID:', accountID);
+                }
+            } catch (asyncError) {
+                console.error('Error getting accountID from AsyncStorage:', asyncError);
+            }
+
+            const serviceData = {
+                bookingID: parseInt(bookingId),
+                bookingServicesDate: new Date().toISOString(),
+                accountID: accountID,
+                homeStayID: bookingData?.homeStay?.homeStayID || 0,
+                bookingServicesDetails: services.map(service => {
+                    let dayRent = 0;
+                    if (service.startDate && service.endDate) {
+                        const start = new Date(service.startDate);
+                        const end = new Date(service.endDate);
+                        const diffTime = Math.abs(end - start);
+                        dayRent = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    }
+
+                    return {
+                        quantity: service.quantity || 0,
+                        servicesID: service.servicesID || 0,
+                        dayRent: dayRent,
+                        rentHour: service.rentHour || 0
+                    };
+                })
+            };
+            const response = await bookingApi.createBookingServices(serviceData);
             if (response.success) {
-                Alert.alert('Thành công', 'Cảm ơn bạn đã đánh giá');
-                setRatingModalVisible(false);
-                fetchBookingDetails();
+                if (paymentImmediately) {
+                    const bookingServiceId = response.data?.data?.bookingServicesID;
+                    if (bookingServiceId) {
+                        console.log('Chuyển ngay đến thanh toán cho dịch vụ:', bookingServiceId);
+                        await handleServicePayment(bookingServiceId);
+                    } else {
+                        Alert.alert(
+                            'Lỗi',
+                            'Không thể thanh toán ngay, vui lòng thanh toán từ danh sách dịch vụ.',
+                            [
+                                { text: 'OK', onPress: () => fetchBookingDetails() }
+                            ]
+                        );
+                    }
+                } else {
+                    Alert.alert(
+                        'Thành công',
+                        'Đã thêm dịch vụ thành công. Vui lòng thanh toán dịch vụ trong danh sách dịch vụ.',
+                        [
+                            { text: 'OK', onPress: () => fetchBookingDetails() }
+                        ]
+                    );
+                }
             } else {
-                Alert.alert('Lỗi', response.error || 'Không thể gửi đánh giá');
+                Alert.alert('Lỗi', response.error || 'Không thể thêm dịch vụ, vui lòng thử lại');
             }
         } catch (error) {
-            console.error('Error submitting rating:', error);
-            Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi gửi đánh giá');
+            console.error('Error adding services:', error);
+            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi thêm dịch vụ');
         } finally {
-            setSubmittingRating(false);
+            setLoading(false);
         }
-    };
+    }, [bookingId, bookingData, fetchBookingDetails, handleServicePayment]);
 
     const renderStatus = (status, statusMapping) => {
         const statusInfo = statusMapping[status] || {
@@ -466,6 +478,7 @@ const BookingDetailScreen = () => {
 
     const renderBookingDetails = () => {
         if (!bookingData) return null;
+        const depositPercentage = commissionRate && commissionRate.platformShare ? Math.round(commissionRate.platformShare * 100) : 20;
         return (
             <View style={styles.detailsContainer}>
                 <View style={styles.bookingHeader}>
@@ -603,25 +616,42 @@ const BookingDetailScreen = () => {
                         <View style={styles.bookingDatesDivider} />
 
                         {/* Room list */}
-                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => (
-                            <View key={detail.bookingDetailID} style={styles.roomCard}>
-                                <View style={styles.roomHeader}>
-                                    <View style={styles.roomTitleContainer}>
-                                        <MaterialIcons name="bed" size={20} color={colors.primary} />
-                                        <Text style={styles.roomTitle}>Phòng {detail.rooms?.roomNumber || index + 1}</Text>
+                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => {
+                            const numberOfNights = calculateDays(detail.checkInDate, detail.checkOutDate);
+                            const pricePerNight = numberOfNights > 0 ? detail.totalAmount / numberOfNights : 0;
+
+                            return (
+                                <View key={detail.bookingDetailID} style={styles.roomCard}>
+                                    <View style={styles.roomHeader}>
+                                        <View style={styles.roomTitleContainer}>
+                                            <MaterialIcons name="bed" size={20} color={colors.primary} />
+                                            <Text style={styles.roomTitle}>Phòng {detail.rooms?.roomNumber || index + 1}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.priceDetails}>
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
+                                            <Text style={styles.priceValue}>{formatCurrency(pricePerNight)}</Text>
+                                        </View>
+
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceLabel}>Số đêm:</Text>
+                                            <Text style={styles.priceValue}>{numberOfNights} đêm</Text>
+                                        </View>
+
+                                        <View style={styles.totalPriceRow}>
+                                            <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
+                                            <Text style={styles.totalPriceValue}>{formatCurrency(detail.totalAmount)}</Text>
+                                        </View>
                                     </View>
                                 </View>
-
-                                <View style={styles.roomTotal}>
-                                    <Text style={styles.roomTotalLabel}>Thành tiền</Text>
-                                    <Text style={styles.roomTotalValue}>{formatCurrency(detail.totalAmount)}</Text>
-                                </View>
-                            </View>
-                        ))}
+                            );
+                        })}
                     </View>
                 </View>
 
-                {/* Additional Services */}
+                {/* Additional Services - show only if services exist */}
                 {bookingData.bookingServices && bookingData.bookingServices.length > 0 && (
                     <View style={styles.sectionCard}>
                         <View style={styles.sectionHeader}>
@@ -662,7 +692,7 @@ const BookingDetailScreen = () => {
                         {bookingData.paymentStatus === 1 && (
                             <>
                                 <View style={styles.paymentItem}>
-                                    <Text style={styles.paymentLabel}>Đã đặt cọc</Text>
+                                    <Text style={styles.paymentLabel}>Đã đặt cọc ({depositPercentage}%)</Text>
                                     <Text style={styles.paymentValue}>{formatCurrency(bookingData.bookingDeposit)}</Text>
                                 </View>
 
@@ -733,7 +763,7 @@ const BookingDetailScreen = () => {
         if (!bookingData) return null;
         const canCancel = bookingData.status === 0 || bookingData.status === 1;
         const canPay = bookingData.paymentStatus === 0 && bookingData.status === 0;
-        const canBookService = bookingData.status === 1 || bookingData.status === 2;
+        const canAddService = bookingData.status === 1 || bookingData.status === 2;
 
         return (
             <View style={styles.actionButtons}>
@@ -761,13 +791,13 @@ const BookingDetailScreen = () => {
                     </TouchableOpacity>
                 )}
 
-                {canBookService && (
+                {canAddService && (
                     <TouchableOpacity
-                        style={styles.serviceButton}
-                        onPress={handleBookService}
+                        style={styles.addServiceButton}
+                        onPress={() => setServicesModalVisible(true)}
                     >
                         <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-                        <Text style={styles.serviceButtonText}>Thêm dịch vụ</Text>
+                        <Text style={styles.addServiceButtonText}>Thêm dịch vụ</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -861,7 +891,6 @@ const BookingDetailScreen = () => {
                     </View>
                 )}
 
-                {/* Nút yêu cầu hoàn tiền cho dịch vụ đã thanh toán */}
                 {(service.status === 1 && bookingData.status === 1 || bookingData.status === 2) && (
                     <View style={styles.simpleServiceButtons}>
                         <TouchableOpacity
@@ -935,12 +964,16 @@ const BookingDetailScreen = () => {
                     {renderCancellationPolicy()}
                 </Animated.View>
             </ScrollView>
+
+            {/* Action buttons at bottom */}
             {renderActionButtons()}
+
+            {/* Services Modal */}
             <ServicesModal
-                visible={isServicesModalVisible}
-                onClose={() => setIsServicesModalVisible(false)}
-                onSelect={handleServiceSelected}
+                visible={servicesModalVisible}
+                onClose={() => setServicesModalVisible(false)}
                 selectedServices={selectedServices}
+                onSelect={handleSelectServices}
                 homestayId={bookingData?.homeStay?.homeStayID}
                 checkInDate={bookingData?.bookingDetails?.[0]?.checkInDate}
                 checkOutDate={bookingData?.bookingDetails?.[0]?.checkOutDate}
@@ -1122,382 +1155,45 @@ const styles = StyleSheet.create({
         color: colors.textPrimary,
         marginLeft: 8,
     },
-    roomTotal: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: 8,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-    },
-    roomTotalLabel: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: colors.textPrimary,
-    },
-    roomTotalValue: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: colors.primary,
-    },
-    serviceItem: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-    },
-    serviceHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-        paddingBottom: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    serviceHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    serviceDate: {
-        fontSize: 14,
-        color: colors.textPrimary,
-        marginLeft: 8,
-        fontWeight: '500',
-    },
-    serviceStatusBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        backgroundColor: (status) => {
-            switch (status) {
-                case 0: return '#FFF3E0';  // Chờ thanh toán
-                case 1: return '#E8F5E9';  // Đã thanh toán
-                case 2: return '#E3F2FD';  // Đang phục vụ
-                case 3: return '#F3E5F5';  // Đã hoàn thành
-                case 4: return '#FFEBEE';  // Đã hủy
-                case 5: return '#FBE9E7';  // Yêu cầu hoàn tiền
-                case 6: return '#F3E5F5';  // Đã hoàn tiền
-                default: return '#ECEFF1'; // Không xác định
-            }
-        }
-    },
-    serviceStatusText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: (status) => {
-            switch (status) {
-                case 0: return '#FF9800';  // Chờ thanh toán
-                case 1: return '#4CAF50';  // Đã thanh toán
-                case 2: return '#2196F3';  // Đang phục vụ
-                case 3: return '#9C27B0';  // Đã hoàn thành
-                case 4: return '#F44336';  // Đã hủy
-                case 5: return '#FF5722';  // Yêu cầu hoàn tiền
-                case 6: return '#9C27B0';  // Đã hoàn tiền
-                default: return '#607D8B'; // Không xác định
-            }
-        }
-    },
-    serviceDetails: { marginBottom: 12 },
-    serviceDetailItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    serviceDetailInfo: {
-        flex: 1,
-        marginRight: 16,
-    },
-    serviceDetailHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    serviceName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: colors.textPrimary,
-        marginLeft: 8,
-    },
-    serviceDetailMeta: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    serviceMetaItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    serviceMetaText: {
-        fontSize: 13,
-        color: '#666',
-        marginLeft: 4,
-    },
-    serviceDetailPrice: { alignItems: 'flex-end' },
-    serviceDetailPriceLabel: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        marginBottom: 4,
-    },
-    serviceDetailPriceValue: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: colors.primary,
-    },
-    serviceFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+    priceDetails: {
         marginTop: 8,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-    },
-    serviceTotal: { flex: 1 },
-    serviceTotalLabel: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        marginBottom: 4,
-    },
-    serviceTotalValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primary,
-    },
-    serviceActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    serviceActionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    serviceActionIconContainer: {
-        marginRight: 4,
-    },
-    serviceActionButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    cancelButton: {
-        borderColor: '#FF5252',
-        backgroundColor: '#FFF',
-    },
-    payButton: {
-        borderColor: colors.primary,
-        backgroundColor: colors.primary,
-    },
-    refundButton: {
-        borderColor: '#FF9800',
-        backgroundColor: '#FFF',
-    },
-    paymentItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 12,
-    },
-    paymentLabel: {
-        fontSize: 14,
-        color: colors.textSecondary,
-    },
-    paymentValue: {
-        fontSize: 14,
-        color: colors.textPrimary,
-        fontWeight: '500',
-    },
-    paymentDivider: {
-        height: 1,
-        backgroundColor: '#f0f0f0',
-        marginVertical: 12,
-    },
-    paymentTotal: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    paymentTotalLabel: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: colors.textPrimary,
-    },
-    paymentTotalValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primary,
-    },
-    actionButtons: {
-        padding: 16,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-    },
-    cancelButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#FF5252',
-        marginRight: 8,
-        marginBottom: 8,
-        flex: 1,
-    },
-    cancelButtonText: {
-        color: '#FF5252',
-        fontWeight: 'bold',
-        fontSize: 14,
-        marginLeft: 8,
-    },
-    payButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-        backgroundColor: colors.primary,
-        marginRight: 8,
-        marginBottom: 8,
-        flex: 1,
-    },
-    payButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14,
-        marginLeft: 8,
-    },
-    serviceButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-        backgroundColor: '#4CAF50',
-        marginRight: 8,
-        marginBottom: 8,
-        flex: 1,
-    },
-    serviceButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14,
-        marginLeft: 8,
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#fff',
-    },
-    errorText: {
-        marginTop: 10,
-        fontSize: 16,
-        textAlign: 'center',
-        color: '#757575',
-        marginBottom: 20,
-    },
-    retryButton: {
-        backgroundColor: colors.primary,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-    },
-    bookingDatesContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 16,
+        paddingTop: 8,
         backgroundColor: '#f9f9f9',
         borderRadius: 8,
-        padding: 12,
+        padding: 8,
     },
-    bookingDateItem: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    bookingDatesDivider: {
-        height: 1,
-        backgroundColor: '#f0f0f0',
-        marginBottom: 16,
-    },
-    contactInfoContainer: { borderRadius: 8 },
-    contactInfoRow: {
+    priceRow: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-        paddingVertical: 4,
-    },
-    contactInfoIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(0, 122, 255, 0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    contactInfoTextContainer: {
-        flex: 1,
         justifyContent: 'space-between',
-        flexDirection: 'row',
-    },
-    contactInfoLabel: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: colors.textSecondary,
-        marginBottom: 2,
-    },
-    contactInfoValue: {
-        fontSize: 15,
-        color: colors.textPrimary,
-    },
-    homestayInfoContainer: { borderRadius: 8 },
-    homestayInfoRow: {
-        flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
-        paddingVertical: 4,
+        marginBottom: 4,
     },
-    homestayInfoIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(0, 122, 255, 0.1)',
-        justifyContent: 'center',
+    priceLabel: {
+        fontSize: 14,
+        color: '#666',
+    },
+    priceValue: {
+        fontSize: 14,
+        color: '#333',
+    },
+    totalPriceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginRight: 12,
+        marginTop: 4,
+        paddingTop: 4,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
     },
-    homestayInfoTextContainer: { flex: 1 },
-    homestayInfoLabel: {
-        fontSize: 13,
+    totalPriceLabel: {
+        fontSize: 14,
         fontWeight: 'bold',
-        color: colors.textSecondary,
-        marginBottom: 2,
+        color: '#333',
     },
-    homestayInfoValue: {
-        fontSize: 15,
-        color: colors.textPrimary,
+    totalPriceValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.primary,
     },
     guestInfoContainer: {
         flexDirection: 'row',
@@ -1680,7 +1376,200 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
         marginLeft: 4,
-    }
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        backgroundColor: '#fff',
+    },
+    errorText: {
+        marginTop: 10,
+        fontSize: 16,
+        textAlign: 'center',
+        color: '#757575',
+        marginBottom: 20,
+    },
+    retryButton: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    bookingDatesContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        backgroundColor: '#f9f9f9',
+        borderRadius: 8,
+        padding: 12,
+    },
+    bookingDateItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    bookingDatesDivider: {
+        height: 1,
+        backgroundColor: '#f0f0f0',
+        marginBottom: 16,
+    },
+    contactInfoContainer: { borderRadius: 8 },
+    contactInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingVertical: 4,
+    },
+    contactInfoIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0, 122, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    contactInfoTextContainer: {
+        flex: 1,
+        justifyContent: 'space-between',
+        flexDirection: 'row',
+    },
+    contactInfoLabel: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: colors.textSecondary,
+        marginBottom: 2,
+    },
+    contactInfoValue: {
+        fontSize: 15,
+        color: colors.textPrimary,
+    },
+    homestayInfoContainer: { borderRadius: 8 },
+    homestayInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        paddingVertical: 4,
+    },
+    homestayInfoIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0, 122, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    homestayInfoTextContainer: { flex: 1 },
+    homestayInfoLabel: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: colors.textSecondary,
+        marginBottom: 2,
+    },
+    homestayInfoValue: {
+        fontSize: 15,
+        color: colors.textPrimary,
+    },
+    paymentItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    paymentLabel: {
+        fontSize: 14,
+        color: colors.textSecondary,
+    },
+    paymentValue: {
+        fontSize: 14,
+        color: colors.textPrimary,
+        fontWeight: '500',
+    },
+    paymentDivider: {
+        height: 1,
+        backgroundColor: '#f0f0f0',
+        marginVertical: 12,
+    },
+    paymentTotal: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    paymentTotalLabel: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+    },
+    paymentTotalValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    actionButtons: {
+        padding: 16,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    cancelButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#FF5252',
+        marginRight: 8,
+        marginBottom: 8,
+        flex: 1,
+    },
+    cancelButtonText: {
+        color: '#FF5252',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    payButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: colors.primary,
+        marginRight: 8,
+        marginBottom: 8,
+        flex: 1,
+    },
+    payButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
+    addServiceButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: colors.primary,
+        marginRight: 8,
+        marginBottom: 8,
+        flex: 1,
+    },
+    addServiceButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginLeft: 8,
+    },
 });
 
 export default BookingDetailScreen;

@@ -9,6 +9,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useCart } from '../contexts/CartContext';
 import bookingApi from '../services/api/bookingApi';
+import homeStayApi from '../services/api/homeStayApi';
 
 const CheckoutScreen = () => {
   const navigation = useNavigation();
@@ -37,6 +38,8 @@ const CheckoutScreen = () => {
   const selectedRooms = getRoomsByParams(params);
   const numberOfNights = calculateNumberOfNights();
   const [showAllRooms, setShowAllRooms] = useState(false);
+  const [commissionRate, setCommissionRate] = useState(null);
+  const [loadingCommission, setLoadingCommission] = useState(true);
 
   useEffect(() => {
     const fetchPrices = async () => {
@@ -45,7 +48,6 @@ const CheckoutScreen = () => {
         setCalculating(false);
         return;
       }
-
       setCalculating(true);
       try {
         const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
@@ -73,6 +75,26 @@ const CheckoutScreen = () => {
     };
     fetchPrices();
   }, [JSON.stringify(selectedRooms.map(room => room.roomID)), fetchRoomPrice]);
+
+  useEffect(() => {
+    const fetchCommissionRate = async () => {
+      if (!homeStayId) return;
+      try {
+        const response = await homeStayApi.getCommissionRateByHomeStay(homeStayId);
+        try {
+          setCommissionRate(response.data);
+        } catch (parseError) {
+          Alert.alert('Lỗi', 'Không thể tải tỷ lệ hoa hồng');
+        }
+      } catch (error) {
+        Alert.alert('Lỗi', 'Không thể tải tỷ lệ hoa hồng');
+      } finally {
+        setLoadingCommission(false);
+      }
+    };
+
+    fetchCommissionRate();
+  }, [homeStayId]);
 
   const getRoomPrice = (roomID) => {
     if (calculating) return null;
@@ -139,15 +161,20 @@ const CheckoutScreen = () => {
       homeStayID: homeStayId,
       bookingDetails: bookingDetails
     };
-
     return bookingData;
+  };
+
+  const getDepositAmount = () => {
+    if (!commissionRate || commissionRate === null) {
+      return totalPrice * 0.2; // Use default 20% if commission rate is not available
+    }
+    return totalPrice * commissionRate.platformShare;
   };
 
   const handleBooking = async () => {
     if (!validateForm()) return;
     const bookingData = createBookingData();
     if (!bookingData) return;
-
     setLoading(true);
     try {
       const result = await bookingApi.createBooking(bookingData, 1);
@@ -191,14 +218,8 @@ const CheckoutScreen = () => {
             'Đặt phòng thành công',
             'Đặt phòng đã được xác nhận nhưng không thể thanh toán online vào lúc này. Bạn có thể thanh toán sau hoặc liên hệ với chủ homestay.',
             [
-              {
-                text: 'Xem đặt phòng',
-                onPress: () => navigation.navigate('BookingList')
-              },
-              {
-                text: 'Quay lại',
-                onPress: () => navigation.navigate('HomeTabs')
-              }
+              { text: 'Xem đặt phòng', onPress: () => navigation.navigate('BookingList') },
+              { text: 'Quay lại', onPress: () => navigation.navigate('HomeTabs') }
             ]
           );
           return;
@@ -210,14 +231,8 @@ const CheckoutScreen = () => {
         'Lỗi thanh toán',
         `Không thể khởi tạo thanh toán (${paymentError.message || "Lỗi từ hệ thống"}). Bạn có thể xem chi tiết đặt phòng trong danh sách đặt phòng.`,
         [
-          {
-            text: 'Xem đặt phòng',
-            onPress: () => navigation.navigate('BookingList')
-          },
-          {
-            text: 'Quay lại',
-            onPress: () => navigation.navigate('HomeTabs')
-          }
+          { text: 'Xem đặt phòng', onPress: () => navigation.navigate('BookingList') },
+          { text: 'Quay lại', onPress: () => navigation.navigate('HomeTabs') }
         ]
       );
     } finally {
@@ -226,6 +241,9 @@ const CheckoutScreen = () => {
   };
 
   const renderPaymentMethodSelector = () => {
+    const depositAmount = getDepositAmount();
+    const depositPercentage = commissionRate && commissionRate.platformShare ? commissionRate.platformShare * 100 : 20;
+
     return (
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
@@ -242,7 +260,7 @@ const CheckoutScreen = () => {
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Thanh toán đầy đủ</Text>
-              {calculating ? (
+              {calculating || loadingCommission ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={styles.paymentOptionDescription}>
@@ -264,11 +282,11 @@ const CheckoutScreen = () => {
             </View>
             <View style={styles.paymentOptionContent}>
               <Text style={styles.paymentOptionTitle}>Đặt cọc</Text>
-              {calculating ? (
+              {calculating || loadingCommission ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={styles.paymentOptionDescription}>
-                  Thanh toán 30% đặt cọc {(totalPrice * 0.3).toLocaleString('vi-VN')}đ
+                  Thanh toán {depositPercentage}% đặt cọc {depositAmount.toLocaleString('vi-VN')}đ
                 </Text>
               )}
             </View>
@@ -281,13 +299,13 @@ const CheckoutScreen = () => {
   const renderSelectedRooms = () => {
     const roomsToDisplay = showAllRooms ? selectedRooms : selectedRooms.slice(0, 3);
     const hasMoreRooms = selectedRooms.length > 3;
-    
+
     return (
       <>
         {roomsToDisplay.map(room => {
           const roomPrice = getRoomPrice(room.roomID) || room.price || 0;
           const pricePerNight = roomPrice / numberOfNights;
-          
+
           return (
             <View key={room.id} style={styles.roomItem}>
               <Image
@@ -299,7 +317,7 @@ const CheckoutScreen = () => {
                   <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
                   <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
                 </View>
-                
+
                 {calculating ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
@@ -308,12 +326,12 @@ const CheckoutScreen = () => {
                       <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
                       <Text style={styles.priceValue}>{pricePerNight.toLocaleString('vi-VN')}₫</Text>
                     </View>
-                    
+
                     <View style={styles.priceRow}>
                       <Text style={styles.priceLabel}>Số đêm:</Text>
                       <Text style={styles.priceValue}>{numberOfNights} đêm</Text>
                     </View>
-                    
+
                     <View style={styles.totalPriceRow}>
                       <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
                       <Text style={styles.totalPriceValue}>{roomPrice.toLocaleString('vi-VN')}₫</Text>
@@ -324,20 +342,20 @@ const CheckoutScreen = () => {
             </View>
           );
         })}
-        
+
         {hasMoreRooms && !showAllRooms && (
-          <TouchableOpacity 
-            style={styles.viewMoreButton} 
+          <TouchableOpacity
+            style={styles.viewMoreButton}
             onPress={() => setShowAllRooms(true)}
           >
             <Text style={styles.viewMoreText}>Xem tất cả {selectedRooms.length} phòng</Text>
             <Icon name="chevron-down" size={16} color={colors.primary} />
           </TouchableOpacity>
         )}
-        
+
         {showAllRooms && selectedRooms.length > 3 && (
-          <TouchableOpacity 
-            style={styles.viewLessButton} 
+          <TouchableOpacity
+            style={styles.viewLessButton}
             onPress={() => setShowAllRooms(false)}
           >
             <Text style={styles.viewMoreText}>Thu gọn</Text>
@@ -462,11 +480,11 @@ const CheckoutScreen = () => {
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Tổng cộng</Text>
-            {calculating ? (
+            {calculating || loadingCommission ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <Text style={styles.totalPrice}>
-                {isFullPayment ? totalPrice.toLocaleString('vi-VN') : (totalPrice * 0.3).toLocaleString('vi-VN')}đ
+                {isFullPayment ? totalPrice.toLocaleString('vi-VN') : getDepositAmount().toLocaleString('vi-VN')}đ
               </Text>
             )}
           </View>
