@@ -383,15 +383,6 @@ export default function HomestayRentalDetailScreen() {
                                                     <Text style={styles.pricingDescription} numberOfLines={2}>
                                                         {pricing.description}
                                                     </Text>
-
-                                                    {pricing.unitPrice !== pricing.rentPrice && (
-                                                        <View style={styles.originalPriceContainer}>
-                                                            <Text style={styles.originalPriceLabel}>Giá gốc: </Text>
-                                                            <Text style={styles.originalPrice}>
-                                                                {pricing.unitPrice?.toLocaleString('vi-VN')}₫
-                                                            </Text>
-                                                        </View>
-                                                    )}
                                                 </View>
                                             </Animated.View>
                                         );
@@ -1012,21 +1003,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: palette.text.medium,
         marginBottom: 10,
-    },
-    originalPriceContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-    },
-    originalPriceLabel: {
-        fontSize: 13,
-        color: palette.text.light,
-    },
-    originalPrice: {
-        fontSize: 13,
-        color: palette.text.light,
-        textDecorationLine: 'line-through',
-        marginRight: 8,
     },
     viewMoreButton: {
         flexDirection: 'row',

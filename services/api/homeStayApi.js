@@ -119,6 +119,16 @@ const homeStayApi = {
         error: handleError(error)
       };
     }
+  },
+
+  getCommissionRateByHomeStay: async (homeStayId) => {
+    try {
+      const response = await apiClient.get(`/api/CommissionRate/GetByHomeStay/${homeStayId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching commission rate:', error);
+      throw error;
+    }
   }
 };
 

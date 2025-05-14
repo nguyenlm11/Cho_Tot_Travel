@@ -1,16 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../constants/Colors';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import bookingApi from '../services/api/bookingApi';
+import homeStayApi from '../services/api/homeStayApi';
 
 export default function BookingFailed() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { bookingId, errorCode, error, isBookingService = false, onPaymentComplete } = route.params || {};
+    const { bookingId, errorCode, error, isBookingService = false, onPaymentComplete, homeStayId: routeHomeStayId } = route.params || {};
     const [loading, setLoading] = useState(false);
+    const [commissionRate, setCommissionRate] = useState(null);
+    const [loadingCommission, setLoadingCommission] = useState(true);
+    const [homeStayId, setHomeStayId] = useState(routeHomeStayId);
+    const [bookingDetails, setBookingDetails] = useState(null);
+
+    useEffect(() => {
+        const fetchBookingDetails = async () => {
+            if (!bookingId) {
+                setLoadingCommission(false);
+                return;
+            }
+            if (homeStayId) { return }
+            try {
+                const response = await bookingApi.getBookingDetails(bookingId);
+                if (response.success && response.data) {
+                    setBookingDetails(response.data);
+                    if (response.data.homeStay && response.data.homeStay.homeStayID) {
+                        setHomeStayId(response.data.homeStay.homeStayID);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching booking details:', error);
+            }
+        };
+        fetchBookingDetails();
+    }, [bookingId, homeStayId]);
+
+    useEffect(() => {
+        const fetchCommissionRate = async () => {
+            if (!homeStayId) {
+                setLoadingCommission(false);
+                return;
+            }
+            try {
+                const response = await homeStayApi.getCommissionRateByHomeStay(homeStayId);
+                try {
+                    setCommissionRate(response.data);
+                } catch (parseError) {
+                    console.error('Error processing commission rate:', parseError);
+                }
+            } catch (error) {
+                console.error('Error fetching commission rate:', error);
+            } finally {
+                setLoadingCommission(false);
+            }
+        };
+        fetchCommissionRate();
+    }, [homeStayId]);
 
     const errorMessages = {
         '02': 'Merchant không hợp lệ (kiểm tra lại vnp_TmnCode)',
@@ -40,10 +89,8 @@ export default function BookingFailed() {
 
             let response;
             if (isBookingService) {
-                // Nếu là thanh toán dịch vụ
                 response = await bookingApi.getBookingServicePaymentUrl(bookingId, true);
             } else {
-                // Nếu là thanh toán đặt phòng - sử dụng paymentType được chọn
                 response = await bookingApi.getPaymentUrl(bookingId, useFullPayment);
             }
 
@@ -53,7 +100,8 @@ export default function BookingFailed() {
                     bookingId: bookingId,
                     onPaymentComplete: onPaymentComplete,
                     isFullPayment: useFullPayment,
-                    isBookingService: isBookingService
+                    isBookingService: isBookingService,
+                    homeStayId: homeStayId
                 });
             } else {
                 throw new Error(response.error || 'Không thể tạo URL thanh toán');
@@ -72,12 +120,13 @@ export default function BookingFailed() {
             processPayment(true);
             return;
         }
+        const depositPercentage = commissionRate && commissionRate.platformShare ? Math.round(commissionRate.platformShare * 100) : 20;
         Alert.alert(
             'Chọn hình thức thanh toán',
-            'Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc 30%?',
+            `Bạn muốn thanh toán đầy đủ hay chỉ đặt cọc ${depositPercentage}%?`,
             [
                 { text: 'Thanh toán đầy đủ', onPress: () => processPayment(true) },
-                { text: 'Đặt cọc 30%', onPress: () => processPayment(false) },
+                { text: `Đặt cọc ${depositPercentage}%`, onPress: () => processPayment(false) },
                 { text: 'Hủy', style: 'cancel' }
             ]
         );
@@ -92,13 +141,7 @@ export default function BookingFailed() {
                         name: 'MainTabs',
                         state: {
                             routes: [
-                                {
-                                    name: 'HomeTabs',
-                                    state: {
-                                        routes: [{ name: 'Home' }],
-                                        index: 0,
-                                    }
-                                }
+                                { name: 'HomeTabs', state: { routes: [{ name: 'Home' }], index: 0 } }
                             ],
                             index: 0
                         }

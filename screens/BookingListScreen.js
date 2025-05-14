@@ -16,7 +16,7 @@ moment.locale('vi');
 
 const STATUS_MAPPING = {
     0: { text: 'Chưa thanh toán', color: '#FAD961', icon: 'time-outline' },
-    1: { text: 'Đã thanh toán', color: '#4CAF50', icon: 'checkmark-circle' },
+    1: { text: 'Chờ nhận phòng', color: '#4CAF50', icon: 'checkmark-circle' },
     2: { text: 'Đang phục vụ', color: '#29B6F6', icon: 'sync-outline' },
     3: { text: 'Đã trả phòng', color: '#8BC34A', icon: 'checkmark-done-circle' },
     4: { text: 'Đã hủy', color: '#F44336', icon: 'close-circle' },
@@ -246,7 +246,6 @@ export default function BookingListScreen() {
                 const sortedBookings = result.data.sort((a, b) =>
                     new Date(b.bookingDate) - new Date(a.bookingDate)
                 );
-
                 setBookings(prevBookings => {
                     const newBookings = pageNum === 1 ? sortedBookings : [...prevBookings, ...sortedBookings];
                     if (pageNum === 1) {
@@ -257,7 +256,6 @@ export default function BookingListScreen() {
                     }
                     return newBookings;
                 });
-
                 setHasMore(result.data.length === ITEMS_PER_PAGE);
                 setLastFetchTime(now);
             } else {
@@ -274,17 +272,15 @@ export default function BookingListScreen() {
         }
     }, [userData?.userID, lastFetchTime]);
 
-    // Thêm useEffect để fetch data khi component mount
     useEffect(() => {
         fetchBookings(true);
     }, []);
 
-    // Thêm useEffect để fetch data khi screen được focus
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
             const now = Date.now();
             const timeSinceLastFetch = now - lastFetchTime;
-            if (timeSinceLastFetch > 30000) { // 30 giây
+            if (timeSinceLastFetch > 30000) {
                 fetchBookings(true);
             }
         });
@@ -292,7 +288,6 @@ export default function BookingListScreen() {
         return unsubscribe;
     }, [navigation, fetchBookings, lastFetchTime]);
 
-    // Debounced search function
     const debouncedSearch = useMemo(
         () => debounce((status) => {
             setFilterStatus(status);
