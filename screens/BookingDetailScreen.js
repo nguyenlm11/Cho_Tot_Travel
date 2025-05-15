@@ -9,7 +9,6 @@ import { colors } from '../constants/Colors';
 import { FadeInDown } from 'react-native-reanimated';
 import homeStayApi from '../services/api/homeStayApi';
 import LoadingScreen from '../components/LoadingScreen';
-import ServicesModal from '../components/Modal/ServicesModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BookingDetailScreen = () => {
@@ -23,8 +22,6 @@ const BookingDetailScreen = () => {
     const [processingPayment, setProcessingPayment] = useState(false);
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
     const [commissionRate, setCommissionRate] = useState(null);
-    const [servicesModalVisible, setServicesModalVisible] = useState(false);
-    const [selectedServices, setSelectedServices] = useState([]);
 
     const bookingStatusMapping = useMemo(() => ({
         0: { label: 'Chờ thanh toán', color: '#FFA500', bgColor: '#FFF8E1', icon: 'time-outline' },
@@ -248,87 +245,6 @@ const BookingDetailScreen = () => {
         );
     }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
 
-    const handleServicePayment = useCallback(async (bookingServiceId) => {
-        if (processingPayment) return;
-        try {
-            setProcessingPayment(true);
-            const response = await bookingApi.getBookingServicePaymentUrl(bookingServiceId, true);
-            if (response.success) {
-                const homeStayId = bookingData?.homeStay?.homeStayID;
-                navigation.navigate('PaymentWebView', {
-                    paymentUrl: response.paymentUrl,
-                    bookingId: bookingServiceId,
-                    onPaymentComplete: fetchBookingDetails,
-                    isFullPayment: true,
-                    isBookingService: true,
-                    homeStayId: homeStayId
-                });
-            } else {
-                Alert.alert('Lỗi', 'Không thể tạo URL thanh toán');
-            }
-        } catch (error) {
-            Alert.alert('Lỗi', 'Không thể xử lý thanh toán');
-        } finally {
-            setProcessingPayment(false);
-        }
-    }, [processingPayment, navigation, fetchBookingDetails, bookingData]);
-
-    const handleCancelService = useCallback(async (bookingServiceId, isRefund = false) => {
-        if (!bookingData || !cancellationPolicy) return;
-        const checkInDate = new Date(bookingData.bookingDetails?.[0]?.checkInDate);
-        const currentDate = new Date();
-        const daysUntilCheckIn = Math.ceil((checkInDate - currentDate) / (1000 * 60 * 60 * 24));
-        const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
-        const newStatus = canRefund ? 5 : 4;
-        const bookingService = bookingData.bookingServices.find(service => service.bookingServicesID === bookingServiceId);
-        if (!bookingService) {
-            Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
-            return;
-        }
-
-        Alert.alert(
-            'Xác nhận hủy dịch vụ',
-            canRefund
-                ? `Bạn có thể hủy và được hoàn ${cancellationPolicy.refundPercentage * 100}% tiền dịch vụ vì còn ${daysUntilCheckIn} ngày trước check-in`
-                : `Nếu hủy sẽ không được hoàn tiền. Bạn có chắc chắn muốn hủy?`,
-            [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Xác nhận',
-                    onPress: async () => {
-                        try {
-                            setLoading(true);
-                            const result = await bookingApi.changeBookingServiceStatus(
-                                bookingId,
-                                bookingServiceId,
-                                bookingData.status,
-                                bookingData.paymentStatus,
-                                newStatus,
-                                bookingService.paymentServiceStatus
-                            );
-
-                            if (result.success) {
-                                Alert.alert(
-                                    'Thành công',
-                                    canRefund
-                                        ? 'Đã gửi yêu cầu hoàn trả thành công'
-                                        : 'Đã hủy dịch vụ thành công'
-                                );
-                                fetchBookingDetails();
-                            } else {
-                                Alert.alert('Lỗi', result.error || 'Không thể cập nhật trạng thái dịch vụ');
-                            }
-                        } catch (error) {
-                            Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật trạng thái dịch vụ');
-                        } finally {
-                            setLoading(false);
-                        }
-                    }
-                }
-            ]
-        );
-    }, [bookingData, cancellationPolicy, bookingId, fetchBookingDetails]);
-
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await fetchBookingDetails();
@@ -427,8 +343,13 @@ const BookingDetailScreen = () => {
                 if (paymentImmediately) {
                     const bookingServiceId = response.data?.data?.bookingServicesID;
                     if (bookingServiceId) {
-                        console.log('Chuyển ngay đến thanh toán cho dịch vụ:', bookingServiceId);
-                        await handleServicePayment(bookingServiceId);
+                        console.log('Chuyển đến trang dịch vụ');
+                        navigation.navigate('BookingService', {
+                            bookingId: bookingId,
+                            homestayId: bookingData?.homeStay?.homeStayID,
+                            checkInDate: bookingData?.bookingDetails?.[0]?.checkInDate,
+                            checkOutDate: bookingData?.bookingDetails?.[0]?.checkOutDate
+                        });
                     } else {
                         Alert.alert(
                             'Lỗi',
@@ -456,7 +377,7 @@ const BookingDetailScreen = () => {
         } finally {
             setLoading(false);
         }
-    }, [bookingId, bookingData, fetchBookingDetails, handleServicePayment]);
+    }, [bookingId, bookingData, fetchBookingDetails, navigation]);
 
     const renderStatus = (status, statusMapping) => {
         const statusInfo = statusMapping[status] || {
@@ -651,44 +572,9 @@ const BookingDetailScreen = () => {
                     </View>
                 </View>
 
-                {/* Additional Services - show only if services exist */}
-                {bookingData.bookingServices && bookingData.bookingServices.length > 0 && (
-                    <View style={styles.sectionCard}>
-                        <View style={styles.sectionHeader}>
-                            <MaterialIcons name="room-service" size={24} color={colors.primary} />
-                            <Text style={styles.sectionTitle}>Dịch vụ thêm</Text>
-                        </View>
-                        <View style={styles.sectionContent}>
-                            {bookingData.bookingServices.map((service) =>
-                                renderSimpleServiceItem(service)
-                            )}
-                        </View>
-                    </View>
-                )}
-
                 {/* Payment Summary */}
                 <View style={styles.sectionCard}>
-                    <View style={styles.sectionHeader}>
-                        <MaterialIcons name="payment" size={24} color={colors.primary} />
-                        <Text style={styles.sectionTitle}>Thông tin thanh toán</Text>
-                    </View>
                     <View style={styles.sectionContent}>
-                        <View style={styles.paymentItem}>
-                            <Text style={styles.paymentLabel}>Tổng tiền phòng</Text>
-                            <Text style={styles.paymentValue}>{formatCurrency(bookingData.totalRentPrice)}</Text>
-                        </View>
-
-                        {bookingData.bookingServices && bookingData.bookingServices.length > 0 && (
-                            <View style={styles.paymentItem}>
-                                <Text style={styles.paymentLabel}>Tổng tiền dịch vụ</Text>
-                                <Text style={styles.paymentValue}>
-                                    {formatCurrency(
-                                        bookingData.bookingServices.reduce((sum, service) => sum + (service.total || 0), 0)
-                                    )}
-                                </Text>
-                            </View>
-                        )}
-
                         {bookingData.paymentStatus === 1 && (
                             <>
                                 <View style={styles.paymentItem}>
@@ -702,8 +588,6 @@ const BookingDetailScreen = () => {
                                 </View>
                             </>
                         )}
-
-                        <View style={styles.paymentDivider} />
                         <View style={styles.paymentTotal}>
                             <Text style={styles.paymentTotalLabel}>Tổng cộng</Text>
                             <Text style={styles.paymentTotalValue}>{formatCurrency(bookingData.total)}</Text>
@@ -794,112 +678,16 @@ const BookingDetailScreen = () => {
                 {canAddService && (
                     <TouchableOpacity
                         style={styles.addServiceButton}
-                        onPress={() => setServicesModalVisible(true)}
+                        onPress={() => navigation.navigate('BookingService', {
+                            bookingId: bookingId,
+                            homestayId: bookingData?.homeStay?.homeStayID,
+                            checkInDate: bookingData?.bookingDetails?.[0]?.checkInDate,
+                            checkOutDate: bookingData?.bookingDetails?.[0]?.checkOutDate
+                        })}
                     >
-                        <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-                        <Text style={styles.addServiceButtonText}>Thêm dịch vụ</Text>
+                        <Ionicons name="cart-outline" size={20} color="#FFF" />
+                        <Text style={styles.addServiceButtonText}>Dịch vụ đặt thêm</Text>
                     </TouchableOpacity>
-                )}
-            </View>
-        );
-    };
-
-    const renderSimpleServiceItem = (service) => {
-        // Hàm lấy thông tin trạng thái từ mã số
-        const getStatusInfo = (status) => {
-            switch (status) {
-                case 0: return { text: 'Chờ thanh toán', color: '#FF9800', bgColor: '#FFF3E0' };
-                case 1: return { text: 'Đã thanh toán', color: '#4CAF50', bgColor: '#E8F5E9' };
-                case 2: return { text: 'Đang phục vụ', color: '#2196F3', bgColor: '#E3F2FD' };
-                case 3: return { text: 'Đã hoàn thành', color: '#9C27B0', bgColor: '#F3E5F5' };
-                case 4: return { text: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE' };
-                case 5: return { text: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7' };
-                case 6: return { text: 'Đã hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5' };
-                default: return { text: 'Không xác định', color: '#607D8B', bgColor: '#ECEFF1' };
-            }
-        };
-
-        const statusInfo = getStatusInfo(service.status);
-
-        return (
-            <View key={service.bookingServicesID} style={styles.simpleServiceCard}>
-                {/* Header with timestamp and status */}
-                <View style={styles.simpleServiceHeader}>
-                    <View style={styles.simpleServiceTimeContainer}>
-                        <Ionicons name="time-outline" size={16} color="#4CAF50" />
-                        <Text style={styles.simpleServiceTime}>
-                            {formatDateTime(service.bookingServicesDate)}
-                        </Text>
-                    </View>
-                    <View style={[styles.simpleServiceStatus, { backgroundColor: statusInfo.bgColor }]}>
-                        <Text style={[styles.simpleServiceStatusText, { color: statusInfo.color }]}>
-                            {statusInfo.text}
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Service info */}
-                <View style={styles.simpleServiceInfo}>
-                    <View style={styles.simpleServiceName}>
-                        <Ionicons name="pricetag-outline" size={18} color="#555" />
-                        <Text style={styles.simpleServiceNameText}>
-                            {service.bookingServicesDetails?.[0]?.services?.servicesName || 'Dịch vụ'}
-                        </Text>
-                    </View>
-
-                    <View style={styles.simpleServiceQuantity}>
-                        <Ionicons name="cart-outline" size={16} color="#777" />
-                        <Text style={styles.simpleServiceQuantityText}>
-                            Số lượng: {service.bookingServicesDetails?.[0]?.quantity || 1}
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Price */}
-                <View style={styles.simpleServicePrice}>
-                    <Text style={styles.simpleServicePriceLabel}>Thành tiền</Text>
-                    <Text style={styles.simpleServicePriceValue}>
-                        {formatCurrency(service.total)}
-                    </Text>
-                </View>
-
-                {/* Action buttons - tuỳ theo trạng thái */}
-                {service.status === 0 && (
-                    <View style={styles.simpleServiceButtons}>
-                        <TouchableOpacity
-                            style={styles.simpleServiceCancelButton}
-                            onPress={() => handleCancelService(service.bookingServicesID, false)}
-                        >
-                            <Ionicons name="close-circle-outline" size={18} color="#FF5252" />
-                            <Text style={styles.simpleServiceCancelText}>Hủy</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.simpleServicePayButton}
-                            onPress={() => handleServicePayment(service.bookingServicesID)}
-                            disabled={processingPayment}
-                        >
-                            {processingPayment ? (
-                                <ActivityIndicator color="#FFF" size="small" />
-                            ) : (
-                                <>
-                                    <Ionicons name="card-outline" size={18} color="#fff" />
-                                    <Text style={styles.simpleServicePayText}>Thanh toán</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                )}
-
-                {(service.status === 1 && bookingData.status === 1 || bookingData.status === 2) && (
-                    <View style={styles.simpleServiceButtons}>
-                        <TouchableOpacity
-                            style={styles.simpleServiceRefundButton}
-                            onPress={() => handleCancelService(service.bookingServicesID, true)}
-                        >
-                            <Text style={styles.simpleServiceRefundText}>Hủy dịch vụ</Text>
-                        </TouchableOpacity>
-                    </View>
                 )}
             </View>
         );
@@ -967,17 +755,6 @@ const BookingDetailScreen = () => {
 
             {/* Action buttons at bottom */}
             {renderActionButtons()}
-
-            {/* Services Modal */}
-            <ServicesModal
-                visible={servicesModalVisible}
-                onClose={() => setServicesModalVisible(false)}
-                selectedServices={selectedServices}
-                onSelect={handleSelectServices}
-                homestayId={bookingData?.homeStay?.homeStayID}
-                checkInDate={bookingData?.bookingDetails?.[0]?.checkInDate}
-                checkOutDate={bookingData?.bookingDetails?.[0]?.checkOutDate}
-            />
         </View>
     );
 };
@@ -1490,11 +1267,6 @@ const styles = StyleSheet.create({
         color: colors.textPrimary,
         fontWeight: '500',
     },
-    paymentDivider: {
-        height: 1,
-        backgroundColor: '#f0f0f0',
-        marginVertical: 12,
-    },
     paymentTotal: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1570,6 +1342,27 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginLeft: 8,
     },
+    viewAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 'auto',
+    },
+    viewAllText: {
+        fontSize: 14,
+        color: colors.primary,
+        marginRight: 2,
+    },
+    viewMoreButton: {
+        padding: 12,
+        borderRadius: 8,
+        backgroundColor: '#f5f5f5',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    viewMoreText: {
+        color: colors.primary,
+        fontWeight: '500',
+    }
 });
 
 export default BookingDetailScreen;
