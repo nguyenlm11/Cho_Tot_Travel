@@ -1,4 +1,3 @@
-import axios from 'axios';
 import apiClient, { BASE_URL } from '../config';
 
 const serviceApi = {
