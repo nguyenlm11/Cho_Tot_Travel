@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Image, ActivityIndicator } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -22,100 +22,16 @@ export default function CartBadge({ params = {} }) {
     const cartCount = getCartCount(safeParams);
     const selectedRooms = getRoomsByParams(safeParams);
 
-    useEffect(() => {
-        const fetchPrices = async () => {
-            if (selectedRooms.length === 0) {
-                setTotalPrice(0);
-                return;
-            }
-
-            setLoading(true);
-            try {
-                const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
-
-                const prices = await Promise.all(pricePromises);
-
-                const newRoomPrices = {};
-                let total = 0;
-
-                selectedRooms.forEach((room, index) => {
-                    const price = prices[index];
-
-                    if (price !== null && price !== undefined) {
-                        newRoomPrices[room.roomID] = price;
-                        total += price;
-                    } else {
-                        newRoomPrices[room.roomID] = room.price || 0;
-                        total += room.price || 0;
-                    }
-                });
-
-                setRoomPrices(newRoomPrices);
-                setTotalPrice(total);
-            } catch (error) {
-                console.error('Lỗi khi tính tổng giá:', error);
-
-                const newRoomPrices = {};
-                let total = 0;
-
-                selectedRooms.forEach(room => {
-                    newRoomPrices[room.roomID] = room.price || 0;
-                    total += room.price || 0;
-                });
-
-                setRoomPrices(newRoomPrices);
-                setTotalPrice(total);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchPrices();
-    }, [selectedRooms.map(room => room.roomID).join(','), fetchRoomPrice]);
-
-    useEffect(() => {
-        const fetchDateTypes = async () => {
-            if (selectedRooms.length === 0) return;
-
-            const newDateTypes = {};
-            const newDatePrices = {};
-
-            for (const room of selectedRooms) {
-                if (!room || !room.checkInDate || !room.checkOutDate) continue;
-                const checkIn = new Date(room.checkInDate);
-                const checkOut = new Date(room.checkOutDate);
-                const nights = calculateNumberOfNights(room);
-                for (let i = 0; i < nights; i++) {
-                    const currentDate = new Date(checkIn);
-                    currentDate.setDate(currentDate.getDate() + i);
-                    const dateString = currentDate.toISOString().split('T')[0];
-                    const key = `${room.roomID}_${dateString}`;
-                    if (!newDateTypes[key]) {
-                        const dateType = await checkDateType(dateString);
-                        newDateTypes[key] = dateType;
-                        const price = await getPriceByDateType(room.roomTypeID, dateType);
-                        newDatePrices[key] = price;
-                    }
-                }
-            }
-
-            setDateTypes(newDateTypes);
-            setDatePrices(newDatePrices);
-        };
-
-        fetchDateTypes();
-    }, [selectedRooms, checkDateType, getPriceByDateType]);
-
-    const calculateNumberOfNights = (room) => {
+    const calculateNumberOfNights = useCallback((room) => {
         if (!room || !room.checkInDate || !room.checkOutDate) return 1;
         const checkIn = new Date(room.checkInDate);
         const checkOut = new Date(room.checkOutDate);
         const diffTime = Math.abs(checkOut - checkIn);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays || 1;
-    };
+    }, []);
 
-    const getDateCountsByType = (room) => {
+    const getDateCountsByType = useCallback((room) => {
         const result = {
             normal: { count: 0, price: 0 },
             weekend: { count: 0, price: 0 },
@@ -124,7 +40,6 @@ export default function CartBadge({ params = {} }) {
         if (!room || !room.checkInDate || !room.checkOutDate) return result;
         const checkIn = new Date(room.checkInDate);
         const nights = calculateNumberOfNights(room);
-
         for (let i = 0; i < nights; i++) {
             const currentDate = new Date(checkIn);
             currentDate.setDate(currentDate.getDate() + i);
@@ -147,192 +62,249 @@ export default function CartBadge({ params = {} }) {
             }
         }
         return result;
-    };
+    }, [calculateNumberOfNights, dateTypes, datePrices]);
 
-    if (cartCount === 0) return null;
-    const handleViewCart = () => {
-        setModalVisible(true);
-    };
+    useEffect(() => {
+        const fetchPrices = async () => {
+            if (selectedRooms.length === 0) {
+                setTotalPrice(0);
+                return;
+            }
+            setLoading(true);
+            try {
+                const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
+                const prices = await Promise.all(pricePromises);
+                const newRoomPrices = {};
+                let total = 0;
+                selectedRooms.forEach((room, index) => {
+                    const price = prices[index];
+                    if (price !== null && price !== undefined) {
+                        newRoomPrices[room.roomID] = price;
+                        total += price;
+                    } else {
+                        newRoomPrices[room.roomID] = room.price || 0;
+                        total += room.price || 0;
+                    }
+                });
+                setRoomPrices(newRoomPrices);
+                setTotalPrice(total);
+            } catch (error) {
+                const newRoomPrices = {};
+                let total = 0;
+                selectedRooms.forEach(room => {
+                    newRoomPrices[room.roomID] = room.price || 0;
+                    total += room.price || 0;
+                });
+                setRoomPrices(newRoomPrices);
+                setTotalPrice(total);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPrices();
+    }, [selectedRooms.map(room => room.roomID).join(','), fetchRoomPrice]);
 
+    useEffect(() => {
+        const fetchDateTypes = async () => {
+            if (selectedRooms.length === 0) return;
+            const newDateTypes = {};
+            const newDatePrices = {};
+            for (const room of selectedRooms) {
+                if (!room || !room.checkInDate || !room.checkOutDate) continue;
+                const checkIn = new Date(room.checkInDate);
+                const nights = calculateNumberOfNights(room);
+                for (let i = 0; i < nights; i++) {
+                    const currentDate = new Date(checkIn);
+                    currentDate.setDate(currentDate.getDate() + i);
+                    const dateString = currentDate.toISOString().split('T')[0];
+                    const key = `${room.roomID}_${dateString}`;
+                    if (!newDateTypes[key]) {
+                        const dateType = await checkDateType(dateString);
+                        newDateTypes[key] = dateType;
+                        const price = await getPriceByDateType(room.roomTypeID, dateType);
+                        newDatePrices[key] = price;
+                    }
+                }
+            }
+            setDateTypes(newDateTypes);
+            setDatePrices(newDatePrices);
+        };
+        fetchDateTypes();
+    }, [selectedRooms, checkDateType, getPriceByDateType, calculateNumberOfNights]);
+
+    const handleViewCart = () => setModalVisible(true);
     const handleProceedToCheckout = () => {
         setModalVisible(false);
         navigation.navigate('Checkout', safeParams);
     };
 
-    const handleRemoveRoom = (roomID) => {
-        removeRoomFromCart(roomID);
-    };
-
-    const renderCartModal = () => {
+    const handleRemoveRoom = (roomID) => removeRoomFromCart(roomID);
+    if (cartCount === 0) return null;
+    const renderRoomItem = ({ item }) => {
+        const roomPrice = roomPrices[item.roomID] !== undefined
+            ? roomPrices[item.roomID]
+            : (item.price || 0);
+        const dateCounts = getDateCountsByType(item);
+        const hasDateTypes = dateCounts.normal.count > 0 || dateCounts.weekend.count > 0 || dateCounts.special.count > 0;
+        const togglePriceBreakdown = () => {
+            setShowPriceBreakdown(prev => ({
+                ...prev,
+                [item.roomID]: !prev[item.roomID]
+            }));
+        };
         return (
-            <Modal
-                visible={modalVisible}
-                transparent={true}
-                animationType="none"
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalBackground}>
-                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={styles.roomItem}>
+                <Image
+                    source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                    style={styles.roomImage}
+                />
+                <View style={styles.roomInfo}>
+                    <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
+                    <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
 
-                    <Animated.View
-                        style={styles.modalContainer}
-                        entering={FadeInDown}
-                        exiting={SlideOutDown}
-                    >
-                        <LinearGradient
-                            colors={[colors.primary, colors.primary + 'E6']}
-                            style={styles.modalHeader}
-                        >
-                            <Text style={styles.modalTitle}>Phòng đã chọn</Text>
-                            <TouchableOpacity
-                                style={styles.closeButton}
-                                onPress={() => setModalVisible(false)}
-                            >
-                                <BlurView intensity={80} tint="dark" style={styles.closeButtonBlur}>
-                                    <FontAwesome name="close" size={16} color="#fff" />
-                                </BlurView>
-                            </TouchableOpacity>
-                        </LinearGradient>
-
-                        <FlatList
-                            data={selectedRooms}
-                            keyExtractor={(item) => item.id}
-                            renderItem={({ item }) => {
-                                const roomPrice = roomPrices[item.roomID] !== undefined
-                                    ? roomPrices[item.roomID]
-                                    : (item.price || 0);
-                                const dateCounts = getDateCountsByType(item);
-                                const hasDateTypes = dateCounts.normal.count > 0 || dateCounts.weekend.count > 0 || dateCounts.special.count > 0;
-                                const togglePriceBreakdown = () => {
-                                    setShowPriceBreakdown(prev => ({
-                                        ...prev,
-                                        [item.roomID]: !prev[item.roomID]
-                                    }));
-                                };
-
-                                return (
-                                    <View style={styles.roomItem}>
-                                        <Image
-                                            source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
-                                            style={styles.roomImage}
-                                        />
-                                        <View style={styles.roomInfo}>
-                                            <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
-                                            <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
-
-                                            {loading ? (
-                                                <ActivityIndicator size="small" color={colors.primary} />
-                                            ) : (
-                                                <View style={styles.priceDetails}>
-                                                    {hasDateTypes && (
-                                                        <TouchableOpacity
-                                                            style={styles.priceDetailsToggle}
-                                                            onPress={togglePriceBreakdown}
-                                                        >
-                                                            <Text style={styles.priceDetailsToggleText}>
-                                                                {showPriceBreakdown[item.roomID] ? 'Ẩn chi tiết giá' : 'Xem chi tiết giá'}
-                                                            </Text>
-                                                            <FontAwesome
-                                                                name={showPriceBreakdown[item.roomID] ? 'chevron-up' : 'chevron-down'}
-                                                                size={12}
-                                                                color={colors.primary}
-                                                            />
-                                                        </TouchableOpacity>
-                                                    )}
-
-                                                    {showPriceBreakdown[item.roomID] && (
-                                                        <View style={styles.priceBreakdown}>
-                                                            {hasDateTypes && (
-                                                                <>
-                                                                    {dateCounts.normal.count > 0 && (
-                                                                        <View style={styles.priceBreakdownRow}>
-                                                                            <Text style={styles.priceBreakdownLabel}>Ngày thường ({dateCounts.normal.count} đêm):</Text>
-                                                                            <Text style={styles.priceBreakdownValue}>
-                                                                                {dateCounts.normal.price.toLocaleString()}₫
-                                                                            </Text>
-                                                                        </View>
-                                                                    )}
-
-                                                                    {dateCounts.weekend.count > 0 && (
-                                                                        <View style={styles.priceBreakdownRow}>
-                                                                            <Text style={styles.priceBreakdownLabel}>Cuối tuần ({dateCounts.weekend.count} đêm):</Text>
-                                                                            <Text style={styles.priceBreakdownValue}>
-                                                                                {dateCounts.weekend.price.toLocaleString()}₫
-                                                                            </Text>
-                                                                        </View>
-                                                                    )}
-
-                                                                    {dateCounts.special.count > 0 && (
-                                                                        <View style={styles.priceBreakdownRow}>
-                                                                            <Text style={styles.priceBreakdownLabel}>Ngày đặc biệt ({dateCounts.special.count} đêm):</Text>
-                                                                            <Text style={styles.priceBreakdownValue}>
-                                                                                {dateCounts.special.price.toLocaleString()}₫
-                                                                            </Text>
-                                                                        </View>
-                                                                    )}
-                                                                </>
-                                                            )}
-                                                        </View>
-                                                    )}
-
-                                                    <View style={styles.totalPriceRow}>
-                                                        <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
-                                                        <Text style={styles.totalPriceValue}>{roomPrice.toLocaleString('vi-VN')}₫</Text>
-                                                    </View>
+                    {loading ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                        <View style={styles.priceDetails}>
+                            {hasDateTypes && (
+                                <TouchableOpacity
+                                    style={styles.priceDetailsToggle}
+                                    onPress={togglePriceBreakdown}
+                                >
+                                    <Text style={styles.priceDetailsToggleText}>
+                                        {showPriceBreakdown[item.roomID] ? 'Ẩn chi tiết giá' : 'Xem chi tiết giá'}
+                                    </Text>
+                                    <FontAwesome
+                                        name={showPriceBreakdown[item.roomID] ? 'chevron-up' : 'chevron-down'}
+                                        size={12}
+                                        color={colors.primary}
+                                    />
+                                </TouchableOpacity>
+                            )}
+                            {showPriceBreakdown[item.roomID] && (
+                                <View style={styles.priceBreakdown}>
+                                    {hasDateTypes && (
+                                        <>
+                                            {dateCounts.normal.count > 0 && (
+                                                <View style={styles.priceBreakdownRow}>
+                                                    <Text style={styles.priceBreakdownLabel}>Ngày thường ({dateCounts.normal.count} đêm):</Text>
+                                                    <Text style={styles.priceBreakdownValue}>
+                                                        {dateCounts.normal.price.toLocaleString()}₫
+                                                    </Text>
                                                 </View>
                                             )}
-                                        </View>
-                                        <TouchableOpacity
-                                            style={styles.removeButton}
-                                            onPress={() => handleRemoveRoom(item.roomID)}
-                                        >
-                                            <BlurView intensity={80} tint="dark" style={styles.removeButtonBlur}>
-                                                <Ionicons name="trash-outline" size={18} color="#fff" />
-                                            </BlurView>
-                                        </TouchableOpacity>
-                                    </View>
-                                );
-                            }}
-                            contentContainerStyle={styles.roomsList}
-                            ListEmptyComponent={
-                                <View style={styles.emptyCart}>
-                                    <Text style={styles.emptyCartText}>Không có phòng nào trong giỏ</Text>
-                                </View>
-                            }
-                        />
-
-                        <View style={styles.summaryContainer}>
-                            <View style={styles.summaryInfo}>
-                                <Text style={styles.summaryText}>Tổng cộng ({cartCount} phòng)</Text>
-                                <Text style={styles.summaryPrice}>
-                                    {loading ? (
-                                        <ActivityIndicator size="small" color={colors.primary} />
-                                    ) : (
-                                        `${totalPrice.toLocaleString('vi-VN')}₫`
+                                            {dateCounts.weekend.count > 0 && (
+                                                <View style={styles.priceBreakdownRow}>
+                                                    <Text style={styles.priceBreakdownLabel}>Cuối tuần ({dateCounts.weekend.count} đêm):</Text>
+                                                    <Text style={styles.priceBreakdownValue}>
+                                                        {dateCounts.weekend.price.toLocaleString()}₫
+                                                    </Text>
+                                                </View>
+                                            )}
+                                            {dateCounts.special.count > 0 && (
+                                                <View style={styles.priceBreakdownRow}>
+                                                    <Text style={styles.priceBreakdownLabel}>Ngày đặc biệt ({dateCounts.special.count} đêm):</Text>
+                                                    <Text style={styles.priceBreakdownValue}>
+                                                        {dateCounts.special.price.toLocaleString()}₫
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </>
                                     )}
-                                </Text>
+                                </View>
+                            )}
+                            <View style={styles.totalPriceRow}>
+                                <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
+                                <Text style={styles.totalPriceValue}>{roomPrice.toLocaleString('vi-VN')}₫</Text>
                             </View>
-
-                            <TouchableOpacity
-                                style={styles.checkoutButton}
-                                onPress={handleProceedToCheckout}
-                            >
-                                <LinearGradient
-                                    colors={[colors.primary, colors.secondary]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.checkoutButtonGradient}
-                                >
-                                    <Text style={styles.checkoutButtonText}>Tiến hành đặt phòng</Text>
-                                    <Ionicons name="arrow-forward" size={18} color="#fff" />
-                                </LinearGradient>
-                            </TouchableOpacity>
                         </View>
-                    </Animated.View>
+                    )}
                 </View>
-            </Modal>
+                <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => handleRemoveRoom(item.roomID)}
+                >
+                    <BlurView intensity={80} tint="dark" style={styles.removeButtonBlur}>
+                        <Ionicons name="trash-outline" size={18} color="#fff" />
+                    </BlurView>
+                </TouchableOpacity>
+            </View>
         );
     };
+
+    const renderCartModal = () => (
+        <Modal
+            visible={modalVisible}
+            transparent={true}
+            animationType="none"
+            onRequestClose={() => setModalVisible(false)}
+        >
+            <View style={styles.modalBackground}>
+                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+
+                <Animated.View
+                    style={styles.modalContainer}
+                    entering={FadeInDown}
+                    exiting={SlideOutDown}
+                >
+                    <LinearGradient
+                        colors={[colors.primary, colors.primary + 'E6']}
+                        style={styles.modalHeader}
+                    >
+                        <Text style={styles.modalTitle}>Phòng đã chọn</Text>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => setModalVisible(false)}
+                        >
+                            <BlurView intensity={80} tint="dark" style={styles.closeButtonBlur}>
+                                <FontAwesome name="close" size={16} color="#fff" />
+                            </BlurView>
+                        </TouchableOpacity>
+                    </LinearGradient>
+
+                    <FlatList
+                        data={selectedRooms}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderRoomItem}
+                        contentContainerStyle={styles.roomsList}
+                        ListEmptyComponent={
+                            <View style={styles.emptyCart}>
+                                <Text style={styles.emptyCartText}>Không có phòng nào trong giỏ</Text>
+                            </View>
+                        }
+                    />
+
+                    <View style={styles.summaryContainer}>
+                        <View style={styles.summaryInfo}>
+                            <Text style={styles.summaryText}>Tổng cộng ({cartCount} phòng)</Text>
+                            <Text style={styles.summaryPrice}>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color={colors.primary} />
+                                ) : (
+                                    `${totalPrice.toLocaleString('vi-VN')}₫`
+                                )}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.checkoutButton}
+                            onPress={handleProceedToCheckout}
+                        >
+                            <LinearGradient
+                                colors={[colors.primary, colors.secondary]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.checkoutButtonGradient}
+                            >
+                                <Text style={styles.checkoutButtonText}>Tiến hành đặt phòng</Text>
+                                <Ionicons name="arrow-forward" size={18} color="#fff" />
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </View>
+                </Animated.View>
+            </View>
+        </Modal>
+    );
 
     return (
         <>
@@ -362,7 +334,6 @@ export default function CartBadge({ params = {} }) {
                     </View>
                 </BlurView>
             </Animated.View>
-
             {renderCartModal()}
         </>
     );
@@ -430,8 +401,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginRight: 4,
     },
-
-    // Modal styles
     modalBackground: {
         flex: 1,
         justifyContent: 'center',
@@ -526,6 +495,7 @@ const styles = StyleSheet.create({
     },
     priceBreakdown: {
         marginTop: 4,
+        marginBottom: 4,
     },
     priceBreakdownRow: {
         flexDirection: 'row',
