@@ -79,6 +79,7 @@ export default function HomestayRentalDetailScreen() {
         navigation.navigate('RoomType', {
             rentalId: rental.homeStayRentalID,
             homeStayId: homeStayId,
+            rentalName: rental.name,
         });
     };
 

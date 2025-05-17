@@ -18,7 +18,7 @@ const CheckoutScreen = () => {
   const rentalId = route.params?.rentalId;
   const { currentSearch } = useSearch();
   const { userData } = useUser();
-  const { getRoomsByParams, clearCart, fetchRoomPrice } = useCart();
+  const { getRoomsByParams, clearCart, fetchRoomPrice, checkDateType, getPriceByDateType } = useCart();
 
   const params = {};
   if (homeStayId) params.homeStayId = homeStayId;
@@ -34,6 +34,9 @@ const CheckoutScreen = () => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(true);
   const [roomPrices, setRoomPrices] = useState({});
+  const [showPriceBreakdown, setShowPriceBreakdown] = useState({});
+  const [dateTypes, setDateTypes] = useState({});
+  const [datePrices, setDatePrices] = useState({});
   const [totalPrice, setTotalPrice] = useState(0);
   const selectedRooms = getRoomsByParams(params);
   const numberOfNights = calculateNumberOfNights();
@@ -56,7 +59,7 @@ const CheckoutScreen = () => {
         let total = 0;
         selectedRooms.forEach((room, index) => {
           const price = prices[index];
-          if (price) {
+          if (price !== null && price !== undefined) {
             newRoomPrices[room.roomID] = price;
             total += price;
           } else {
@@ -64,11 +67,18 @@ const CheckoutScreen = () => {
             total += room.price || 0;
           }
         });
-
         setRoomPrices(newRoomPrices);
         setTotalPrice(total);
       } catch (error) {
         console.error('Lỗi khi tính tổng giá:', error);
+        const newRoomPrices = {};
+        let total = 0;
+        selectedRooms.forEach(room => {
+          newRoomPrices[room.roomID] = room.price || 0;
+          total += room.price || 0;
+        });
+        setRoomPrices(newRoomPrices);
+        setTotalPrice(total);
       } finally {
         setCalculating(false);
       }
@@ -96,9 +106,87 @@ const CheckoutScreen = () => {
     fetchCommissionRate();
   }, [homeStayId]);
 
+  useEffect(() => {
+    const fetchDateTypes = async () => {
+      if (selectedRooms.length === 0) return;
+
+      const newDateTypes = {};
+      const newDatePrices = {};
+
+      for (const room of selectedRooms) {
+        if (!room || !room.checkInDate || !room.checkOutDate) continue;
+
+        const checkIn = new Date(room.checkInDate);
+        const checkOut = new Date(room.checkOutDate);
+        const nights = calculateNumberOfNights();
+
+        for (let i = 0; i < nights; i++) {
+          const currentDate = new Date(checkIn);
+          currentDate.setDate(currentDate.getDate() + i);
+
+          const dateString = currentDate.toISOString().split('T')[0];
+          const key = `${room.roomID}_${dateString}`;
+
+          if (!newDateTypes[key]) {
+            const dateType = await checkDateType(dateString);
+            newDateTypes[key] = dateType;
+
+            // Lấy giá theo loại ngày - now async
+            const price = await getPriceByDateType(room.roomTypeID, dateType);
+            newDatePrices[key] = price;
+          }
+        }
+      }
+
+      setDateTypes(newDateTypes);
+      setDatePrices(newDatePrices);
+    };
+
+    fetchDateTypes();
+  }, [selectedRooms, checkDateType, getPriceByDateType]);
+
+  const getDateCountsByType = (room) => {
+    const result = {
+      normal: { count: 0, price: 0 },
+      weekend: { count: 0, price: 0 },
+      special: { count: 0, price: 0 }
+    };
+
+    if (!room || !room.checkInDate || !room.checkOutDate) return result;
+
+    const checkIn = new Date(room.checkInDate);
+    const nights = calculateNumberOfNights();
+
+    for (let i = 0; i < nights; i++) {
+      const currentDate = new Date(checkIn);
+      currentDate.setDate(currentDate.getDate() + i);
+      const dateString = currentDate.toISOString().split('T')[0];
+      const key = `${room.roomID}_${dateString}`;
+      const dateType = dateTypes[key];
+      const datePrice = datePrices[key] || 0;
+
+      if (dateType === 0) {
+        result.normal.count++;
+        result.normal.price += datePrice;
+      } else if (dateType === 1) {
+        result.weekend.count++;
+        result.weekend.price += datePrice;
+      } else if (dateType === 2) {
+        result.special.count++;
+        result.special.price += datePrice;
+      } else {
+        result.normal.count++;
+        result.normal.price += datePrice;
+      }
+    }
+
+    return result;
+  };
+
   const getRoomPrice = (roomID) => {
     if (calculating) return null;
-    return roomPrices[roomID] || null;
+    return roomPrices[roomID] !== undefined ? roomPrices[roomID] :
+      selectedRooms.find(room => room.roomID === roomID)?.price;
   };
 
   function calculateNumberOfNights() {
@@ -166,7 +254,7 @@ const CheckoutScreen = () => {
 
   const getDepositAmount = () => {
     if (!commissionRate || commissionRate === null) {
-      return totalPrice * 0.2; // Use default 20% if commission rate is not available
+      return totalPrice * 0.2;
     }
     return totalPrice * commissionRate.platformShare;
   };
@@ -303,34 +391,89 @@ const CheckoutScreen = () => {
     return (
       <>
         {roomsToDisplay.map(room => {
-          const roomPrice = getRoomPrice(room.roomID) || room.price || 0;
-          const pricePerNight = roomPrice / numberOfNights;
+          const roomPrice = getRoomPrice(room.roomID) !== null ?
+            getRoomPrice(room.roomID) :
+            (room.price || 0);
+          const pricePerNight = numberOfNights > 0 ? roomPrice / numberOfNights : roomPrice;
+          const details = getDateCountsByType(room);
+          const hasDetails = details.normal.count > 0 || details.weekend.count > 0 || details.special.count > 0;
+
+          const hasDateTypes = details.normal.count > 0 || details.weekend.count > 0 || details.special.count > 0;
+
+          const togglePriceBreakdown = () => {
+            setShowPriceBreakdown(prev => ({
+              ...prev,
+              [room.roomID]: !prev[room.roomID]
+            }));
+          };
 
           return (
-            <View key={room.id} style={styles.roomItem}>
+            <View key={room.id || room.roomID} style={styles.roomItem}>
               <Image
                 source={{ uri: room.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
                 style={styles.roomImage}
               />
               <View style={styles.roomDetails}>
                 <View style={styles.roomInfo}>
-                  <Text style={styles.roomTypeName}>{room.roomTypeName}</Text>
-                  <Text style={styles.roomNumber}>Phòng {room.roomNumber}</Text>
+                  <Text style={styles.roomTypeName}>{room.roomTypeName || 'Phòng'}</Text>
+                  <Text style={styles.roomNumber}>Phòng {room.roomNumber || ''}</Text>
                 </View>
 
                 {calculating ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <View style={styles.priceDetails}>
-                    <View style={styles.priceRow}>
-                      <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
-                      <Text style={styles.priceValue}>{pricePerNight.toLocaleString('vi-VN')}₫</Text>
-                    </View>
+                    {hasDateTypes && (
+                      <TouchableOpacity
+                        style={styles.priceDetailsToggle}
+                        onPress={togglePriceBreakdown}
+                      >
+                        <Text style={styles.priceDetailsToggleText}>
+                          {showPriceBreakdown[room.roomID] ? 'Ẩn chi tiết giá' : 'Xem chi tiết giá'}
+                        </Text>
+                        <Icon
+                          name={showPriceBreakdown[room.roomID] ? 'chevron-up' : 'chevron-down'}
+                          size={12}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+                    )}
 
-                    <View style={styles.priceRow}>
-                      <Text style={styles.priceLabel}>Số đêm:</Text>
-                      <Text style={styles.priceValue}>{numberOfNights} đêm</Text>
-                    </View>
+                    {showPriceBreakdown[room.roomID] && (
+                      <View style={styles.priceBreakdown}>
+                        {/* Hiển thị theo loại ngày đã kiểm tra */}
+                        {hasDateTypes && (
+                          <>
+                            {details.normal.count > 0 && (
+                              <View style={styles.priceBreakdownRow}>
+                                <Text style={styles.priceBreakdownLabel}>Ngày thường ({details.normal.count} đêm):</Text>
+                                <Text style={styles.priceBreakdownValue}>
+                                  {details.normal.price.toLocaleString('vi-VN')}₫
+                                </Text>
+                              </View>
+                            )}
+
+                            {details.weekend.count > 0 && (
+                              <View style={styles.priceBreakdownRow}>
+                                <Text style={styles.priceBreakdownLabel}>Cuối tuần ({details.weekend.count} đêm):</Text>
+                                <Text style={styles.priceBreakdownValue}>
+                                  {details.weekend.price.toLocaleString('vi-VN')}₫
+                                </Text>
+                              </View>
+                            )}
+
+                            {details.special.count > 0 && (
+                              <View style={styles.priceBreakdownRow}>
+                                <Text style={styles.priceBreakdownLabel}>Ngày đặc biệt ({details.special.count} đêm):</Text>
+                                <Text style={styles.priceBreakdownValue}>
+                                  {details.special.price.toLocaleString('vi-VN')}₫
+                                </Text>
+                              </View>
+                            )}
+                          </>
+                        )}
+                      </View>
+                    )}
 
                     <View style={styles.totalPriceRow}>
                       <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
@@ -608,16 +751,30 @@ const styles = StyleSheet.create({
   priceDetails: {
     marginTop: 4,
   },
-  priceRow: {
+  priceDetailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  priceDetailsToggleText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginRight: 8,
+  },
+  priceBreakdown: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  priceBreakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 4,
   },
-  priceLabel: {
+  priceBreakdownLabel: {
     fontSize: 14,
     color: '#666',
   },
-  priceValue: {
+  priceBreakdownValue: {
     fontSize: 14,
     color: '#333',
   },

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, StatusBar, RefreshControl, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons, FontAwesome5, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
@@ -25,6 +25,7 @@ export default function RoomTypeScreen() {
     const route = useRoute();
     const homeStayId = route.params?.homeStayId;
     const rentalId = route.params?.rentalId;
+    const rentalName = route.params?.rentalName;
     const [roomTypes, setRoomTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -56,7 +57,6 @@ export default function RoomTypeScreen() {
                 setError('Không tìm thấy loại phòng nào');
             }
         } catch (err) {
-            console.error('Error fetching room types:', err);
             setError('Không thể tải thông tin loại phòng. Vui lòng thử lại sau.');
         } finally {
             setLoading(false);
@@ -73,9 +73,6 @@ export default function RoomTypeScreen() {
     if (homeStayId) params.homeStayId = homeStayId;
     if (rentalId) params.rentalId = rentalId;
 
-    console.log("RoomTypeScreen params:", params);
-    console.log("Cart count:", getCartCount(params));
-
     const handleSelectRoom = (roomType) => {
         const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name };
         if (homeStayId) navParams.homeStayId = homeStayId;
@@ -84,20 +81,10 @@ export default function RoomTypeScreen() {
     };
 
     const RoomTypeCard = ({ item, index }) => {
-        const scale = useSharedValue(1);
-        const handlePressIn = () => {
-            scale.value = withSpring(0.98);
-        };
-        const handlePressOut = () => {
-            scale.value = withSpring(1);
-        };
         const defaultPricing = item.pricings?.find(p => p.isDefault) || item.pricings?.[0];
-        const price = defaultPricing?.rentPrice || defaultPricing?.unitPrice;
-
-        // Cố gắng lấy roomTypeID đúng từ dữ liệu phòng
-        const roomTypeID = item.roomTypeID || item.roomTypesID;
-        console.log(`Room type ${item.name} ID:`, roomTypeID);
-        
+        const weekendPricing = item.pricings?.find(p => p.dayType === 1);
+        const holidayPricing = item.pricings?.find(p => p.dayType === 2);
+        const roomTypeID = item.roomTypesID;
         const selectedRoomsCount = getRoomsByType(roomTypeID, params).length;
 
         return (
@@ -105,12 +92,8 @@ export default function RoomTypeScreen() {
                 style={styles.cardContainer}
                 entering={FadeInDown.delay(index * 100).springify()}
             >
-                <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPressIn={handlePressIn}
-                    onPressOut={handlePressOut}
-                >
-                    <Animated.View style={[styles.roomCard, { transform: [{ scale }] }]}>
+                <TouchableOpacity activeOpacity={0.9}>
+                    <Animated.View style={styles.roomCard}>
                         <View style={styles.imageContainer}>
                             <Image
                                 source={{
@@ -124,19 +107,6 @@ export default function RoomTypeScreen() {
                                 colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.6)']}
                                 style={styles.imageGradient}
                             />
-                            <View style={styles.priceBadge}>
-                                <LinearGradient
-                                    colors={[palette.primary, palette.secondary]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.priceGradient}
-                                >
-                                    <Text style={styles.priceText}>
-                                        {price?.toLocaleString('vi-VN')}₫
-                                        <Text style={styles.perNightText}>/đêm</Text>
-                                    </Text>
-                                </LinearGradient>
-                            </View>
                         </View>
 
                         <View style={styles.roomInfo}>
@@ -150,6 +120,44 @@ export default function RoomTypeScreen() {
                                 </View>
                             </View>
 
+                            <View style={styles.priceContainer}>
+                                {defaultPricing && (
+                                    <View style={styles.priceRow}>
+                                        <View style={styles.priceTypeContainer}>
+                                            <MaterialIcons name="calendar-today" size={16} color={palette.primary} />
+                                            <Text style={styles.priceTypeText}>Ngày thường</Text>
+                                        </View>
+                                        <Text style={styles.priceValue}>
+                                            {defaultPricing.rentPrice?.toLocaleString('vi-VN')}₫/đêm
+                                        </Text>
+                                    </View>
+                                )}
+                                
+                                {weekendPricing && (
+                                    <View style={styles.priceRow}>
+                                        <View style={styles.priceTypeContainer}>
+                                            <MaterialIcons name="weekend" size={16} color="#FF9800" />
+                                            <Text style={[styles.priceTypeText, {color: '#FF9800'}]}>Cuối tuần</Text>
+                                        </View>
+                                        <Text style={[styles.priceValue, {color: '#FF9800'}]}>
+                                            {weekendPricing.rentPrice?.toLocaleString('vi-VN')}₫/đêm
+                                        </Text>
+                                    </View>
+                                )}
+                                
+                                {holidayPricing && (
+                                    <View style={styles.priceRow}>
+                                        <View style={styles.priceTypeContainer}>
+                                            <MaterialIcons name="celebration" size={16} color="#F44336" />
+                                            <Text style={[styles.priceTypeText, {color: '#F44336'}]}>Ngày lễ</Text>
+                                        </View>
+                                        <Text style={[styles.priceValue, {color: '#F44336'}]}>
+                                            {holidayPricing.rentPrice?.toLocaleString('vi-VN')}₫/đêm
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+
                             <Text style={styles.roomDescription} numberOfLines={2}>
                                 {item.description || 'Không có mô tả'}
                             </Text>
@@ -159,7 +167,7 @@ export default function RoomTypeScreen() {
                                     <View style={styles.amenityIconContainer}>
                                         <FontAwesome5 name="bed" size={14} color={palette.primary} />
                                     </View>
-                                    <Text style={styles.amenityText}>{item.numberBedRoom || 0} giường</Text>
+                                    <Text style={styles.amenityText}>{item.numberBed || 0} giường</Text>
                                 </View>
 
                                 <View style={styles.amenityDivider} />
@@ -228,11 +236,11 @@ export default function RoomTypeScreen() {
         );
     };
 
-    if (loading && !refreshing) {
+    if (loading && refreshing) {
         return (
-            <LoadingScreen 
-                message="Đang tải thông tin phòng" 
-                subMessage="Vui lòng đợi trong giây lát..." 
+            <LoadingScreen
+                message="Đang tải thông tin phòng"
+                subMessage="Vui lòng đợi trong giây lát..."
             />
         );
     }
@@ -240,7 +248,6 @@ export default function RoomTypeScreen() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={palette.primary} />
-
             <LinearGradient
                 colors={[palette.primary, palette.secondary]}
                 start={{ x: 0, y: 0 }}
@@ -253,13 +260,17 @@ export default function RoomTypeScreen() {
                 >
                     <Ionicons name="chevron-back" size={24} color="#fff" />
                 </TouchableOpacity>
-                <Animated.Text
+                <Animated.View
                     entering={FadeInDown.delay(300).springify()}
-                    style={styles.headerTitle}
-                    numberOfLines={1}
+                    style={styles.headerTitleContainer}
                 >
-                    Danh sách loại phòng
-                </Animated.Text>
+                    <Text style={styles.headerTitle} numberOfLines={1}>
+                        Danh sách loại phòng
+                    </Text>
+                    <Text style={styles.headerSubtitle} numberOfLines={1}>
+                        {rentalName}
+                    </Text>
+                </Animated.View>
                 <DropdownMenuTabs
                     iconStyle={styles.menuButton}
                 />
@@ -301,7 +312,7 @@ export default function RoomTypeScreen() {
                     ) : null
                 }
             />
-            
+
             {getCartCount(params) > 0 && (
                 <View style={styles.cartBadgeContainer}>
                     <CartBadge params={params} />
@@ -346,10 +357,26 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: 'rgba(255,255,255,0.2)',
     },
+    headerTitleContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginHorizontal: 10,
+    },
     headerTitle: {
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: '#fff',
+        textAlign: 'center',
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.9)',
+        textAlign: 'center',
+        marginTop: 4,
     },
     listContainer: {
         paddingTop: 20,
@@ -410,26 +437,6 @@ const styles = StyleSheet.create({
     },
     imageGradient: {
         ...StyleSheet.absoluteFillObject,
-    },
-    priceBadge: {
-        position: 'absolute',
-        bottom: 12,
-        right: 12,
-        borderRadius: 10,
-        overflow: 'hidden',
-    },
-    priceGradient: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    priceText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    perNightText: {
-        fontSize: 12,
-        fontWeight: 'normal',
     },
     roomInfo: {
         padding: 16,
@@ -571,5 +578,34 @@ const styles = StyleSheet.create({
         padding: 16,
         zIndex: 1000,
         elevation: 10,
+    },
+    priceContainer: {
+        backgroundColor: '#f9f9fa',
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: palette.cardBorder,
+    },
+    priceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    priceTypeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    priceTypeText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: palette.primary,
+        marginLeft: 6,
+    },
+    priceValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: palette.primary,
     },
 }); 

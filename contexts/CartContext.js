@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import homeStayApi from '../services/api/homeStayApi';
+import apiClient from '../services/config';
 
 const CartContext = createContext();
 
@@ -14,8 +15,9 @@ export const CartProvider = ({ children }) => {
     const [currentRoomTypeId, setCurrentRoomTypeId] = useState(null);
     const [roomPrices, setRoomPrices] = useState({});
     const pendingRequests = React.useRef({});
+    const [roomTypePricings, setRoomTypePricings] = useState({});
+    const pendingPricingRequests = React.useRef({});
 
-    // Tải dữ liệu giỏ hàng từ AsyncStorage khi khởi động
     useEffect(() => {
         const loadCart = async () => {
             try {
@@ -53,7 +55,6 @@ export const CartProvider = ({ children }) => {
         }
     }, [cartItems, loading]);
 
-    // Lưu homeStayId và rentalId hiện tại
     useEffect(() => {
         const saveIds = async () => {
             try {
@@ -76,17 +77,14 @@ export const CartProvider = ({ children }) => {
         }
     }, [currentHomeStayId, currentRentalId, currentRoomTypeId, loading]);
 
-    // Cập nhật homestay hiện tại
     const setHomeStay = (homeStayId) => {
         setCurrentHomeStayId(homeStayId);
     };
 
-    // Cập nhật rental hiện tại
     const setRental = (rentalId) => {
         setCurrentRentalId(rentalId);
     };
 
-    // Thêm phòng vào giỏ với đúng thông tin cần thiết cho API
     const addRoomToCart = (room, roomType, params = {}, checkInDate, checkOutDate) => {
         if (params.homeStayId) {
             setCurrentHomeStayId(params.homeStayId);
@@ -135,47 +133,34 @@ export const CartProvider = ({ children }) => {
         setCartItems([]);
     };
 
-    // Lọc phòng theo loại phòng và homestay/rental
     const getRoomsByType = (roomTypeId, params = {}) => {
         return cartItems.filter(item => {
-            // Kiểm tra nếu roomTypeId là undefined, không lọc theo loại phòng
             const matchesRoomType = roomTypeId ? item.roomTypeID === roomTypeId : true;
-
-            // Kiểm tra homeStayId và rentalId (nếu có)
             let matchesHomeStay = true;
             let matchesRental = true;
-
             if (params.homeStayId) {
                 matchesHomeStay = item.homeStayID === params.homeStayId;
             }
-
             if (params.rentalId) {
                 matchesRental = item.rentalId === params.rentalId;
             }
-
             return matchesRoomType && matchesHomeStay && matchesRental;
         });
     };
 
-    // Lọc tất cả phòng của một homestay/rental
     const getRoomsByParams = (params = {}) => {
         return cartItems.filter(item => {
             let matchesHomeStay = true;
             let matchesRental = true;
-
             if (params.homeStayId) {
                 matchesHomeStay = item.homeStayID === params.homeStayId;
             }
-
             if (params.rentalId) {
                 matchesRental = item.rentalId === params.rentalId;
             }
-
-            // Nếu không có tham số nào được chỉ định, trả về tất cả các phòng
             if (!params.homeStayId && !params.rentalId) {
                 return true;
             }
-
             return matchesHomeStay && matchesRental;
         });
     };
@@ -188,17 +173,14 @@ export const CartProvider = ({ children }) => {
         return selectedRooms.length;
     };
 
-    // Check xem một phòng đã trong giỏ chưa
     const isRoomInCart = (roomID) => {
         return cartItems.some(item => item.roomID === roomID);
     };
 
-    // Tạo đối tượng dữ liệu booking theo định dạng API
     const createBookingData = (accountID, numberOfAdults, numberOfChildren) => {
         if (!currentHomeStayId) return null;
         const roomsInCurrentHomeStay = getRoomsByParams({ homeStayId: currentHomeStayId });
         if (roomsInCurrentHomeStay.length === 0) return null;
-
         const bookingDetails = roomsInCurrentHomeStay.map(room => ({
             rentalId: currentRentalId,
             roomTypeID: room.roomTypeID,
@@ -207,7 +189,6 @@ export const CartProvider = ({ children }) => {
             checkOutDate: room.checkOutDate
         }));
 
-        // Tạo đối tượng booking theo định dạng API
         const bookingData = {
             numberOfChildren: numberOfChildren || 0,
             numberOfAdults: numberOfAdults || 0,
@@ -221,32 +202,22 @@ export const CartProvider = ({ children }) => {
         return bookingData;
     };
 
-    // Hàm lấy giá phòng từ API
     const fetchRoomPrice = async (room) => {
         try {
-            if (!room.checkInDate || !room.checkOutDate || !room.roomTypeID) {
-                return null;
+            if (!room || !room.checkInDate || !room.checkOutDate || !room.roomTypeID) {
+                return room?.price || 0;
             }
-            
             const checkInDate = new Date(room.checkInDate).toISOString().split('T')[0];
             const checkOutDate = new Date(room.checkOutDate).toISOString().split('T')[0];
             const homeStayRentalId = room.rentalId;
             const roomTypeId = room.roomTypeID;
-            
-            // Tạo key để lưu vào cache
             const priceKey = `${checkInDate}_${checkOutDate}_${homeStayRentalId || 'null'}_${roomTypeId}`;
-            
-            // Kiểm tra xem đã có giá trong cache chưa
             if (roomPrices[priceKey]) {
                 return roomPrices[priceKey];
             }
-            
-            // Nếu đang có request đang chạy cho cặp tham số này, chờ kết quả từ request đó
             if (pendingRequests.current[priceKey]) {
                 return pendingRequests.current[priceKey];
             }
-            
-            // Tạo một promise mới và lưu vào danh sách pending
             pendingRequests.current[priceKey] = new Promise(async (resolve) => {
                 try {
                     const result = await homeStayApi.getTotalPrice(
@@ -255,49 +226,103 @@ export const CartProvider = ({ children }) => {
                         homeStayRentalId,
                         roomTypeId
                     );
-                    
-                    if (result.success && result.data) {
-                        // Lưu giá vào cache
+
+                    if (result && result.success && result.data !== null && result.data !== undefined) {
                         setRoomPrices(prev => ({
                             ...prev,
                             [priceKey]: result.data
                         }));
                         resolve(result.data);
                     } else {
-                        resolve(null);
+                        resolve(room.price || 0);
                     }
                 } catch (err) {
                     console.error('Lỗi khi lấy giá phòng:', err);
-                    resolve(null);
+                    resolve(room.price || 0);
                 } finally {
-                    // Xóa request khỏi danh sách pending
                     delete pendingRequests.current[priceKey];
                 }
             });
-            
+
             return pendingRequests.current[priceKey];
         } catch (error) {
             console.error('Lỗi khi lấy giá phòng:', error);
-            return null;
+            return room.price || 0;
         }
     };
-    
-    // Hàm tính tổng giá cho tất cả phòng đã chọn
+
     const calculateTotalPrice = async (params = {}) => {
         const rooms = getRoomsByParams(params);
         let total = 0;
-        
         for (const room of rooms) {
             const price = await fetchRoomPrice(room);
             if (price) {
                 total += price;
             } else {
-                // Sử dụng giá mặc định từ room nếu không lấy được từ API
                 total += room.price || 0;
             }
         }
-        
+
         return total;
+    };
+
+    const checkDateType = async (dateTime) => {
+        try {
+            const result = await homeStayApi.getDateType(dateTime);
+            if (result && result.success) {
+                return result.data;
+            }
+            return 0;
+        } catch (error) {
+            console.error('Lỗi khi kiểm tra loại ngày:', error);
+            return 0;
+        }
+    };
+
+    const getPriceByDateType = async (roomTypeId, dateType) => {
+        try {
+            if (roomTypePricings[roomTypeId]) {
+                const pricings = roomTypePricings[roomTypeId];
+                const pricing = pricings.find(p => p.dayType === dateType);
+                return pricing ? pricing.rentPrice : 0;
+            }
+
+            if (pendingPricingRequests.current[roomTypeId]) {
+                const pricings = await pendingPricingRequests.current[roomTypeId];
+                const pricing = pricings.find(p => p.dayType === dateType);
+                return pricing ? pricing.rentPrice : 0;
+            }
+
+            pendingPricingRequests.current[roomTypeId] = new Promise(async (resolve) => {
+                try {
+                    const response = await apiClient.get(`/api/homestay/GetAllPricingByRoomType/${roomTypeId}`);
+                    const pricingData = response.data.data || [];
+                    
+                    setRoomTypePricings(prev => ({
+                        ...prev,
+                        [roomTypeId]: pricingData
+                    }));
+                    
+                    resolve(pricingData);
+                    
+                    const pricing = pricingData.find(p => p.dayType === dateType);
+                    return pricing ? pricing.rentPrice : 0;
+                } catch (error) {
+                    console.error(`Error fetching pricing for roomTypeId ${roomTypeId}:`, error);
+                    resolve([]);
+                    return 0;
+                } finally {
+                    delete pendingPricingRequests.current[roomTypeId];
+                }
+            });
+            
+            const pricings = await pendingPricingRequests.current[roomTypeId];
+            const pricing = pricings.find(p => p.dayType === dateType);
+            return pricing ? pricing.rentPrice : 0;
+        } catch (error) {
+            console.error('Error in getPriceByDateType:', error);
+            return 0;
+        }
     };
 
     return (
@@ -317,7 +342,9 @@ export const CartProvider = ({ children }) => {
                 isRoomInCart,
                 createBookingData,
                 fetchRoomPrice,
-                calculateTotalPrice
+                calculateTotalPrice,
+                checkDateType,
+                getPriceByDateType
             }}
         >
             {children}

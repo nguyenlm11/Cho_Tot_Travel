@@ -10,12 +10,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 export default function CartBadge({ params = {} }) {
     const navigation = useNavigation();
-    const { getCartCount, getRoomsByParams, removeRoomFromCart, fetchRoomPrice } = useCart();
+    const { getCartCount, getRoomsByParams, removeRoomFromCart, fetchRoomPrice, checkDateType, getPriceByDateType } = useCart();
     const [modalVisible, setModalVisible] = useState(false);
     const [loading, setLoading] = useState(false);
     const [totalPrice, setTotalPrice] = useState(0);
     const [roomPrices, setRoomPrices] = useState({});
-
+    const [showPriceBreakdown, setShowPriceBreakdown] = useState({});
+    const [dateTypes, setDateTypes] = useState({});
+    const [datePrices, setDatePrices] = useState({});
     const safeParams = params || {};
     const cartCount = getCartCount(safeParams);
     const selectedRooms = getRoomsByParams(safeParams);
@@ -30,6 +32,7 @@ export default function CartBadge({ params = {} }) {
             setLoading(true);
             try {
                 const pricePromises = selectedRooms.map(room => fetchRoomPrice(room));
+
                 const prices = await Promise.all(pricePromises);
 
                 const newRoomPrices = {};
@@ -37,7 +40,8 @@ export default function CartBadge({ params = {} }) {
 
                 selectedRooms.forEach((room, index) => {
                     const price = prices[index];
-                    if (price) {
+
+                    if (price !== null && price !== undefined) {
                         newRoomPrices[room.roomID] = price;
                         total += price;
                     } else {
@@ -50,6 +54,17 @@ export default function CartBadge({ params = {} }) {
                 setTotalPrice(total);
             } catch (error) {
                 console.error('Lỗi khi tính tổng giá:', error);
+
+                const newRoomPrices = {};
+                let total = 0;
+
+                selectedRooms.forEach(room => {
+                    newRoomPrices[room.roomID] = room.price || 0;
+                    total += room.price || 0;
+                });
+
+                setRoomPrices(newRoomPrices);
+                setTotalPrice(total);
             } finally {
                 setLoading(false);
             }
@@ -58,7 +73,39 @@ export default function CartBadge({ params = {} }) {
         fetchPrices();
     }, [selectedRooms.map(room => room.roomID).join(','), fetchRoomPrice]);
 
-    // Tính số đêm dựa trên ngày checkin và checkout
+    useEffect(() => {
+        const fetchDateTypes = async () => {
+            if (selectedRooms.length === 0) return;
+
+            const newDateTypes = {};
+            const newDatePrices = {};
+
+            for (const room of selectedRooms) {
+                if (!room || !room.checkInDate || !room.checkOutDate) continue;
+                const checkIn = new Date(room.checkInDate);
+                const checkOut = new Date(room.checkOutDate);
+                const nights = calculateNumberOfNights(room);
+                for (let i = 0; i < nights; i++) {
+                    const currentDate = new Date(checkIn);
+                    currentDate.setDate(currentDate.getDate() + i);
+                    const dateString = currentDate.toISOString().split('T')[0];
+                    const key = `${room.roomID}_${dateString}`;
+                    if (!newDateTypes[key]) {
+                        const dateType = await checkDateType(dateString);
+                        newDateTypes[key] = dateType;
+                        const price = await getPriceByDateType(room.roomTypeID, dateType);
+                        newDatePrices[key] = price;
+                    }
+                }
+            }
+
+            setDateTypes(newDateTypes);
+            setDatePrices(newDatePrices);
+        };
+
+        fetchDateTypes();
+    }, [selectedRooms, checkDateType, getPriceByDateType]);
+
     const calculateNumberOfNights = (room) => {
         if (!room || !room.checkInDate || !room.checkOutDate) return 1;
         const checkIn = new Date(room.checkInDate);
@@ -68,8 +115,41 @@ export default function CartBadge({ params = {} }) {
         return diffDays || 1;
     };
 
-    if (cartCount === 0) return null;
+    const getDateCountsByType = (room) => {
+        const result = {
+            normal: { count: 0, price: 0 },
+            weekend: { count: 0, price: 0 },
+            special: { count: 0, price: 0 }
+        };
+        if (!room || !room.checkInDate || !room.checkOutDate) return result;
+        const checkIn = new Date(room.checkInDate);
+        const nights = calculateNumberOfNights(room);
 
+        for (let i = 0; i < nights; i++) {
+            const currentDate = new Date(checkIn);
+            currentDate.setDate(currentDate.getDate() + i);
+            const dateString = currentDate.toISOString().split('T')[0];
+            const key = `${room.roomID}_${dateString}`;
+            const dateType = dateTypes[key];
+            const datePrice = datePrices[key] || 0;
+            if (dateType === 0) {
+                result.normal.count++;
+                result.normal.price += datePrice;
+            } else if (dateType === 1) {
+                result.weekend.count++;
+                result.weekend.price += datePrice;
+            } else if (dateType === 2) {
+                result.special.count++;
+                result.special.price += datePrice;
+            } else {
+                result.normal.count++;
+                result.normal.price += datePrice;
+            }
+        }
+        return result;
+    };
+
+    if (cartCount === 0) return null;
     const handleViewCart = () => {
         setModalVisible(true);
     };
@@ -118,10 +198,18 @@ export default function CartBadge({ params = {} }) {
                             data={selectedRooms}
                             keyExtractor={(item) => item.id}
                             renderItem={({ item }) => {
-                                const roomPrice = roomPrices[item.roomID] || item.price || 0;
-                                const nights = calculateNumberOfNights(item);
-                                const pricePerNight = roomPrice / nights;
-                                
+                                const roomPrice = roomPrices[item.roomID] !== undefined
+                                    ? roomPrices[item.roomID]
+                                    : (item.price || 0);
+                                const dateCounts = getDateCountsByType(item);
+                                const hasDateTypes = dateCounts.normal.count > 0 || dateCounts.weekend.count > 0 || dateCounts.special.count > 0;
+                                const togglePriceBreakdown = () => {
+                                    setShowPriceBreakdown(prev => ({
+                                        ...prev,
+                                        [item.roomID]: !prev[item.roomID]
+                                    }));
+                                };
+
                                 return (
                                     <View style={styles.roomItem}>
                                         <Image
@@ -131,19 +219,62 @@ export default function CartBadge({ params = {} }) {
                                         <View style={styles.roomInfo}>
                                             <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
                                             <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
-                                            
+
                                             {loading ? (
                                                 <ActivityIndicator size="small" color={colors.primary} />
                                             ) : (
                                                 <View style={styles.priceDetails}>
-                                                    <View style={styles.priceRow}>
-                                                        <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
-                                                        <Text style={styles.priceValue}>{pricePerNight.toLocaleString('vi-VN')}₫</Text>
-                                                    </View>
-                                                    <View style={styles.priceRow}>
-                                                        <Text style={styles.priceLabel}>Số đêm:</Text>
-                                                        <Text style={styles.priceValue}>{nights} đêm</Text>
-                                                    </View>
+                                                    {hasDateTypes && (
+                                                        <TouchableOpacity
+                                                            style={styles.priceDetailsToggle}
+                                                            onPress={togglePriceBreakdown}
+                                                        >
+                                                            <Text style={styles.priceDetailsToggleText}>
+                                                                {showPriceBreakdown[item.roomID] ? 'Ẩn chi tiết giá' : 'Xem chi tiết giá'}
+                                                            </Text>
+                                                            <FontAwesome
+                                                                name={showPriceBreakdown[item.roomID] ? 'chevron-up' : 'chevron-down'}
+                                                                size={12}
+                                                                color={colors.primary}
+                                                            />
+                                                        </TouchableOpacity>
+                                                    )}
+
+                                                    {showPriceBreakdown[item.roomID] && (
+                                                        <View style={styles.priceBreakdown}>
+                                                            {hasDateTypes && (
+                                                                <>
+                                                                    {dateCounts.normal.count > 0 && (
+                                                                        <View style={styles.priceBreakdownRow}>
+                                                                            <Text style={styles.priceBreakdownLabel}>Ngày thường ({dateCounts.normal.count} đêm):</Text>
+                                                                            <Text style={styles.priceBreakdownValue}>
+                                                                                {dateCounts.normal.price.toLocaleString()}₫
+                                                                            </Text>
+                                                                        </View>
+                                                                    )}
+
+                                                                    {dateCounts.weekend.count > 0 && (
+                                                                        <View style={styles.priceBreakdownRow}>
+                                                                            <Text style={styles.priceBreakdownLabel}>Cuối tuần ({dateCounts.weekend.count} đêm):</Text>
+                                                                            <Text style={styles.priceBreakdownValue}>
+                                                                                {dateCounts.weekend.price.toLocaleString()}₫
+                                                                            </Text>
+                                                                        </View>
+                                                                    )}
+
+                                                                    {dateCounts.special.count > 0 && (
+                                                                        <View style={styles.priceBreakdownRow}>
+                                                                            <Text style={styles.priceBreakdownLabel}>Ngày đặc biệt ({dateCounts.special.count} đêm):</Text>
+                                                                            <Text style={styles.priceBreakdownValue}>
+                                                                                {dateCounts.special.price.toLocaleString()}₫
+                                                                            </Text>
+                                                                        </View>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </View>
+                                                    )}
+
                                                     <View style={styles.totalPriceRow}>
                                                         <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
                                                         <Text style={styles.totalPriceValue}>{roomPrice.toLocaleString('vi-VN')}₫</Text>
@@ -382,16 +513,30 @@ const styles = StyleSheet.create({
     priceDetails: {
         marginTop: 4,
     },
-    priceRow: {
+    priceDetailsToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 4,
+        borderRadius: 4,
+    },
+    priceDetailsToggleText: {
+        color: colors.primary,
+        fontSize: 12,
+        marginRight: 4,
+    },
+    priceBreakdown: {
+        marginTop: 4,
+    },
+    priceBreakdownRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 2,
     },
-    priceLabel: {
+    priceBreakdownLabel: {
         fontSize: 13,
         color: '#666',
     },
-    priceValue: {
+    priceBreakdownValue: {
         fontSize: 13,
         color: '#333',
     },
