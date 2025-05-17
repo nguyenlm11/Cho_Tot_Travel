@@ -42,7 +42,7 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
                     style={[styles.roomCard, isSelected && styles.selectedRoomCard]}>
                     <View style={styles.roomImageContainer}>
                         <Image
-                            source={{ uri: item.imageUrl || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                            source={{ uri: item.imageRooms?.[0]?.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
                             style={styles.roomImage}
                         />
                         <LinearGradient
@@ -56,8 +56,15 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                             >
-                                <Text style={styles.roomNumberText}>Phòng {item.roomNumber}</Text>
+                                <Text style={styles.roomNumberText}>{item.rentPrice.toLocaleString()}đ</Text>
+                                <Text style={styles.perNightText}>/đêm</Text>
                             </LinearGradient>
+                        </View>
+                        
+                        <View style={styles.roomNumberContainer2}>
+                            <View style={styles.roomTypeBadge}>
+                                <Text style={styles.roomTypeText}>Phòng {item.roomNumber}</Text>
+                            </View>
                         </View>
                     </View>
 
@@ -67,11 +74,7 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
                             <View style={styles.roomFeatures}>
                                 <View style={styles.featureItem}>
                                     <MaterialIcons name="king-bed" size={16} color={colors.textSecondary} />
-                                    <Text style={styles.featureText}>1 giường đôi</Text>
-                                </View>
-                                <View style={styles.featureItem}>
-                                    <MaterialIcons name="people" size={16} color={colors.textSecondary} />
-                                    <Text style={styles.featureText}>2 người</Text>
+                                    <Text style={styles.featureText}>{item.roomTypeName}</Text>
                                 </View>
                             </View>
                         </View>
@@ -98,7 +101,12 @@ RoomItem.propTypes = {
     item: PropTypes.shape({
         roomID: PropTypes.number.isRequired,
         roomNumber: PropTypes.string.isRequired,
-        imageUrl: PropTypes.string,
+        roomTypeName: PropTypes.string.isRequired,
+        rentPrice: PropTypes.number.isRequired,
+        imageRooms: PropTypes.arrayOf(PropTypes.shape({
+            imageRoomID: PropTypes.number,
+            image: PropTypes.string
+        }))
     }).isRequired,
     index: PropTypes.number.isRequired,
     onSelectRoom: PropTypes.func.isRequired,
@@ -193,7 +201,7 @@ export default function ListRoomScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     const { currentSearch, updateCurrentSearch } = useSearch();
-    const { addRoomToCart, removeRoomFromCart, isRoomInCart, getCartCount, clearCart } = useCart();
+    const { addRoomToCart, removeRoomFromCart, isRoomInCart, clearCart } = useCart();
     const { roomTypeId, roomTypeName, homeStayId, rentalId } = route.params || {};
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -211,7 +219,7 @@ export default function ListRoomScreen() {
         currentSearch?.checkInDate ? currentSearch.checkInDate.split(', ')[1] : null,
         [currentSearch?.checkInDate]
     );
-    
+
     const formattedCheckOutDate = useMemo(() =>
         currentSearch?.checkOutDate ? currentSearch.checkOutDate.split(', ')[1] : null,
         [currentSearch?.checkOutDate]
@@ -437,9 +445,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 4,
     },
-    filterScrollContent: {
-        paddingHorizontal: 15,
-    },
+    filterScrollContent: { paddingHorizontal: 15 },
     filterChip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -486,9 +492,7 @@ const styles = StyleSheet.create({
         padding: 16,
         paddingTop: 16,
     },
-    roomImageContainer: {
-        position: 'relative',
-    },
+    roomImageContainer: { position: 'relative' },
     roomImage: {
         width: '100%',
         height: 180,
@@ -500,24 +504,46 @@ const styles = StyleSheet.create({
         right: 12,
         zIndex: 10,
     },
+    roomNumberContainer2: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 10,
+    },
     roomNumberBadge: {
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 8,
         borderRadius: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.3,
         shadowRadius: 3,
         elevation: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     roomNumberText: {
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 14,
     },
-    roomInfoSection: {
-        marginTop: 6,
+    perNightText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 12,
+        marginLeft: 2,
     },
+    roomTypeBadge: {
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    roomTypeText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 13,
+    },
+    roomInfoSection: { marginTop: 6 },
     roomName: {
         fontSize: 18,
         fontWeight: 'bold',
@@ -527,6 +553,7 @@ const styles = StyleSheet.create({
     roomFeatures: {
         flexDirection: 'row',
         marginTop: 4,
+        marginBottom: 12,
     },
     featureItem: {
         flexDirection: 'row',

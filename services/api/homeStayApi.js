@@ -105,6 +105,25 @@ const homeStayApi = {
     }
   },
 
+  getDateType: async (dateTime) => {
+    try {
+      const response = await apiClient.get(`/api/homestay/GetDateType`, { 
+        params: { dateTime } 
+      });
+      // console.log(response.data);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Error checking date type:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: handleError(error)
+      };
+    }
+  },
+
   getTrendingHomeStays: async (top = 5) => {
     try {
       const response = await apiClient.get(`/api/homestay/GetTrendingHomeStays?top=${top}`);
