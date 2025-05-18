@@ -119,7 +119,7 @@ export default function CartBadge({ params = {} }) {
                     const dateString = currentDate.toISOString().split('T')[0];
                     const key = `${room.roomID}_${dateString}`;
                     if (!newDateTypes[key]) {
-                        const dateType = await checkDateType(dateString);
+                        const dateType = await checkDateType(dateString, room.rentalId, room.roomTypeID);
                         newDateTypes[key] = dateType;
                         const price = await getPriceByDateType(room.roomTypeID, dateType);
                         newDatePrices[key] = price;

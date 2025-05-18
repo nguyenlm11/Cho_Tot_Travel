@@ -61,7 +61,7 @@ export const CartProvider = ({ children }) => {
                 if (currentRoomTypeId) {
                     updates.push(AsyncStorage.setItem('currentRoomTypeId', currentRoomTypeId.toString()));
                 }
-                
+
                 if (updates.length > 0) {
                     await Promise.all(updates);
                 }
@@ -143,7 +143,7 @@ export const CartProvider = ({ children }) => {
         return cartItems.filter(item => {
             let matchesHomeStay = true;
             let matchesRental = true;
-            
+
             if (params.homeStayId) {
                 matchesHomeStay = item.homeStayID === params.homeStayId;
             }
@@ -238,25 +238,23 @@ export const CartProvider = ({ children }) => {
 
     const calculateTotalPrice = useCallback(async (params = {}) => {
         const rooms = getRoomsByParams(params);
-        let total = 0;
         const prices = await Promise.all(
             rooms.map(room => fetchRoomPrice(room))
         );
-        
+
         return prices.reduce((sum, price, index) => {
             return sum + (price || rooms[index].price || 0);
         }, 0);
     }, [getRoomsByParams, fetchRoomPrice]);
 
-    const checkDateType = useCallback(async (dateTime) => {
+    const checkDateType = useCallback(async (dateTime, homeStayRentalId, roomTypeId) => {
         try {
-            const result = await homeStayApi.getDateType(dateTime);
+            const result = await homeStayApi.getDateType(dateTime, homeStayRentalId, roomTypeId);
             if (result?.success) {
                 return result.data;
             }
             return 0;
         } catch (error) {
-            console.error('Lỗi khi kiểm tra loại ngày:', error);
             return 0;
         }
     }, []);
@@ -268,31 +266,32 @@ export const CartProvider = ({ children }) => {
                 const pricing = pricings.find(p => p.dayType === dateType);
                 return pricing ? pricing.rentPrice : 0;
             }
-            if (!pendingPricingRequests.current[roomTypeId]) {
-                pendingPricingRequests.current[roomTypeId] = apiClient.get(`/api/homestay/GetAllPricingByRoomType/${roomTypeId}`)
-                    .then(response => {
-                        const pricingData = response.data.data || [];
-                        setRoomTypePricings(prev => ({
-                            ...prev,
-                            [roomTypeId]: pricingData
-                        }));
-                        return pricingData;
-                    })
-                    .catch(error => {
-                        console.error(`Error fetching pricing for roomTypeId ${roomTypeId}:`, error);
-                        return [];
-                    })
-                    .finally(() => {
-                        setTimeout(() => {
-                            delete pendingPricingRequests.current[roomTypeId];
-                        }, 5000);
-                    });
+            if (pendingPricingRequests.current[roomTypeId]) {
+                const pricings = await pendingPricingRequests.current[roomTypeId];
+                const pricing = pricings.find(p => p.dayType === dateType);
+                return pricing ? pricing.rentPrice : 0;
             }
+            pendingPricingRequests.current[roomTypeId] = apiClient.get(`/api/homestay/GetAllPricingByRoomType/${roomTypeId}`)
+                .then(response => {
+                    const pricingData = response.data.data || [];
+                    setRoomTypePricings(prev => ({
+                        ...prev,
+                        [roomTypeId]: pricingData
+                    }));
+                    return pricingData;
+                })
+                .catch(error => {
+                    return [];
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        delete pendingPricingRequests.current[roomTypeId];
+                    }, 5000);
+                });
             const pricings = await pendingPricingRequests.current[roomTypeId];
             const pricing = pricings.find(p => p.dayType === dateType);
             return pricing ? pricing.rentPrice : 0;
         } catch (error) {
-            console.error('Error in getPriceByDateType:', error);
             return 0;
         }
     }, [roomTypePricings]);
