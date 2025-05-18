@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useSearch } from '../contexts/SearchContext';
 import { useUser } from '../contexts/UserContext';
@@ -27,12 +27,6 @@ const CheckoutScreen = () => {
     return p;
   }, [homeStayId, rentalId]);
 
-  const [formData, setFormData] = useState({
-    fullName: userData?.name || '',
-    phone: userData?.phone || '',
-    email: userData?.email || '',
-  });
-
   const [isFullPayment, setIsFullPayment] = useState(true);
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(true);
@@ -44,7 +38,7 @@ const CheckoutScreen = () => {
   const [showAllRooms, setShowAllRooms] = useState(false);
   const [commissionRate, setCommissionRate] = useState(null);
   const [loadingCommission, setLoadingCommission] = useState(true);
-  
+
   const selectedRooms = useMemo(() => getRoomsByParams(params), [getRoomsByParams, params]);
 
   const numberOfNights = useMemo(() => {
@@ -79,11 +73,9 @@ const CheckoutScreen = () => {
             total += room.price || 0;
           }
         });
-
         setRoomPrices(newRoomPrices);
         setTotalPrice(total);
       } catch (error) {
-        console.error('Lỗi khi tính tổng giá:', error);
         const newRoomPrices = {};
         let total = 0;
         selectedRooms.forEach(room => {
@@ -132,7 +124,7 @@ const CheckoutScreen = () => {
           const dateString = currentDate.toISOString().split('T')[0];
           const key = `${room.roomID}_${dateString}`;
           if (!newDateTypes[key]) {
-            const dateType = await checkDateType(dateString);
+            const dateType = await checkDateType(dateString, room.rentalId || rentalId, room.roomTypeID);
             newDateTypes[key] = dateType;
             const price = await getPriceByDateType(room.roomTypeID, dateType);
             newDatePrices[key] = price;
@@ -193,31 +185,6 @@ const CheckoutScreen = () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays || 1;
   }
-
-  const handleInputChange = useCallback((field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  }, []);
-
-  const validateForm = useCallback(() => {
-    if (!formData.fullName || !formData.phone || !formData.email) {
-      Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin để đặt phòng');
-      return false;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      Alert.alert('Thông báo', 'Email không hợp lệ');
-      return false;
-    }
-    const phoneRegex = /^(0|\+84)(\d{9,10})$/;
-    if (!phoneRegex.test(formData.phone)) {
-      Alert.alert('Thông báo', 'Số điện thoại không hợp lệ');
-      return false;
-    }
-    return true;
-  }, [formData]);
 
   const createBookingData = useCallback(() => {
     if (!selectedRooms || selectedRooms.length === 0) {
@@ -293,7 +260,6 @@ const CheckoutScreen = () => {
   };
 
   const handleBooking = async () => {
-    if (!validateForm()) return;
     const bookingData = createBookingData();
     if (!bookingData) return;
     setLoading(true);
@@ -319,9 +285,9 @@ const CheckoutScreen = () => {
   };
 
   const renderPaymentMethodSelector = () => {
-    const depositPercentage = commissionRate?.platformShare
-      ? Math.round(commissionRate.platformShare * 100)
-      : 20;
+    const defaultRate = 0.3;
+    const platformShare = commissionRate?.platformShare || defaultRate;
+    const depositPercentage = Math.round(platformShare * 100);
 
     return (
       <View style={styles.card}>
@@ -542,46 +508,6 @@ const CheckoutScreen = () => {
           <Text style={styles.stayDuration}>Thời gian lưu trú: {numberOfNights} đêm</Text>
         </View>
 
-        {/* Thông tin người đặt */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Thông tin người đặt</Text>
-          <View style={styles.formGroup}>
-            <Text style={styles.inputLabel}>Họ và tên</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.fullName}
-              onChangeText={(text) => handleInputChange('fullName', text)}
-              placeholder="Nhập họ và tên"
-              placeholderTextColor="#999"
-              disabled={true}
-            />
-          </View>
-          <View style={styles.formGroup}>
-            <Text style={styles.inputLabel}>Số điện thoại</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.phone}
-              onChangeText={(text) => handleInputChange('phone', text)}
-              placeholder="Nhập số điện thoại"
-              placeholderTextColor="#999"
-              keyboardType="phone-pad"
-              disabled={true}
-            />
-          </View>
-          <View style={styles.formGroup}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.email}
-              onChangeText={(text) => handleInputChange('email', text)}
-              placeholder="Nhập email"
-              placeholderTextColor="#999"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              disabled={true}
-            />
-          </View>
-        </View>
         {renderPaymentMethodSelector()}
         <View style={styles.totalContainer}>
           <View style={styles.summaryRow}>
@@ -789,23 +715,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontStyle: 'italic',
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: '#333',
   },
   paymentOptions: {
     marginTop: 8,

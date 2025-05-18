@@ -1,5 +1,4 @@
 import apiClient, { handleError } from '../config';
-import axios from 'axios';
 
 const homeStayApi = {
   filterHomeStays: async (filterParams) => {
@@ -105,11 +104,13 @@ const homeStayApi = {
     }
   },
 
-  getDateType: async (dateTime) => {
+  getDateType: async (dateTime, homeStayRentalId = null, roomtypeId = null) => {
     try {
-      const response = await apiClient.get(`/api/homestay/GetDateType`, { 
-        params: { dateTime } 
-      });
+      const params = { dateTime };
+      if (homeStayRentalId) params.homeStayRentalId = homeStayRentalId;
+      if (roomtypeId) params.roomtypeId = roomtypeId;
+      
+      const response = await apiClient.get(`/api/homestay/GetDateType`, { params });
       // console.log(response.data);
       return {
         success: true,
@@ -147,6 +148,22 @@ const homeStayApi = {
     } catch (error) {
       console.error('Error fetching commission rate:', error);
       throw error;
+    }
+  },
+
+  getAllPricingByHomeStayRental: async (homeStayRentalId) => {
+    try {
+      const response = await apiClient.get(`/api/homestay/GetAllPricingByHomeStayRental/${homeStayRentalId}`);
+      return {
+        success: true,
+        data: response.data.data || []
+      };
+    } catch (error) {
+      console.error('Error fetching pricing policies:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: handleError(error)
+      };
     }
   }
 };

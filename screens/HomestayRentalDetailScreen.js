@@ -63,7 +63,8 @@ export default function HomestayRentalDetailScreen() {
             homeStayTypeID: rental.id || rental.homeStayRentalID,
             homeStayName: rental.name,
             homeStayImage: rental.images?.[0] || rental.imageHomeStayRentals?.[0]?.image,
-            price: price || defaultPricing?.rentPrice || defaultPricing?.unitPrice || 0,
+            rentalName: rental.name,
+            price: price || defaultPricing?.rentPrice,
             rentWhole: true,
             services: rental.pricing?.map(p => ({
                 id: p.id,
@@ -72,6 +73,7 @@ export default function HomestayRentalDetailScreen() {
                 quantity: 1
             })) || []
         };
+        console.log(rental.name);
         navigation.navigate('WholeHomestayCheckout', { bookingData });
     };
 
