@@ -184,7 +184,7 @@ export default function CalendarModal({ visible, onClose, onDateSelect, selected
                                     </View>
                                 </TouchableOpacity>
                                 <Text style={styles.modalTitle}>
-                                    {step === 1 ? 'Chọn ngày bắt đầu' : 'Chọn ngày kết thúc'}
+                                    {step === 1 ? 'Chọn ngày nhận phòng' : 'Chọn ngày trả phòng'}
                                 </Text>
                                 {renderStepIndicator()}
                             </LinearGradient>
