@@ -20,7 +20,7 @@ const STATUS_MAPPING = {
     2: { text: 'Đang phục vụ', color: '#29B6F6', icon: 'sync-outline' },
     3: { text: 'Đã trả phòng', color: '#8BC34A', icon: 'checkmark-done-circle' },
     4: { text: 'Đã hủy', color: '#F44336', icon: 'close-circle' },
-    // 5: { text: 'Không đến', color: '#9E9E9E', icon: 'remove-circle' },
+    5: { text: 'Đồng ý hoàn tiền', color: '#9E9E9E', icon: 'remove-circle' },
     6: { text: 'Yêu cầu hoàn trả', color: '#FF9800', icon: 'cash-outline' }
 };
 

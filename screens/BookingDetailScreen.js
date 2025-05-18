@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl, Platform, StatusBar, Animated, Modal } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -29,7 +29,7 @@ const BookingDetailScreen = () => {
         2: { label: 'Đang lưu trú', color: '#2196F3', bgColor: '#E3F2FD', icon: 'home-outline' },
         3: { label: 'Đã trả phòng', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'exit-outline' },
         4: { label: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE', icon: 'close-circle-outline' },
-        5: { label: 'Không đến', color: '#607D8B', bgColor: '#ECEFF1', icon: 'alert-circle-outline' },
+        5: { label: 'Đồng ý hoàn tiền', color: '#607D8B', bgColor: '#ECEFF1', icon: 'alert-circle-outline' },
         6: { label: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-outline' }
     }), []);
 
@@ -78,7 +78,6 @@ const BookingDetailScreen = () => {
                 console.log("Warning: homeStayId is null or undefined in fetchCommissionRate");
                 return;
             }
-
             const response = await homeStayApi.getCommissionRateByHomeStay(homeStayId);
             try {
                 setCommissionRate(response.data);
@@ -146,20 +145,6 @@ const BookingDetailScreen = () => {
                         onPress: async () => {
                             try {
                                 setLoading(true);
-                                if (bookingData.bookingServices?.length > 0) {
-                                    const serviceStatusPromises = bookingData.bookingServices.map(service =>
-                                        bookingApi.changeBookingServiceStatus(
-                                            bookingId,
-                                            service.bookingServicesID,
-                                            bookingData.status,
-                                            bookingData.paymentStatus,
-                                            4,
-                                            service.paymentServiceStatus
-                                        )
-                                    );
-                                    await Promise.all(serviceStatusPromises);
-                                }
-
                                 const result = await bookingApi.changeBookingStatus(bookingId, 4, bookingData.paymentStatus);
                                 if (result.success) {
                                     Alert.alert('Thành công', 'Đã hủy đặt phòng thành công');
@@ -208,20 +193,6 @@ const BookingDetailScreen = () => {
                     onPress: async () => {
                         try {
                             setLoading(true);
-                            if (bookingData.bookingServices?.length > 0) {
-                                const serviceStatusPromises = bookingData.bookingServices.map(service =>
-                                    bookingApi.changeBookingServiceStatus(
-                                        bookingId,
-                                        service.bookingServicesID,
-                                        bookingData.status,
-                                        bookingData.paymentStatus,
-                                        4,
-                                        service.paymentServiceStatus
-                                    )
-                                );
-                                await Promise.all(serviceStatusPromises);
-                            }
-
                             const result = await bookingApi.changeBookingStatus(bookingId, newStatus, bookingData.paymentStatus);
                             if (result.success) {
                                 Alert.alert(
@@ -400,6 +371,8 @@ const BookingDetailScreen = () => {
     const renderBookingDetails = () => {
         if (!bookingData) return null;
         const depositPercentage = commissionRate && commissionRate.platformShare ? Math.round(commissionRate.platformShare * 100) : 20;
+        const hasServices = bookingData.bookingServices && bookingData.bookingServices.length > 0;
+
         return (
             <View style={styles.detailsContainer}>
                 <View style={styles.bookingHeader}>
@@ -537,38 +510,17 @@ const BookingDetailScreen = () => {
                         <View style={styles.bookingDatesDivider} />
 
                         {/* Room list */}
-                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => {
-                            const numberOfNights = calculateDays(detail.checkInDate, detail.checkOutDate);
-                            const pricePerNight = numberOfNights > 0 ? detail.totalAmount / numberOfNights : 0;
-
-                            return (
-                                <View key={detail.bookingDetailID} style={styles.roomCard}>
-                                    <View style={styles.roomHeader}>
-                                        <View style={styles.roomTitleContainer}>
-                                            <MaterialIcons name="bed" size={20} color={colors.primary} />
-                                            <Text style={styles.roomTitle}>Phòng {detail.rooms?.roomNumber || index + 1}</Text>
-                                        </View>
+                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => (
+                            <View key={detail.bookingDetailID} style={styles.roomCard}>
+                                <View style={styles.roomHeader}>
+                                    <View style={styles.roomTitleContainer}>
+                                        <MaterialIcons name="bed" size={20} color={colors.primary} />
+                                        <Text style={styles.roomTitle}>Phòng {detail.rooms?.roomNumber || index + 1}</Text>
                                     </View>
-
-                                    <View style={styles.priceDetails}>
-                                        <View style={styles.priceRow}>
-                                            <Text style={styles.priceLabel}>Giá mỗi đêm:</Text>
-                                            <Text style={styles.priceValue}>{formatCurrency(pricePerNight)}</Text>
-                                        </View>
-
-                                        <View style={styles.priceRow}>
-                                            <Text style={styles.priceLabel}>Số đêm:</Text>
-                                            <Text style={styles.priceValue}>{numberOfNights} đêm</Text>
-                                        </View>
-
-                                        <View style={styles.totalPriceRow}>
-                                            <Text style={styles.totalPriceLabel}>Tổng giá:</Text>
-                                            <Text style={styles.totalPriceValue}>{formatCurrency(detail.totalAmount)}</Text>
-                                        </View>
-                                    </View>
+                                    <Text style={styles.roomTotalPrice}>{formatCurrency(detail.totalAmount)}</Text>
                                 </View>
-                            );
-                        })}
+                            </View>
+                        ))}
                     </View>
                 </View>
 
@@ -594,6 +546,36 @@ const BookingDetailScreen = () => {
                         </View>
                     </View>
                 </View>
+
+                {/* Services Section */}
+                {hasServices && (
+                    <View style={styles.sectionCard}>
+                        <View style={styles.sectionHeader}>
+                            <MaterialIcons name="room-service" size={24} color={colors.primary} />
+                            <Text style={styles.sectionTitle}>Dịch vụ đã đặt</Text>
+                        </View>
+                        <View style={styles.sectionContent}>
+                            <TouchableOpacity
+                                style={styles.viewServicesButton}
+                                onPress={() => navigation.navigate('BookingService', {
+                                    bookingId: bookingId,
+                                    homestayId: bookingData?.homeStay?.homeStayID,
+                                    checkInDate: bookingData?.bookingDetails?.[0]?.checkInDate,
+                                    checkOutDate: bookingData?.bookingDetails?.[0]?.checkOutDate
+                                })}
+                            >
+                                <LinearGradient
+                                    colors={[colors.primary, colors.secondary]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.gradientButton}
+                                >
+                                    <Text style={styles.viewServicesButtonText}>Xem dịch vụ đã đặt</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
             </View>
         );
     };
@@ -920,7 +902,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
     },
     roomTitleContainer: {
         flexDirection: 'row',
@@ -932,42 +913,7 @@ const styles = StyleSheet.create({
         color: colors.textPrimary,
         marginLeft: 8,
     },
-    priceDetails: {
-        marginTop: 8,
-        paddingTop: 8,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 8,
-        padding: 8,
-    },
-    priceRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    priceLabel: {
-        fontSize: 14,
-        color: '#666',
-    },
-    priceValue: {
-        fontSize: 14,
-        color: '#333',
-    },
-    totalPriceRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 4,
-        paddingTop: 4,
-        borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-    },
-    totalPriceLabel: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    totalPriceValue: {
+    roomTotalPrice: {
         fontSize: 16,
         fontWeight: 'bold',
         color: colors.primary,
@@ -1342,27 +1288,28 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginLeft: 8,
     },
-    viewAllButton: {
+    viewServicesButton: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    gradientButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginLeft: 'auto',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
     },
-    viewAllText: {
-        fontSize: 14,
-        color: colors.primary,
-        marginRight: 2,
+    viewServicesButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 15,
+        marginLeft: 8,
     },
-    viewMoreButton: {
-        padding: 12,
-        borderRadius: 8,
-        backgroundColor: '#f5f5f5',
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    viewMoreText: {
-        color: colors.primary,
-        fontWeight: '500',
-    }
 });
 
 export default BookingDetailScreen;

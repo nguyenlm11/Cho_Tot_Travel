@@ -108,12 +108,10 @@ const BookingServiceScreen = () => {
 
     const handleCancelService = useCallback(async (bookingServiceId, isRefund = false) => {
         const bookingService = services.find(service => service.bookingServicesID === bookingServiceId);
-
         if (!bookingService) {
             Alert.alert('Lỗi', 'Không tìm thấy thông tin dịch vụ');
             return;
         }
-
         if (bookingService.status === 0) {
             Alert.alert(
                 'Xác nhận hủy dịch vụ',
@@ -150,18 +148,15 @@ const BookingServiceScreen = () => {
             );
             return;
         }
-
         if (!cancellationPolicy) {
             Alert.alert('Thông báo', 'Không tìm thấy thông tin chính sách hủy, không thể hoàn tiền');
             return;
         }
-
         const checkInDateObj = checkInDate ? new Date(checkInDate) : new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDateObj - currentDate) / (1000 * 60 * 60 * 24));
         const canRefund = daysUntilCheckIn >= cancellationPolicy.dayBeforeCancel;
         const newStatus = canRefund ? 5 : 4;
-
         Alert.alert(
             'Xác nhận hủy dịch vụ',
             canRefund
@@ -286,8 +281,8 @@ const BookingServiceScreen = () => {
                 case 2: return { text: 'Đang phục vụ', color: '#2196F3', bgColor: '#E3F2FD', icon: 'progress-clock' };
                 case 3: return { text: 'Đã hoàn thành', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'check-decagram' };
                 case 4: return { text: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE', icon: 'close-circle' };
-                // case 5: return { text: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-refund' };
-                case 6: return { text: 'Yêu cầu hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'cash-check' };
+                case 5: return { text: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-refund' };
+                case 6: return { text: 'Đồng ý hoàn tiền', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'cash-check' };
                 default: return { text: 'Không xác định', color: '#607D8B', bgColor: '#ECEFF1', icon: 'help-circle' };
             }
         };
@@ -427,22 +422,34 @@ const BookingServiceScreen = () => {
             <MaterialCommunityIcons name="cart-off" size={80} color="#DDD" />
             <Text style={styles.emptyText}>Bạn chưa có dịch vụ nào</Text>
             <Text style={styles.emptySubText}>Hãy thêm dịch vụ để trải nghiệm tốt hơn</Text>
-            <TouchableOpacity
-                style={styles.emptyAddButton}
-                onPress={() => setServicesModalVisible(true)}
-            >
-                <LinearGradient
-                    colors={[colors.primary, colors.secondary]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.gradientButton}
-                >
-                    <MaterialCommunityIcons name="cart-plus" size={20} color="#FFF" />
-                    <Text style={styles.addServiceButtonText}>Thêm dịch vụ</Text>
-                </LinearGradient>
-            </TouchableOpacity>
         </Animated.View>
     );
+
+    const renderActionButtons = () => {
+        if (!bookingData) return null;
+        const disabledStatuses = [3, 4, 5, 6];
+        const canAddService = !disabledStatuses.includes(bookingData.status);
+        return (
+            <View style={styles.actionButtons}>
+                {canAddService && (
+                    <TouchableOpacity
+                        style={styles.addServiceButton}
+                        onPress={() => setServicesModalVisible(true)}
+                    >
+                        <LinearGradient
+                            colors={[colors.primary, colors.secondary]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.gradientButton}
+                        >
+                            <MaterialCommunityIcons name="cart-plus" size={20} color="#FFF" />
+                            <Text style={styles.addServiceButtonText}>Thêm dịch vụ</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    };
 
     if (loading) {
         return (
@@ -524,24 +531,7 @@ const BookingServiceScreen = () => {
                 </Animated.View>
             </ScrollView>
 
-            {services && services.length > 0 && (
-                <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                        style={styles.addServiceFloatingButton}
-                        onPress={() => setServicesModalVisible(true)}
-                    >
-                        <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.gradientButton}
-                        >
-                            <MaterialCommunityIcons name="cart-plus" size={20} color="#FFF" />
-                            <Text style={styles.addServiceButtonText}>Thêm dịch vụ</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
-            )}
+            {renderActionButtons()}
 
             <ServicesModal
                 visible={servicesModalVisible}
@@ -823,15 +813,6 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         textAlign: 'center',
     },
-    emptyAddButton: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-    },
     errorContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -868,23 +849,25 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     actionButtons: {
-        padding: 24,
-        backgroundColor: 'transparent',
-        marginBottom: 14,
+        padding: 16,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#fff',
     },
-    addServiceFloatingButton: {
+    addServiceButton: {
         borderRadius: 12,
         overflow: 'hidden',
-        elevation: 5,
+        elevation: 4,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
+        marginBottom: 12,
     },
     addServiceButtonText: {
         color: '#fff',
         fontWeight: 'bold',
-        fontSize: 14,
+        fontSize: 15,
         marginLeft: 8,
     },
 });

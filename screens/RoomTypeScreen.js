@@ -128,31 +128,31 @@ export default function RoomTypeScreen() {
                                             <Text style={styles.priceTypeText}>Ngày thường</Text>
                                         </View>
                                         <Text style={styles.priceValue}>
-                                            {defaultPricing.rentPrice?.toLocaleString('vi-VN')}₫/đêm
+                                            {defaultPricing.rentPrice?.toLocaleString()}₫/đêm
                                         </Text>
                                     </View>
                                 )}
-                                
+
                                 {weekendPricing && (
                                     <View style={styles.priceRow}>
                                         <View style={styles.priceTypeContainer}>
-                                            <MaterialIcons name="weekend" size={16} color="#FF9800" />
-                                            <Text style={[styles.priceTypeText, {color: '#FF9800'}]}>Cuối tuần</Text>
+                                            <MaterialIcons name="weekend" size={16} color={palette.primary} />
+                                            <Text style={styles.priceTypeText}>Cuối tuần</Text>
                                         </View>
-                                        <Text style={[styles.priceValue, {color: '#FF9800'}]}>
-                                            {weekendPricing.rentPrice?.toLocaleString('vi-VN')}₫/đêm
+                                        <Text style={styles.priceValue}>
+                                            {weekendPricing.rentPrice?.toLocaleString()}₫/đêm
                                         </Text>
                                     </View>
                                 )}
-                                
+
                                 {holidayPricing && (
                                     <View style={styles.priceRow}>
                                         <View style={styles.priceTypeContainer}>
-                                            <MaterialIcons name="celebration" size={16} color="#F44336" />
-                                            <Text style={[styles.priceTypeText, {color: '#F44336'}]}>Ngày lễ</Text>
+                                            <MaterialIcons name="celebration" size={16} color={palette.primary} />
+                                            <Text style={styles.priceTypeText}>Ngày lễ</Text>
                                         </View>
-                                        <Text style={[styles.priceValue, {color: '#F44336'}]}>
-                                            {holidayPricing.rentPrice?.toLocaleString('vi-VN')}₫/đêm
+                                        <Text style={styles.priceValue}>
+                                            {holidayPricing.rentPrice?.toLocaleString()}₫/đêm
                                         </Text>
                                     </View>
                                 )}
