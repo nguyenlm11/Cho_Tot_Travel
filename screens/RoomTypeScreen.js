@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, StatusBar, R
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Ionicons, FontAwesome5, MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
 import { useCart } from '../contexts/CartContext';
@@ -82,8 +82,6 @@ export default function RoomTypeScreen() {
 
     const RoomTypeCard = ({ item, index }) => {
         const defaultPricing = item.pricings?.find(p => p.isDefault) || item.pricings?.[0];
-        const weekendPricing = item.pricings?.find(p => p.dayType === 1);
-        const holidayPricing = item.pricings?.find(p => p.dayType === 2);
         const roomTypeID = item.roomTypesID;
         const selectedRoomsCount = getRoomsByType(roomTypeID, params).length;
 
@@ -92,14 +90,14 @@ export default function RoomTypeScreen() {
                 style={styles.cardContainer}
                 entering={FadeInDown.delay(index * 100).springify()}
             >
-                <TouchableOpacity activeOpacity={0.9}>
+                <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={() => handleSelectRoom(item)}
+                >
                     <Animated.View style={styles.roomCard}>
                         <View style={styles.imageContainer}>
                             <Image
-                                source={{
-                                    uri: item.imageRoomTypes?.[0]?.image ||
-                                        'https://res.cloudinary.com/dzjofylpf/image/upload/v1742915319/HomeStayImages/placeholder.jpg'
-                                }}
+                                source={{ uri: item.imageRoomTypes?.[0]?.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
                                 style={styles.roomImage}
                                 resizeMode="cover"
                             />
@@ -107,55 +105,44 @@ export default function RoomTypeScreen() {
                                 colors={['rgba(0,0,0,0.4)', 'transparent', 'rgba(0,0,0,0.6)']}
                                 style={styles.imageGradient}
                             />
+                            <View style={styles.roomTypeBadge}>
+                                <Text style={styles.roomTypeText}>{item.name}</Text>
+                            </View>
                         </View>
 
                         <View style={styles.roomInfo}>
                             <View style={styles.roomHeader}>
-                                <Text style={styles.roomName} numberOfLines={1}>{item.name}</Text>
-                                <View style={styles.capacityBadge}>
-                                    <FontAwesome5 name="users" size={14} color={palette.primary} />
-                                    <Text style={styles.capacityText}>
-                                        {item.maxPeople} người
-                                    </Text>
-                                </View>
-                            </View>
+                                <View style={styles.roomStatsContainer}>
+                                    <View style={styles.statItem}>
+                                        <View style={styles.statIconContainer}>
+                                            <FontAwesome5 name="users" size={14} color={palette.primary} />
+                                        </View>
+                                        <View style={styles.statInfo}>
+                                            <Text style={styles.statValue}>{item.maxPeople} </Text>
+                                            <Text style={styles.statLabel}>Người tối đa</Text>
+                                        </View>
+                                    </View>
 
-                            <View style={styles.priceContainer}>
-                                {defaultPricing && (
-                                    <View style={styles.priceRow}>
-                                        <View style={styles.priceTypeContainer}>
+                                    <View style={styles.statDivider} />
+
+                                    <View style={styles.statItem}>
+                                        <View style={styles.statIconContainer}>
                                             <MaterialIcons name="calendar-today" size={16} color={palette.primary} />
-                                            <Text style={styles.priceTypeText}>Ngày thường</Text>
                                         </View>
-                                        <Text style={styles.priceValue}>
-                                            {defaultPricing.rentPrice?.toLocaleString()}₫/đêm
-                                        </Text>
-                                    </View>
-                                )}
-
-                                {weekendPricing && (
-                                    <View style={styles.priceRow}>
-                                        <View style={styles.priceTypeContainer}>
-                                            <MaterialIcons name="weekend" size={16} color={palette.primary} />
-                                            <Text style={styles.priceTypeText}>Cuối tuần</Text>
+                                        <View style={styles.statInfo}>
+                                            <Text style={styles.statValue}>
+                                                {defaultPricing?.rentPrice?.toLocaleString()}
+                                            </Text>
+                                            <Text style={styles.statLabel}>/đêm</Text>
                                         </View>
-                                        <Text style={styles.priceValue}>
-                                            {weekendPricing.rentPrice?.toLocaleString()}₫/đêm
-                                        </Text>
+                                        <TouchableOpacity
+                                            style={styles.viewPriceDetailButton}
+                                            onPress={() => navigation.navigate('PriceDetail', { roomType: item })}
+                                        >
+                                            <MaterialIcons name="arrow-forward-ios" size={14} color={palette.primary} />
+                                        </TouchableOpacity>
                                     </View>
-                                )}
-
-                                {holidayPricing && (
-                                    <View style={styles.priceRow}>
-                                        <View style={styles.priceTypeContainer}>
-                                            <MaterialIcons name="celebration" size={16} color={palette.primary} />
-                                            <Text style={styles.priceTypeText}>Ngày lễ</Text>
-                                        </View>
-                                        <Text style={styles.priceValue}>
-                                            {holidayPricing.rentPrice?.toLocaleString()}₫/đêm
-                                        </Text>
-                                    </View>
-                                )}
+                                </View>
                             </View>
 
                             <Text style={styles.roomDescription} numberOfLines={2}>
@@ -209,39 +196,35 @@ export default function RoomTypeScreen() {
                                         colors={[palette.primary, palette.secondary]}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 0 }}
-                                        style={styles.selectButtonGradient}
+                                        style={styles.gradientButton}
                                     >
-                                        <Text style={styles.selectButtonText}>Chọn phòng</Text>
-                                        <AntDesign name="arrowright" size={16} color="#fff" style={styles.selectIcon} />
+                                        <Text style={styles.selectButtonText}>
+                                            {selectedRoomsCount > 0 ? 'Đã chọn' : 'Chọn phòng'}
+                                        </Text>
+                                        {selectedRoomsCount > 0 && (
+                                            <View style={styles.selectedBadge}>
+                                                <Text style={styles.selectedBadgeText}>{selectedRoomsCount}</Text>
+                                            </View>
+                                        )}
                                     </LinearGradient>
                                 </TouchableOpacity>
                             </View>
                         </View>
-
-                        {selectedRoomsCount > 0 && (
-                            <View style={styles.selectedBadge}>
-                                <LinearGradient
-                                    colors={[palette.primary, palette.secondary]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.selectedBadgeGradient}
-                                >
-                                    <Text style={styles.selectedBadgeText}>{selectedRoomsCount} phòng đã chọn</Text>
-                                </LinearGradient>
-                            </View>
-                        )}
                     </Animated.View>
                 </TouchableOpacity>
             </Animated.View>
         );
     };
-
-    if (loading && refreshing) {
+    if (loading) { return <LoadingScreen message="Đang tải thông tin phòng..." />; }
+    if (error) {
         return (
-            <LoadingScreen
-                message="Đang tải thông tin phòng"
-                subMessage="Vui lòng đợi trong giây lát..."
-            />
+            <View style={styles.errorContainer}>
+                <MaterialIcons name="error-outline" size={48} color={palette.text.medium} />
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={fetchRoomTypes}>
+                    <Text style={styles.retryButtonText}>Thử lại</Text>
+                </TouchableOpacity>
+            </View>
         );
     }
 
@@ -278,41 +261,25 @@ export default function RoomTypeScreen() {
 
             <FlatList
                 data={roomTypes}
-                keyExtractor={(item) => `room-type-${item.roomTypesID}`}
                 renderItem={({ item, index }) => <RoomTypeCard item={item} index={index} />}
-                contentContainerStyle={[
-                    styles.listContainer,
-                    { paddingBottom: getCartCount(params) > 0 ? 100 : 20 }
-                ]}
+                keyExtractor={item => item.roomTypesID.toString()}
+                contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={onRefresh}
-                        tintColor={palette.primary}
                         colors={[palette.primary]}
+                        tintColor={palette.primary}
                     />
                 }
                 ListEmptyComponent={
-                    !loading && error ? (
-                        <View style={styles.emptyContainer}>
-                            <Ionicons name="bed-outline" size={80} color={palette.text.light} />
-                            <Text style={styles.emptyText}>{error}</Text>
-                            <TouchableOpacity style={styles.retryButton} onPress={fetchRoomTypes}>
-                                <LinearGradient
-                                    colors={[palette.primary, palette.secondary]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.retryGradient}
-                                >
-                                    <Text style={styles.retryText}>Thử lại</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-                    ) : null
+                    <View style={styles.emptyContainer}>
+                        <MaterialIcons name="hotel" size={48} color={palette.text.medium} />
+                        <Text style={styles.emptyText}>Không có loại phòng nào</Text>
+                    </View>
                 }
             />
-
             {getCartCount(params) > 0 && (
                 <View style={styles.cartBadgeContainer}>
                     <CartBadge params={params} />
@@ -326,10 +293,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: palette.background,
-        position: 'relative',
-        zIndex: 1,
-        elevation: 1,
-        overflow: 'visible',
     },
     header: {
         paddingTop: Platform.OS === 'ios' ? 50 : 40,
@@ -363,72 +326,44 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginHorizontal: 10,
     },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-        textAlign: 'center',
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
     headerSubtitle: {
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.9)',
         textAlign: 'center',
         marginTop: 4,
     },
-    listContainer: {
-        paddingTop: 20,
-        paddingBottom: 20,
-    },
-    emptyContainer: {
+    headerTitle: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: palette.text.medium,
-        marginTop: 12,
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    retryButton: {
-        borderRadius: 10,
-        overflow: 'hidden',
-        marginTop: 10,
-    },
-    retryGradient: {
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-    },
-    retryText: {
+        fontSize: 18,
+        fontWeight: 'bold',
         color: '#fff',
-        fontWeight: '600',
-        fontSize: 16,
+        textAlign: 'center',
+        marginHorizontal: 16,
+    },
+    listContent: {
+        padding: 16,
     },
     cardContainer: {
-        marginTop: 10,
-        marginHorizontal: 16,
-        marginBottom: 20,
+        marginBottom: 16,
     },
     roomCard: {
-        backgroundColor: palette.card,
+        backgroundColor: '#fff',
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: palette.primary + '40',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 8,
-        borderWidth: 1,
-        borderColor: palette.cardBorder,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 4,
+            },
+        }),
     },
     imageContainer: {
-        height: 180,
-        width: '100%',
+        height: 200,
         position: 'relative',
     },
     roomImage: {
@@ -436,37 +371,81 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     imageGradient: {
-        ...StyleSheet.absoluteFillObject,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    roomTypeBadge: {
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    roomTypeText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: palette.primary,
     },
     roomInfo: {
         padding: 16,
     },
     roomHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 16,
     },
-    roomName: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: palette.text.dark,
-        flex: 1,
-        marginRight: 10,
-    },
-    capacityBadge: {
+    roomStatsContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: palette.primary + '15',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        backgroundColor: 'rgba(0,0,0,0.02)',
         borderRadius: 12,
-        gap: 6,
+        padding: 12,
+        justifyContent: 'space-between',
     },
-    capacityText: {
-        fontSize: 13,
-        color: palette.primary,
+    statItem: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    statInfo: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statValue: {
+        fontSize: 16,
         fontWeight: '600',
+        color: palette.text.dark,
+        marginBottom: 2,
+    },
+    statLabel: {
+        fontSize: 12,
+        color: palette.text.medium,
+    },
+    statDivider: {
+        width: 1,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        marginHorizontal: 12,
+    },
+    viewPriceDetailButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.02)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginLeft: 8,
     },
     roomDescription: {
         fontSize: 14,
@@ -476,39 +455,32 @@ const styles = StyleSheet.create({
     },
     amenitiesContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-        paddingVertical: 12,
-        paddingHorizontal: 10,
-        backgroundColor: palette.background,
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        backgroundColor: 'rgba(0,0,0,0.02)',
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: palette.cardBorder,
+        padding: 12,
     },
     amenityItem: {
+        flexDirection: 'row',
         alignItems: 'center',
-        flex: 1,
-        flexDirection: 'column',
     },
     amenityIconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: palette.primary + '15',
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(0,0,0,0.05)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 6,
+        marginRight: 8,
     },
     amenityText: {
-        fontSize: 12,
+        fontSize: 14,
         color: palette.text.medium,
-        textAlign: 'center',
     },
     amenityDivider: {
         width: 1,
-        height: 40,
-        backgroundColor: palette.cardBorder,
-        marginHorizontal: 8,
+        backgroundColor: 'rgba(0,0,0,0.1)',
     },
     bottomSection: {
         flexDirection: 'row',
@@ -516,59 +488,82 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     infoContainer: {
-        flex: 1,
+        flexDirection: 'row',
     },
     infoItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 6,
+        marginRight: 16,
     },
     infoText: {
-        marginLeft: 8,
-        fontSize: 13,
+        fontSize: 14,
         color: palette.text.medium,
+        marginLeft: 4,
     },
     selectButton: {
-        borderRadius: 10,
-        overflow: 'hidden',
-        elevation: 2,
-        shadowColor: palette.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
+        flex: 1,
+        marginLeft: 16,
     },
-    selectButtonGradient: {
+    gradientButton: {
         flexDirection: 'row',
-        justifyContent: 'center',
         alignItems: 'center',
+        justifyContent: 'center',
         paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    selectIcon: {
-        marginLeft: 8,
+        paddingHorizontal: 20,
+        borderRadius: 25,
     },
     selectButtonText: {
-        color: '#fff',
+        fontSize: 14,
         fontWeight: '600',
-        fontSize: 15,
+        color: '#fff',
     },
     selectedBadge: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        borderRadius: 10,
-        overflow: 'hidden',
-        zIndex: 10,
-        elevation: 5,
-    },
-    selectedBadgeGradient: {
-        paddingHorizontal: 10,
-        paddingVertical: 6,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        marginLeft: 8,
     },
     selectedBadgeText: {
-        color: '#fff',
-        fontWeight: 'bold',
         fontSize: 12,
+        fontWeight: 'bold',
+        color: palette.primary,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    errorText: {
+        fontSize: 16,
+        color: palette.text.medium,
+        textAlign: 'center',
+        marginTop: 16,
+        marginBottom: 24,
+    },
+    retryButton: {
+        backgroundColor: palette.primary,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 25,
+    },
+    retryButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 32,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: palette.text.medium,
+        textAlign: 'center',
+        marginTop: 16,
     },
     cartBadgeContainer: {
         position: 'absolute',
@@ -578,34 +573,5 @@ const styles = StyleSheet.create({
         padding: 16,
         zIndex: 1000,
         elevation: 10,
-    },
-    priceContainer: {
-        backgroundColor: '#f9f9fa',
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: palette.cardBorder,
-    },
-    priceRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    priceTypeContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    priceTypeText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: palette.primary,
-        marginLeft: 6,
-    },
-    priceValue: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: palette.primary,
-    },
+    }
 }); 

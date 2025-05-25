@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Modal, StyleSheet, TouchableOpacity, Dimensions, StatusBar, Image, Text, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { FlatList } from 'react-native-gesture-handler';
 import { colors } from '../constants/Colors';
@@ -11,16 +11,6 @@ const { width, height } = Dimensions.get('window');
 const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = React.useRef(null);
-
-  React.useEffect(() => {
-    if (visible && flatListRef.current && initialIndex) {
-      flatListRef.current.scrollToIndex({
-        index: initialIndex,
-        animated: false,
-      });
-    }
-    setCurrentIndex(initialIndex);
-  }, [visible, initialIndex]);
 
   const handleViewableItemsChanged = React.useCallback(({ viewableItems }) => {
     if (viewableItems.length > 0) {
@@ -41,8 +31,6 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
       />
     </View>
   );
-
-  if (!visible) return null;
 
   return (
     <Modal
@@ -91,40 +79,6 @@ const ImageViewer = ({ visible, images, initialIndex = 0, onClose }) => {
           })}
         />
 
-        {/* Next/Prev Buttons */}
-        {currentIndex > 0 && (
-          <TouchableOpacity
-            style={[styles.navButton, styles.prevButton]}
-            onPress={() => {
-              flatListRef.current?.scrollToIndex({
-                index: currentIndex - 1,
-                animated: true,
-              });
-            }}
-          >
-            <BlurView intensity={80} tint="dark" style={styles.blurNav}>
-              <MaterialIcons name="chevron-left" size={34} color="#fff" />
-            </BlurView>
-          </TouchableOpacity>
-        )}
-
-        {currentIndex < images.length - 1 && (
-          <TouchableOpacity
-            style={[styles.navButton, styles.nextButton]}
-            onPress={() => {
-              flatListRef.current?.scrollToIndex({
-                index: currentIndex + 1,
-                animated: true,
-              });
-            }}
-          >
-            <BlurView intensity={80} tint="dark" style={styles.blurNav}>
-              <MaterialIcons name="chevron-right" size={34} color="#fff" />
-            </BlurView>
-          </TouchableOpacity>
-        )}
-
-        {/* Thumbnails */}
         <View style={styles.thumbnailsContainer}>
           <BlurView intensity={80} tint="dark" style={styles.thumbnailsBlur}>
             <FlatList
@@ -214,27 +168,6 @@ const styles = StyleSheet.create({
   image: {
     width: width,
     height: height * 0.7,
-  },
-  navButton: {
-    position: 'absolute',
-    top: '50%',
-    marginTop: -25,
-    zIndex: 10,
-    borderRadius: 25,
-    overflow: 'hidden',
-  },
-  prevButton: {
-    left: 10,
-  },
-  nextButton: {
-    right: 10,
-  },
-  blurNav: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   thumbnailsContainer: {
     position: 'absolute',
