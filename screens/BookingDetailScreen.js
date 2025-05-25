@@ -28,7 +28,8 @@ const BookingDetailScreen = () => {
         3: { label: 'Đã trả phòng', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'exit-outline' },
         4: { label: 'Đã hủy', color: '#F44336', bgColor: '#FFEBEE', icon: 'close-circle-outline' },
         5: { label: 'Đồng ý hoàn tiền', color: '#607D8B', bgColor: '#ECEFF1', icon: 'alert-circle-outline' },
-        6: { label: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-outline' }
+        6: { label: 'Yêu cầu hoàn tiền', color: '#FF5722', bgColor: '#FBE9E7', icon: 'cash-outline' },
+        7: { label: 'Hủy bởi chủ nhà', color: '#9C27B0', bgColor: '#F3E5F5', icon: 'close-circle-outline' }
     }), []);
 
     const paymentStatusMapping = useMemo(() => ({
@@ -41,10 +42,6 @@ const BookingDetailScreen = () => {
     const fetchBookingDetails = useCallback(async () => {
         try {
             setLoading(true);
-            if (!bookingId) {
-                setError('Không tìm thấy mã đặt phòng');
-                return;
-            }
             const response = await bookingApi.getBookingDetails(bookingId);
             if (response.success) {
                 setBookingData(response.data);
@@ -275,7 +272,7 @@ const BookingDetailScreen = () => {
                     >
                         <View style={styles.bookingIdContainer}>
                             <Text style={styles.bookingIdLabel}>Mã đặt phòng</Text>
-                            <Text style={styles.bookingIdValue}>#{bookingData.bookingID}</Text>
+                            <Text style={styles.bookingIdValue} numberOfLines={1}>{bookingData.bookingCode}</Text>
                         </View>
                         <View style={styles.bookingDateContainer}>
                             <Text style={styles.bookingDateLabel}>Ngày đặt</Text>
@@ -406,25 +403,56 @@ const BookingDetailScreen = () => {
                             </View>
                         </View>
 
-                        <Text style={styles.roomsListTitle}>Thông tin phòng</Text>
-                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => {
-                            return (
-                                <View key={detail.bookingDetailID} style={styles.roomCard}>
-                                    <View style={styles.roomHeader}>
-                                        <View style={styles.roomTitleContainer}>
-                                            <MaterialIcons name="bed" size={20} color={colors.primary} />
-                                            <Text style={styles.roomTitle}>
-                                                {detail.rooms !== null ? 
-                                                    `${detail.rooms.roomTypeName} ${detail.rooms.roomNumber} - ${detail.homeStayRentals?.name}` : 
-                                                    detail.homeStayRentals?.name
-                                                }
+                        {bookingData.bookingDetails && bookingData.bookingDetails.map((detail, index) => (
+                            <View key={detail.bookingDetailID} style={styles.roomCard}>
+                                <View style={styles.roomCardContent}>
+                                    <ImageBackground
+                                        source={{ uri: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                                        style={styles.roomImage}
+                                        imageStyle={styles.roomImageStyle}
+                                    >
+                                    </ImageBackground>
+
+                                    <View style={styles.roomInfoContainer}>
+                                        <View style={styles.roomInfoHeader}>
+                                            <View style={styles.roomTypeContainer}>
+                                                <MaterialIcons name="bed" size={18} color={colors.primary} />
+                                                <Text style={styles.roomTypeText}>
+                                                    {detail.rooms !== null ?
+                                                        `${detail.rooms.roomNumber}` :
+                                                        detail.homeStayRentals?.name
+                                                    }
+                                                </Text>
+                                            </View>
+                                            {detail.rooms !== null && (
+                                                <View style={styles.roomNumberContainer}>
+                                                    <MaterialIcons name="door-sliding" size={16} color={colors.textSecondary} />
+                                                    <Text style={styles.roomNumberText}>
+                                                        {detail.rooms?.roomTypeName}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        <View style={styles.roomInfoFooter}>
+                                            <View style={styles.homestayContainer}>
+                                                {detail.rooms !== null && (
+                                                    <>
+                                                        <MaterialIcons name="home" size={16} color={colors.textSecondary} />
+                                                        <Text style={styles.homestayText} numberOfLines={1}>
+                                                            {detail.homeStayRentals?.name || 'Không xác định'}
+                                                        </Text>
+                                                    </>
+                                                )}
+                                            </View>
+                                            <Text style={styles.roomPrice}>
+                                                {formatCurrency(detail.totalAmount)}
                                             </Text>
                                         </View>
-                                        <Text style={styles.roomTotalPrice}>Tổng giá: {formatCurrency(detail.totalAmount)}</Text>
                                     </View>
                                 </View>
-                            );
-                        })}
+                            </View>
+                        ))}
                     </View>
                 </View>
 
@@ -814,39 +842,82 @@ const styles = StyleSheet.create({
         padding: 16
     },
     roomCard: {
+        backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 16,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#f0f0f0',
-        backgroundColor: '#fff',
+        borderColor: 'rgba(0,0,0,0.05)',
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.1,
         shadowRadius: 2,
+        overflow: 'hidden',
     },
-    roomHeader: {
+    roomCardContent: {
+        flexDirection: 'row',
+        height: 100,
+    },
+    roomImage: {
+        width: 120,
+        height: '100%',
+    },
+    roomImageStyle: {
+        borderTopLeftRadius: 12,
+        borderBottomLeftRadius: 12,
+    },
+    roomImageOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        padding: 8,
+    },
+    roomInfoContainer: {
+        flex: 1,
+        padding: 12,
+        justifyContent: 'space-between',
+    },
+    roomInfoHeader: {
+        gap: 4,
+    },
+    roomTypeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    roomTypeText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+        marginLeft: 6,
+    },
+    roomNumberContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    roomNumberText: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        marginLeft: 6,
+    },
+    roomInfoFooter: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
     },
-    roomTitleContainer: {
+    homestayContainer: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
+        marginRight: 8,
+    },
+    homestayText: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        marginLeft: 6,
         flex: 1,
     },
-    roomTitle: {
+    roomPrice: {
         fontSize: 15,
-        fontWeight: 'bold',
-        color: colors.textPrimary,
-        marginLeft: 8,
-        flex: 1,
-    },
-    roomTotalPrice: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '700',
         color: colors.primary,
     },
     homestayImageBg: {
@@ -968,12 +1039,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.textPrimary,
         marginLeft: 8,
-    },
-    roomsListTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: colors.textPrimary,
-        marginBottom: 12,
     },
     contactInfoContainer: { borderRadius: 12 },
     contactInfoRow: {

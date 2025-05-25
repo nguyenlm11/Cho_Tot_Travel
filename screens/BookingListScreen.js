@@ -15,13 +15,14 @@ import LoadingScreen from '../components/LoadingScreen';
 moment.locale('vi');
 
 const STATUS_MAPPING = {
-    0: { text: 'Chưa thanh toán', color: '#FAD961', icon: 'time-outline' },
+    0: { text: 'Chờ thanh toán', color: '#FAD961', icon: 'time-outline' },
     1: { text: 'Chờ nhận phòng', color: '#4CAF50', icon: 'checkmark-circle' },
-    2: { text: 'Đang phục vụ', color: '#29B6F6', icon: 'sync-outline' },
+    2: { text: 'Đang lưu trú', color: '#29B6F6', icon: 'sync-outline' },
     3: { text: 'Đã trả phòng', color: '#8BC34A', icon: 'checkmark-done-circle' },
     4: { text: 'Đã hủy', color: '#F44336', icon: 'close-circle' },
     5: { text: 'Đồng ý hoàn tiền', color: '#9E9E9E', icon: 'remove-circle' },
-    6: { text: 'Yêu cầu hoàn trả', color: '#FF9800', icon: 'cash-outline' }
+    6: { text: 'Yêu cầu hoàn tiền', color: '#FF9800', icon: 'cash-outline' },
+    7: { text: 'Hủy bởi chủ nhà', color: '#9C27B0', icon: 'close-circle' }
 };
 
 const CACHE_DURATION = 5 * 60 * 1000;
@@ -81,7 +82,7 @@ const BookingItem = React.memo(({ item, index, onPress, onQRPress }) => {
                     <View style={styles.bookingInfoRow}>
                         <View style={styles.bookingInfoItem}>
                             <Text style={styles.bookingInfoLabel}>Mã đặt phòng</Text>
-                            <Text style={styles.bookingInfoValue}>#{item.bookingID || 'N/A'}</Text>
+                            <Text style={styles.bookingInfoValue} numberOfLines={1}>{item.bookingCode}</Text>
                         </View>
 
                         <View style={styles.bookingInfoItem}>

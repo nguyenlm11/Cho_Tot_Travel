@@ -101,7 +101,7 @@ export const CartProvider = ({ children }) => {
             homeStayID: params.homeStayId || null,
             rentalId: params.rentalId || null,
             price: room.price || 0,
-            image: room.image || null,
+            image: room.imageRooms?.[0]?.image,
             roomTypeName: roomType?.name,
             checkInDate: formattedCheckIn,
             checkOutDate: formattedCheckOut,
@@ -264,12 +264,28 @@ export const CartProvider = ({ children }) => {
             if (roomTypePricings[roomTypeId]) {
                 const pricings = roomTypePricings[roomTypeId];
                 const pricing = pricings.find(p => p.dayType === dateType);
-                return pricing ? pricing.rentPrice : 0;
+                if (pricing) {
+                    return pricing.rentPrice;
+                }
+                // Nếu không tìm thấy pricing cho dayType 1 hoặc 2, sử dụng giá ngày thường
+                if (dateType === 1 || dateType === 2) {
+                    const normalPricing = pricings.find(p => p.dayType === 0);
+                    return normalPricing ? normalPricing.rentPrice : 0;
+                }
+                return 0;
             }
             if (pendingPricingRequests.current[roomTypeId]) {
                 const pricings = await pendingPricingRequests.current[roomTypeId];
                 const pricing = pricings.find(p => p.dayType === dateType);
-                return pricing ? pricing.rentPrice : 0;
+                if (pricing) {
+                    return pricing.rentPrice;
+                }
+                // Nếu không tìm thấy pricing cho dayType 1 hoặc 2, sử dụng giá ngày thường
+                if (dateType === 1 || dateType === 2) {
+                    const normalPricing = pricings.find(p => p.dayType === 0);
+                    return normalPricing ? normalPricing.rentPrice : 0;
+                }
+                return 0;
             }
             pendingPricingRequests.current[roomTypeId] = apiClient.get(`/api/homestay/GetAllPricingByRoomType/${roomTypeId}`)
                 .then(response => {
@@ -290,7 +306,15 @@ export const CartProvider = ({ children }) => {
                 });
             const pricings = await pendingPricingRequests.current[roomTypeId];
             const pricing = pricings.find(p => p.dayType === dateType);
-            return pricing ? pricing.rentPrice : 0;
+            if (pricing) {
+                return pricing.rentPrice;
+            }
+            // Nếu không tìm thấy pricing cho dayType 1 hoặc 2, sử dụng giá ngày thường
+            if (dateType === 1 || dateType === 2) {
+                const normalPricing = pricings.find(p => p.dayType === 0);
+                return normalPricing ? normalPricing.rentPrice : 0;
+            }
+            return 0;
         } catch (error) {
             return 0;
         }

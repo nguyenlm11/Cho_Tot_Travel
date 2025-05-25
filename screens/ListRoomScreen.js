@@ -3,9 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Platform
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Animated, { FadeInDown, FadeIn, useSharedValue, withSpring } from 'react-native-reanimated';
-import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
-import PropTypes from 'prop-types';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import roomApi from '../services/api/roomApi';
 import CalendarModal from '../components/Modal/CalendarModal';
@@ -14,104 +13,102 @@ import { useCart } from '../contexts/CartContext';
 import CartBadge from '../components/CartBadge';
 import LoadingScreen from '../components/LoadingScreen';
 import DropdownMenuTabs from '../components/DropdownMenuTabs';
+import ImageViewer from '../components/ImageViewer';
 
 const isIOS = Platform.OS === 'ios';
 const STATUSBAR_HEIGHT = isIOS ? 44 : StatusBar.currentHeight;
 
 const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
-    const scale = useSharedValue(1);
-    const handlePressIn = useCallback(() => {
-        scale.value = withSpring(0.97, { damping: 15 });
-    }, [scale]);
-    const handlePressOut = useCallback(() => {
-        scale.value = withSpring(1, { damping: 15 });
-    }, [scale]);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [isImageViewerVisible, setImageViewerVisible] = useState(false);
+    const handleOpenImageViewer = () => { setImageViewerVisible(true) };
+    const handleCloseImageViewer = () => { setImageViewerVisible(false) };
+    const images = item?.imageRooms?.length > 0 ? item.imageRooms.map(img => ({ uri: img.image })) : [{ uri: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }];
 
     return (
         <Animated.View
             style={styles.itemContainer}
             entering={FadeInDown.delay(index * 80).springify()}
         >
-            <TouchableOpacity
-                activeOpacity={0.9}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                onPress={() => onSelectRoom(item)}
-            >
-                <Animated.View
-                    style={[styles.roomCard, isSelected && styles.selectedRoomCard]}>
-                    <View style={styles.roomImageContainer}>
-                        <Image
-                            source={{ uri: item.imageRooms?.[0]?.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
-                            style={styles.roomImage}
-                        />
+            <Animated.View
+                style={[styles.roomCard, isSelected && styles.selectedRoomCard]}>
+                <TouchableOpacity
+                    style={styles.roomImageContainer}
+                    onPress={handleOpenImageViewer}
+                    activeOpacity={0.9}
+                >
+                    <Image
+                        source={{ uri: item?.imageRooms[currentImageIndex]?.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                        style={styles.roomImage}
+                        resizeMode="cover"
+                    />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.5)']}
+                        style={styles.imageOverlay}
+                    />
+                    <View style={styles.roomNumberContainer}>
                         <LinearGradient
-                            colors={['rgba(0,0,0,0.7)', 'transparent', 'rgba(0,0,0,0.5)']}
-                            style={styles.imageOverlay}
-                        />
-                        <View style={styles.roomNumberContainer}>
-                            <LinearGradient
-                                colors={[isSelected ? colors.secondary : colors.primary, isSelected ? colors.primary : colors.secondary]}
-                                style={styles.roomNumberBadge}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 0 }}
-                            >
-                                <Text style={styles.roomNumberText}>{item.rentPrice.toLocaleString()}đ</Text>
-                                <Text style={styles.perNightText}>/đêm</Text>
-                            </LinearGradient>
-                        </View>
-                        
-                        <View style={styles.roomNumberContainer2}>
-                            <View style={styles.roomTypeBadge}>
-                                <Text style={styles.roomTypeText}>Phòng {item.roomNumber}</Text>
-                            </View>
-                        </View>
-                    </View>
-
-                    <View style={styles.roomContent}>
-                        <View style={styles.roomInfoSection}>
-                            <Text style={styles.roomName}>Phòng {item.roomNumber}</Text>
-                            <View style={styles.roomFeatures}>
-                                <View style={styles.featureItem}>
-                                    <MaterialIcons name="king-bed" size={16} color={colors.textSecondary} />
-                                    <Text style={styles.featureText}>{item.roomTypeName}</Text>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-
-                    {isSelected && (
-                        <LinearGradient
-                            colors={[colors.primary, colors.secondary]}
+                            colors={[isSelected ? colors.secondary : colors.primary, isSelected ? colors.primary : colors.secondary]}
+                            style={styles.roomNumberBadge}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
-                            style={styles.selectedBadge}
                         >
-                            <FontAwesome5 name="check-circle" size={16} color="#fff" solid />
-                            <Text style={styles.selectedBadgeText}>Đã chọn</Text>
+                            <Text style={styles.roomNumberText}>{item.rentPrice.toLocaleString()}đ</Text>
+                            <Text style={styles.perNightText}>/đêm</Text>
                         </LinearGradient>
+                    </View>
+
+                    <View style={styles.roomNumberContainer2}>
+                        <View style={styles.roomTypeBadge}>
+                            <Text style={styles.roomTypeText}>Phòng {item.roomNumber}</Text>
+                        </View>
+                    </View>
+
+                    {item.imageRooms.length > 1 && (
+                        <View style={styles.imageIndicator}>
+                            {item.imageRooms.map((_, idx) => (
+                                <View
+                                    key={idx}
+                                    style={[
+                                        styles.indicatorDot,
+                                        idx === currentImageIndex && styles.indicatorDotActive
+                                    ]}
+                                />
+                            ))}
+                        </View>
                     )}
-                </Animated.View>
-            </TouchableOpacity>
+                </TouchableOpacity>
+
+                <View style={styles.roomContent}>
+                    <View style={styles.roomInfoSection}>
+                        <Text style={styles.roomName}>Phòng {item.roomNumber}</Text>
+                        <View style={styles.roomFeatures}>
+                            <View style={styles.featureItem}>
+                                <MaterialIcons name="king-bed" size={16} color={colors.textSecondary} />
+                                <Text style={styles.featureText}>{item.roomTypeName}</Text>
+                            </View>
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.selectButton, isSelected && styles.selectedButton]}
+                        onPress={() => onSelectRoom(item)}
+                    >
+                        <Text style={[styles.selectButtonText, isSelected && styles.selectedButtonText]}>
+                            {isSelected ? 'Đã chọn' : 'Chọn phòng'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </Animated.View>
+
+            <ImageViewer
+                visible={isImageViewerVisible}
+                onClose={handleCloseImageViewer}
+                images={images}
+                initialIndex={currentImageIndex}
+            />
         </Animated.View>
     );
 });
-
-RoomItem.propTypes = {
-    item: PropTypes.shape({
-        roomID: PropTypes.number.isRequired,
-        roomNumber: PropTypes.string.isRequired,
-        roomTypeName: PropTypes.string.isRequired,
-        rentPrice: PropTypes.number.isRequired,
-        imageRooms: PropTypes.arrayOf(PropTypes.shape({
-            imageRoomID: PropTypes.number,
-            image: PropTypes.string
-        }))
-    }).isRequired,
-    index: PropTypes.number.isRequired,
-    onSelectRoom: PropTypes.func.isRequired,
-    isSelected: PropTypes.bool.isRequired,
-};
 
 const FilterHeader = React.memo(({ onPress, checkInDate, checkOutDate }) => {
     const formatDate = useCallback((dateString) => {
@@ -159,12 +156,6 @@ const FilterHeader = React.memo(({ onPress, checkInDate, checkOutDate }) => {
     );
 });
 
-FilterHeader.propTypes = {
-    onPress: PropTypes.func.isRequired,
-    checkInDate: PropTypes.string,
-    checkOutDate: PropTypes.string,
-};
-
 const EmptyState = React.memo(({ onRetry }) => (
     <View style={styles.emptyContainer}>
         <Image
@@ -192,10 +183,6 @@ const EmptyState = React.memo(({ onRetry }) => (
         </TouchableOpacity>
     </View>
 ));
-
-EmptyState.propTypes = {
-    onRetry: PropTypes.func.isRequired,
-};
 
 export default function ListRoomScreen() {
     const navigation = useNavigation();
@@ -483,16 +470,18 @@ const styles = StyleSheet.create({
     selectedRoomCard: {
         borderColor: colors.primary,
         borderWidth: 2,
-        shadowColor: colors.primary,
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
     },
     roomContent: {
         padding: 16,
         paddingTop: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
-    roomImageContainer: { position: 'relative' },
+    roomImageContainer: {
+        position: 'relative',
+        height: 180,
+    },
     roomImage: {
         width: '100%',
         height: 180,
@@ -543,7 +532,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 13,
     },
-    roomInfoSection: { marginTop: 6 },
+    roomInfoSection: {
+        flex: 1,
+        marginRight: 12,
+    },
     roomName: {
         fontSize: 18,
         fontWeight: 'bold',
@@ -565,17 +557,24 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         marginLeft: 4,
     },
-    selectedBadge: {
-        flexDirection: 'row',
+    selectButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.primary,
+        minWidth: 100,
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 10,
     },
-    selectedBadgeText: {
+    selectedButton: {
+        backgroundColor: colors.secondary,
+    },
+    selectButtonText: {
         color: '#fff',
         fontWeight: '600',
-        fontSize: 15,
+        fontSize: 14,
+    },
+    selectedButtonText: {
+        color: '#fff',
     },
     emptyContainer: {
         flex: 1,

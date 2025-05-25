@@ -9,6 +9,7 @@ import homeStayApi from '../services/api/homeStayApi';
 import ImageViewer from '../components/ImageViewer';
 import LoadingScreen from '../components/LoadingScreen';
 import DropdownMenuTabs from '../components/DropdownMenuTabs';
+import { useCart } from '../contexts/CartContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ export default function HomestayRentalDetailScreen() {
     const [expanded, setExpanded] = useState(false);
     const [imageViewerVisible, setImageViewerVisible] = useState(false);
     const [showAllPrices, setShowAllPrices] = useState(false);
+    const { clearCart } = useCart();
 
     useEffect(() => {
         fetchRentalDetail();
@@ -83,6 +85,7 @@ export default function HomestayRentalDetailScreen() {
             homeStayId: homeStayId,
             rentalName: rental.name,
         });
+        clearCart();
     };
 
     const renderImageIndicator = (images) => (

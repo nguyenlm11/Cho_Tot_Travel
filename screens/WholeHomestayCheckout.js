@@ -114,7 +114,14 @@ const WholeHomestayCheckout = () => {
             }
         }
         const policy = pricingPolicies.find(p => p.dayType === dateType);
-        return policy ? policy.rentPrice : (bookingData?.price);
+        if (policy) {
+            return policy.rentPrice;
+        }
+        if (dateType === 1 || dateType === 2) {
+            const normalPolicy = pricingPolicies.find(p => p.dayType === 0);
+            return normalPolicy ? normalPolicy.rentPrice : bookingData?.price;
+        }
+        return bookingData?.price;
     };
 
     const calculateTotalPrice = () => {

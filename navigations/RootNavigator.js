@@ -33,6 +33,7 @@ import WholeHomestayCheckout from '../screens/WholeHomestayCheckout';
 import WriteReviewScreen from '../screens/WriteReviewScreen';
 import RatingDetailScreen from '../screens/RatingDetailScreen';
 import BookingServiceScreen from '../screens/BookingServiceScreen';
+import PriceDetailScreen from '../screens/PriceDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -114,6 +115,7 @@ const MainStack = () => {
             <Stack.Screen name="Review" component={WriteReviewScreen} />
             <Stack.Screen name="RatingDetail" component={RatingDetailScreen} />
             <Stack.Screen name="BookingService" component={BookingServiceScreen} />
+            <Stack.Screen name="PriceDetail" component={PriceDetailScreen} />
             {/* Modal Screens */}
             <Stack.Group screenOptions={modalScreenOptions}>
                 <Stack.Screen

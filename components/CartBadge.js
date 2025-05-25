@@ -155,7 +155,7 @@ export default function CartBadge({ params = {} }) {
         return (
             <View style={styles.roomItem}>
                 <Image
-                    source={{ uri: item.image || 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
+                    source={{ uri: 'https://amdmodular.com/wp-content/uploads/2021/09/thiet-ke-phong-ngu-homestay-7-scaled.jpg' }}
                     style={styles.roomImage}
                 />
                 <View style={styles.roomInfo}>
