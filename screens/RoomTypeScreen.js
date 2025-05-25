@@ -30,7 +30,7 @@ export default function RoomTypeScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
-    const { getRoomsByType, getCartCount, setHomeStay, setRental } = useCart();
+    const { getRoomsByType, getCartCount, setHomeStay } = useCart();
 
     useEffect(() => {
         fetchRoomTypes();
@@ -40,9 +40,9 @@ export default function RoomTypeScreen() {
         if (homeStayId) {
             setHomeStay(homeStayId);
         }
-        if (rentalId) {
-            setRental(rentalId);
-        }
+        // if (rentalId) {
+        //     setRental(rentalId);
+        // }
     }, [homeStayId, rentalId]);
 
     const fetchRoomTypes = async () => {
@@ -74,7 +74,7 @@ export default function RoomTypeScreen() {
     if (rentalId) params.rentalId = rentalId;
 
     const handleSelectRoom = (roomType) => {
-        const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name };
+        const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name, rentalName: rentalName };
         if (homeStayId) navParams.homeStayId = homeStayId;
         if (rentalId) navParams.rentalId = rentalId;
         navigation.navigate('ListRoom', navParams);

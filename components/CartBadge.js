@@ -159,8 +159,9 @@ export default function CartBadge({ params = {} }) {
                     style={styles.roomImage}
                 />
                 <View style={styles.roomInfo}>
-                    <Text style={styles.roomTypeName}>{item.roomTypeName}</Text>
+                    <Text style={styles.roomTypeName}>{item.roomTypeName} - {item.rentalName}</Text>
                     <Text style={styles.roomNumber}>Phòng {item.roomNumber}</Text>
+
 
                     {loading ? (
                         <ActivityIndicator size="small" color={colors.primary} />

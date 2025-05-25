@@ -195,13 +195,19 @@ const CheckoutScreen = () => {
       Alert.alert('Thông báo', 'Không tìm thấy thông tin homestay');
       return null;
     }
-    const bookingDetails = selectedRooms.map(room => ({
-      homeStayTypeID: rentalId || room.rentalId || 0,
-      roomTypeID: room.roomTypeID || 0,
-      roomID: room.roomID,
-      checkInDate: room.checkInDate,
-      checkOutDate: room.checkOutDate
-    }));
+    console.log('Selected rooms:', JSON.stringify(selectedRooms, null, 2));
+    const bookingDetails = selectedRooms.map(room => {
+      console.log('Creating booking detail for room:', room.roomNumber);
+      console.log('Room rentalId:', room.rentalId);
+      return {
+        homeStayTypeID: room.rentalId,
+        roomTypeID: room.roomTypeID || 0,
+        roomID: room.roomID,
+        checkInDate: room.checkInDate,
+        checkOutDate: room.checkOutDate
+      };
+    });
+    console.log('Final booking details:', JSON.stringify(bookingDetails, null, 2));
     return {
       numberOfChildren: currentSearch?.children || 0,
       numberOfAdults: currentSearch?.adults || 1,
@@ -209,7 +215,7 @@ const CheckoutScreen = () => {
       homeStayID: homeStayId,
       bookingDetails: bookingDetails
     };
-  }, [selectedRooms, homeStayId, rentalId, currentSearch, userData]);
+  }, [selectedRooms, homeStayId, currentSearch, userData]);
 
   const getDepositAmount = useMemo(() => {
     if (!commissionRate || commissionRate === null) {
@@ -360,8 +366,8 @@ const CheckoutScreen = () => {
         />
         <View style={styles.roomDetails}>
           <View style={styles.roomInfo}>
-            <Text style={styles.roomTypeName}>{room.roomTypeName || 'Phòng'}</Text>
-            <Text style={styles.roomNumber}>Phòng {room.roomNumber || ''}</Text>
+          <Text style={styles.roomTypeName}>{room?.roomTypeName} - {room?.rentalName}</Text>
+            <Text style={styles.roomNumber}>Phòng {room?.roomNumbe}</Text>
           </View>
 
           {calculating ? (

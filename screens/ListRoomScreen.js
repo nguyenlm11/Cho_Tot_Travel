@@ -189,7 +189,7 @@ export default function ListRoomScreen() {
     const route = useRoute();
     const { currentSearch, updateCurrentSearch } = useSearch();
     const { addRoomToCart, removeRoomFromCart, isRoomInCart, clearCart } = useCart();
-    const { roomTypeId, roomTypeName, homeStayId, rentalId } = route.params || {};
+    const { roomTypeId, roomTypeName, homeStayId, rentalId, rentalName } = route.params || {};
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -248,15 +248,23 @@ export default function ListRoomScreen() {
         if (isRoomInCart(room.roomID)) {
             removeRoomFromCart(room.roomID);
         } else {
+            const roomType = {
+                roomTypeID: roomTypeId,
+                name: roomTypeName
+            };
             addRoomToCart(
                 room,
-                { roomTypeID: roomTypeId, name: roomTypeName },
-                params,
-                currentSearch?.formattedCheckIn,
-                currentSearch?.formattedCheckOut
+                roomType,
+                {
+                    homeStayId,
+                    rentalId: rentalId,
+                    rentalName: rentalName
+                },
+                currentSearch.formattedCheckIn,
+                currentSearch.formattedCheckOut
             );
         }
-    }, [isRoomInCart, removeRoomFromCart, addRoomToCart, roomTypeId, roomTypeName, params, currentSearch]);
+    }, [roomTypeId, roomTypeName, homeStayId, rentalName, currentSearch, addRoomToCart, removeRoomFromCart, isRoomInCart]);
 
     const handleDateSelect = useCallback(async (dateInfo) => {
         const updatedSearch = {

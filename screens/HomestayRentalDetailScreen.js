@@ -85,7 +85,6 @@ export default function HomestayRentalDetailScreen() {
             homeStayId: homeStayId,
             rentalName: rental.name,
         });
-        clearCart();
     };
 
     const renderImageIndicator = (images) => (

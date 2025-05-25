@@ -4,7 +4,7 @@ import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { colors } from '../constants/Colors';
 import { useNavigation } from '@react-navigation/native';
 const DetailRoomScreen = ({ route }) => {
-  const { image, title, size, guests, beds, price } = route.params;
+  const { image, title, size, guests, beds, price, rentalName } = route.params;
   const navigation = useNavigation();
 
   return (
@@ -13,6 +13,7 @@ const DetailRoomScreen = ({ route }) => {
       <View style={styles.contentContainer}>
         <View style={styles.roomInfo}>
           <Text style={styles.roomTitle}>{title}</Text>
+          <Text style={styles.rentalName}>Căn hộ: {rentalName}</Text>
           <Text style={styles.roomSize}>{size}</Text>
           <View style={styles.infoRow}><FontAwesome5 name="user-friends" size={16} /><Text style={styles.infoText}>{guests}</Text></View>
           <View style={styles.infoRow}><FontAwesome5 name="bed" size={16} /><Text style={styles.infoText}>{beds}</Text></View>
@@ -146,6 +147,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  rentalName: {
+    fontSize: 15,
+    color: colors.primary,
+    marginBottom: 6,
+    fontWeight: '500'
   },
 });
 
