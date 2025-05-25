@@ -10,6 +10,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DropdownMenuTabs from '../components/DropdownMenuTabs';
+import { useCart } from '../contexts/CartContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,6 +28,7 @@ const palette = {
 };
 
 export default function HomestayDetailScreen() {
+  const { clearCart } = useCart();
   const navigation = useNavigation();
   const route = useRoute();
   const { id: homestayId } = route.params;
@@ -59,6 +61,7 @@ export default function HomestayDetailScreen() {
   };
 
   const handleListRoom = () => {
+    clearCart();
     navigation.navigate('HomestayRental', { homeStayId: homestayId });
   };
 

@@ -9,8 +9,6 @@ export const CartProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentHomeStayId, setCurrentHomeStayId] = useState(null);
-    const [currentRentalId, setCurrentRentalId] = useState(null);
-    const [currentRoomTypeId, setCurrentRoomTypeId] = useState(null);
     const [roomPrices, setRoomPrices] = useState({});
     const [roomTypePricings, setRoomTypePricings] = useState({});
     const pendingRequests = React.useRef({});
@@ -19,14 +17,12 @@ export const CartProvider = ({ children }) => {
     useEffect(() => {
         const loadCart = async () => {
             try {
-                const [savedCart, homeStayId, rentalId] = await Promise.all([
+                const [savedCart, homeStayId] = await Promise.all([
                     AsyncStorage.getItem('roomCart'),
-                    AsyncStorage.getItem('currentHomeStayId'),
-                    AsyncStorage.getItem('currentRentalId')
+                    AsyncStorage.getItem('currentHomeStayId')
                 ]);
                 if (savedCart) setCartItems(JSON.parse(savedCart));
                 if (homeStayId) setCurrentHomeStayId(parseInt(homeStayId));
-                if (rentalId) setCurrentRentalId(parseInt(rentalId));
             } catch (error) {
                 console.error('Lỗi khi tải giỏ phòng:', error);
             } finally {
@@ -47,68 +43,56 @@ export const CartProvider = ({ children }) => {
         };
         saveCart();
     }, [cartItems, loading]);
+
     useEffect(() => {
         if (loading) return;
         const saveIds = async () => {
             try {
-                const updates = [];
                 if (currentHomeStayId) {
-                    updates.push(AsyncStorage.setItem('currentHomeStayId', currentHomeStayId.toString()));
-                }
-                if (currentRentalId) {
-                    updates.push(AsyncStorage.setItem('currentRentalId', currentRentalId.toString()));
-                }
-                if (currentRoomTypeId) {
-                    updates.push(AsyncStorage.setItem('currentRoomTypeId', currentRoomTypeId.toString()));
-                }
-
-                if (updates.length > 0) {
-                    await Promise.all(updates);
+                    await AsyncStorage.setItem('currentHomeStayId', currentHomeStayId.toString());
                 }
             } catch (error) {
                 console.error('Lỗi khi lưu ID:', error);
             }
         };
         saveIds();
-    }, [currentHomeStayId, currentRentalId, currentRoomTypeId, loading]);
+    }, [currentHomeStayId, loading]);
 
     const setHomeStay = useCallback((homeStayId) => {
         setCurrentHomeStayId(homeStayId);
     }, []);
 
-    const setRental = useCallback((rentalId) => {
-        setCurrentRentalId(rentalId);
-    }, []);
-
     const addRoomToCart = useCallback((room, roomType, params = {}, checkInDate, checkOutDate) => {
-        if (params.homeStayId) {
-            setCurrentHomeStayId(params.homeStayId);
-        }
-        if (params.rentalId) {
-            setCurrentRentalId(params.rentalId);
-        }
-        if (params.roomTypeId) {
-            setCurrentRoomTypeId(params.roomTypeId);
-        }
         const formattedCheckIn = checkInDate ? new Date(checkInDate).toISOString() : new Date().toISOString();
         const formattedCheckOut = checkOutDate ? new Date(checkOutDate).toISOString() : new Date(Date.now() + 86400000).toISOString();
-        const cartItem = {
-            id: `${room.roomID}_${Date.now()}`,
-            roomID: room.roomID,
-            roomNumber: room.roomNumber,
-            roomTypeID: roomType?.roomTypeID || 0,
-            homeStayTypeID: room.homeStayTypeID || 0,
-            homeStayID: params.homeStayId || null,
-            rentalId: params.rentalId || null,
-            price: room.price || 0,
-            image: room.imageRooms?.[0]?.image,
-            roomTypeName: roomType?.name,
-            checkInDate: formattedCheckIn,
-            checkOutDate: formattedCheckOut,
-        };
+
         setCartItems(prevItems => {
             const existingItem = prevItems.find(item => item.roomID === room.roomID);
             if (existingItem) return prevItems;
+            if (prevItems.length > 0) {
+                const firstItemHomeStayId = prevItems[0].homeStayID;
+                if (params.homeStayId !== firstItemHomeStayId) {
+                    console.warn('Không thể thêm phòng từ homestay khác vào giỏ hàng');
+                    return prevItems;
+                }
+            }
+
+            const cartItem = {
+                id: `${room.roomID}_${Date.now()}`,
+                roomID: room.roomID,
+                roomNumber: room.roomNumber,
+                roomTypeID: roomType?.roomTypeID || 0,
+                homeStayTypeID: room.homeStayTypeID || 0,
+                homeStayID: params.homeStayId || null,
+                rentalId: room.rentalId || params.rentalId || null,
+                rentalName: room.rentalName || params.rentalName || 'Không xác định',
+                price: room.price || 0,
+                image: room.imageRooms?.[0]?.image,
+                roomTypeName: roomType?.name,
+                checkInDate: formattedCheckIn,
+                checkOutDate: formattedCheckOut,
+            };
+            console.log('cartItem: ', cartItem);
             return [...prevItems, cartItem];
         });
     }, []);
@@ -125,32 +109,23 @@ export const CartProvider = ({ children }) => {
         return cartItems.filter(item => {
             const matchesRoomType = roomTypeId ? item.roomTypeID === roomTypeId : true;
             let matchesHomeStay = true;
-            let matchesRental = true;
             if (params.homeStayId) {
                 matchesHomeStay = item.homeStayID === params.homeStayId;
             }
-            if (params.rentalId) {
-                matchesRental = item.rentalId === params.rentalId;
-            }
-            return matchesRoomType && matchesHomeStay && matchesRental;
+            return matchesRoomType && matchesHomeStay;
         });
     }, [cartItems]);
 
     const getRoomsByParams = useCallback((params = {}) => {
-        if (!params || (!params.homeStayId && !params.rentalId)) {
+        if (!params || !params.homeStayId) {
             return cartItems;
         }
         return cartItems.filter(item => {
             let matchesHomeStay = true;
-            let matchesRental = true;
-
             if (params.homeStayId) {
                 matchesHomeStay = item.homeStayID === params.homeStayId;
             }
-            if (params.rentalId) {
-                matchesRental = item.rentalId === params.rentalId;
-            }
-            return matchesHomeStay && matchesRental;
+            return matchesHomeStay;
         });
     }, [cartItems]);
 
@@ -168,16 +143,21 @@ export const CartProvider = ({ children }) => {
 
     const createBookingData = useCallback((accountID, numberOfAdults, numberOfChildren) => {
         if (!currentHomeStayId) return null;
-        const roomsInCurrentHomeStay = getRoomsByParams({ homeStayId: currentHomeStayId });
-        if (roomsInCurrentHomeStay.length === 0) return null;
-        const bookingDetails = roomsInCurrentHomeStay.map(room => ({
-            rentalId: currentRentalId,
-            roomTypeID: room.roomTypeID,
-            roomID: room.roomID,
-            checkInDate: room.checkInDate,
-            checkOutDate: room.checkOutDate
-        }));
-        return {
+        if (cartItems.length === 0) return null;
+        const bookingDetails = cartItems.map(cartItem => {
+            console.log('Creating booking detail for room:', cartItem.roomNumber);
+            console.log('Room rentalId:', cartItem.rentalId);
+            const detail = {
+                rentalId: cartItem.rentalId,
+                roomTypeID: cartItem.roomTypeID,
+                roomID: cartItem.roomID,
+                checkInDate: cartItem.checkInDate,
+                checkOutDate: cartItem.checkOutDate
+            };
+            return detail;
+        });
+
+        const booking = {
             numberOfChildren: numberOfChildren || 0,
             numberOfAdults: numberOfAdults || 0,
             accountID: accountID || "string",
@@ -187,7 +167,8 @@ export const CartProvider = ({ children }) => {
                 bookingServicesDetails: []
             }
         };
-    }, [currentHomeStayId, currentRentalId, getRoomsByParams]);
+        return booking;
+    }, [currentHomeStayId, cartItems]);
 
     const fetchRoomPrice = useCallback(async (room) => {
         try {
@@ -267,7 +248,6 @@ export const CartProvider = ({ children }) => {
                 if (pricing) {
                     return pricing.rentPrice;
                 }
-                // Nếu không tìm thấy pricing cho dayType 1 hoặc 2, sử dụng giá ngày thường
                 if (dateType === 1 || dateType === 2) {
                     const normalPricing = pricings.find(p => p.dayType === 0);
                     return normalPricing ? normalPricing.rentPrice : 0;
@@ -280,7 +260,6 @@ export const CartProvider = ({ children }) => {
                 if (pricing) {
                     return pricing.rentPrice;
                 }
-                // Nếu không tìm thấy pricing cho dayType 1 hoặc 2, sử dụng giá ngày thường
                 if (dateType === 1 || dateType === 2) {
                     const normalPricing = pricings.find(p => p.dayType === 0);
                     return normalPricing ? normalPricing.rentPrice : 0;
@@ -323,9 +302,7 @@ export const CartProvider = ({ children }) => {
     const cartContextValue = useMemo(() => ({
         cartItems,
         currentHomeStayId,
-        currentRentalId,
         setHomeStay,
-        setRental,
         addRoomToCart,
         removeRoomFromCart,
         clearCart,
@@ -341,9 +318,7 @@ export const CartProvider = ({ children }) => {
     }), [
         cartItems,
         currentHomeStayId,
-        currentRentalId,
         setHomeStay,
-        setRental,
         addRoomToCart,
         removeRoomFromCart,
         clearCart,
