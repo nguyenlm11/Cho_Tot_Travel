@@ -40,9 +40,6 @@ export default function RoomTypeScreen() {
         if (homeStayId) {
             setHomeStay(homeStayId);
         }
-        // if (rentalId) {
-        //     setRental(rentalId);
-        // }
     }, [homeStayId, rentalId]);
 
     const fetchRoomTypes = async () => {
@@ -148,33 +145,6 @@ export default function RoomTypeScreen() {
                             <Text style={styles.roomDescription} numberOfLines={2}>
                                 {item.description || 'Không có mô tả'}
                             </Text>
-
-                            <View style={styles.amenitiesContainer}>
-                                <View style={styles.amenityItem}>
-                                    <View style={styles.amenityIconContainer}>
-                                        <FontAwesome5 name="bed" size={14} color={palette.primary} />
-                                    </View>
-                                    <Text style={styles.amenityText}>{item.numberBed || 0} giường</Text>
-                                </View>
-
-                                <View style={styles.amenityDivider} />
-
-                                <View style={styles.amenityItem}>
-                                    <View style={styles.amenityIconContainer}>
-                                        <FontAwesome5 name="bath" size={14} color={palette.primary} />
-                                    </View>
-                                    <Text style={styles.amenityText}>{item.numberBathRoom || 0} phòng tắm</Text>
-                                </View>
-
-                                <View style={styles.amenityDivider} />
-
-                                <View style={styles.amenityItem}>
-                                    <View style={styles.amenityIconContainer}>
-                                        <FontAwesome5 name="wifi" size={14} color={palette.primary} />
-                                    </View>
-                                    <Text style={styles.amenityText}>{item.numberWifi || 0} WiFi</Text>
-                                </View>
-                            </View>
 
                             <View style={styles.bottomSection}>
                                 <View style={styles.infoContainer}>
@@ -452,35 +422,6 @@ const styles = StyleSheet.create({
         color: palette.text.medium,
         marginBottom: 16,
         lineHeight: 20,
-    },
-    amenitiesContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-        backgroundColor: 'rgba(0,0,0,0.02)',
-        borderRadius: 12,
-        padding: 12,
-    },
-    amenityItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    amenityIconContainer: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 8,
-    },
-    amenityText: {
-        fontSize: 14,
-        color: palette.text.medium,
-    },
-    amenityDivider: {
-        width: 1,
-        backgroundColor: 'rgba(0,0,0,0.1)',
     },
     bottomSection: {
         flexDirection: 'row',
