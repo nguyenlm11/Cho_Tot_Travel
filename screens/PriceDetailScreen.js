@@ -128,7 +128,7 @@ export default function PriceDetailScreen() {
                     <Ionicons name="chevron-back" size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Chi tiết giá phòng</Text>
-                {/* <View /> */}
+                <View />
             </LinearGradient>
 
             <ScrollView

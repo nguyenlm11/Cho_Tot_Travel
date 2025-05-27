@@ -48,7 +48,7 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
                     />
                     <View style={styles.roomNumberContainer}>
                         <LinearGradient
-                            colors={[isSelected ? colors.secondary : colors.primary, isSelected ? colors.primary : colors.secondary]}
+                            colors={[colors.primary, colors.secondary]}
                             style={styles.roomNumberBadge}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
@@ -81,23 +81,43 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
 
                 <View style={styles.roomContent}>
                     <View style={styles.roomInfoSection}>
-                        <Text style={styles.roomName}>Phòng {item.roomNumber}</Text>
+                        <View style={styles.roomTitleContainer}>
+                            <Text style={styles.roomName}>Phòng {item.roomNumber}</Text>
+                            <Text style={styles.roomType}>{item.roomTypeName}</Text>
+                        </View>
+                        <View style={styles.divider} />
                         <View style={styles.roomFeatures}>
-                            <View style={styles.featureItem}>
-                                <MaterialIcons name="king-bed" size={16} color={colors.textSecondary} />
-                                <Text style={styles.featureText}>{item.roomTypeName}</Text>
+                            <View style={styles.featureRow}>
+                                <View style={styles.featureItem}>
+                                    <MaterialIcons name="king-bed" size={18} color={colors.primary} />
+                                    <Text style={styles.featureText}>{item.numberBed ? `${item.numberBed} giường` : 'Không có giường'}</Text>
+                                </View>
+                                <View style={styles.featureItem}>
+                                    <MaterialIcons name="wifi" size={18} color={colors.primary} />
+                                    <Text style={styles.featureText}>{item.numberWifi ? `${item.numberWifi} WiFi` : 'Không có WiFi'}</Text>
+                                </View>
+                            </View>
+                            <View style={styles.featureRow}>
+                                <View style={styles.featureItem}>
+                                    <MaterialIcons name="bathroom" size={18} color={colors.primary} />
+                                    <Text style={styles.featureText}>{item.numberBathRoom ? `${item.numberBathRoom} phòng tắm` : 'Không có phòng tắm'}</Text>
+                                </View>
+                                <View style={styles.featureItem}>
+                                    <MaterialIcons name="people" size={18} color={colors.primary} />
+                                    <Text style={styles.featureText}>{item.maxGuests ? `${item.maxGuests} khách` : '2 khách'}</Text>
+                                </View>
                             </View>
                         </View>
                     </View>
-                    <TouchableOpacity
-                        style={[styles.selectButton, isSelected && styles.selectedButton]}
-                        onPress={() => onSelectRoom(item)}
-                    >
-                        <Text style={[styles.selectButtonText, isSelected && styles.selectedButtonText]}>
-                            {isSelected ? 'Đã chọn' : 'Chọn phòng'}
-                        </Text>
-                    </TouchableOpacity>
                 </View>
+                <TouchableOpacity
+                    style={[styles.selectButton, isSelected && styles.selectedButton]}
+                    onPress={() => onSelectRoom(item)}
+                >
+                    <Text style={[styles.selectButtonText, isSelected && styles.selectedButtonText]}>
+                        {isSelected ? 'Đã chọn' : 'Chọn phòng'}
+                    </Text>
+                </TouchableOpacity>
             </Animated.View>
 
             <ImageViewer
@@ -476,7 +496,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(0,0,0,0.05)',
     },
     selectedRoomCard: {
-        borderColor: colors.primary,
+        borderColor: colors.secondary,
         borderWidth: 2,
     },
     roomContent: {
@@ -484,7 +504,7 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
+        alignItems: 'flex-start',
     },
     roomImageContainer: {
         position: 'relative',
@@ -542,36 +562,68 @@ const styles = StyleSheet.create({
     },
     roomInfoSection: {
         flex: 1,
-        marginRight: 12,
+        marginRight: 16,
+    },
+    roomTitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 4,
     },
     roomName: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
-        marginBottom: 8,
+    },
+    roomType: {
+        fontSize: 14,
+        color: colors.primary,
+        fontWeight: '500',
+        backgroundColor: colors.primary + '15',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(0,0,0,0.08)',
+        marginVertical: 12,
     },
     roomFeatures: {
+        flexDirection: 'column',
+    },
+    featureRow: {
         flexDirection: 'row',
-        marginTop: 4,
-        marginBottom: 12,
+        alignItems: 'center',
+        marginBottom: 8,
     },
     featureItem: {
         flexDirection: 'row',
         alignItems: 'center',
         marginRight: 16,
+        backgroundColor: colors.primary + '08',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        minWidth: '45%',
     },
     featureText: {
         fontSize: 13,
         color: colors.textSecondary,
-        marginLeft: 4,
+        marginLeft: 6,
+        fontWeight: '500',
     },
     selectButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
         backgroundColor: colors.primary,
-        minWidth: 100,
+        minWidth: 110,
         alignItems: 'center',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     selectedButton: {
         backgroundColor: colors.secondary,
