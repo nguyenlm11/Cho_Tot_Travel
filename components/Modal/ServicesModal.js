@@ -220,7 +220,6 @@ const ServicesModal = ({ visible, onClose, selectedServices = [], onSelect, home
 
           <View style={styles.servicePriceRow}>
             <View style={styles.priceContainer}>
-              <Icon name="pricetag-outline" size={16} color={colors.primary} style={styles.priceIcon} />
               <Text style={styles.servicePriceLabel}>
                 {item.servicesPrice ? item.servicesPrice.toLocaleString() : 0} đ{item.serviceType === 2 ? '/ngày' : ''}
               </Text>
@@ -531,9 +530,6 @@ const styles = StyleSheet.create({
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  priceIcon: {
-    marginRight: 4,
   },
   servicePriceLabel: {
     fontSize: 18,
