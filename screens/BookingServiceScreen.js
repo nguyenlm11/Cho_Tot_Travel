@@ -25,18 +25,19 @@ const BookingServiceScreen = () => {
     const [cancellationPolicy, setCancellationPolicy] = useState(null);
     const [servicesModalVisible, setServicesModalVisible] = useState(false);
     const [selectedServices, setSelectedServices] = useState([]);
+    const [expandedServices, setExpandedServices] = useState({});
 
     const fetchBookingDetails = useCallback(async () => {
         try {
             setLoading(true);
-            if (!bookingId) {
-                return;
-            }
             const response = await bookingApi.getBookingDetails(bookingId);
             if (response.success) {
                 setBookingData(response.data);
                 if (response.data.bookingServices) {
-                    setServices(response.data.bookingServices);
+                    const sortedServices = [...response.data.bookingServices].sort((a, b) => {
+                        return new Date(b.bookingServicesDate) - new Date(a.bookingServicesDate);
+                    });
+                    setServices(sortedServices);
                 }
                 setError(null);
             } else {
@@ -61,24 +62,12 @@ const BookingServiceScreen = () => {
 
     useEffect(() => {
         fetchBookingDetails();
-    }, [fetchBookingDetails]);
-
-    useEffect(() => {
-        if (bookingData && bookingData.homeStay && bookingData.homeStay.homeStayID) {
-            fetchCancellationPolicy(bookingData.homeStay.homeStayID);
-        } else if (homestayId) {
-            fetchCancellationPolicy(homestayId);
-        }
-    }, [bookingData, fetchCancellationPolicy, homestayId]);
+        fetchCancellationPolicy(homestayId);
+    }, [fetchBookingDetails, homestayId, fetchCancellationPolicy]);
 
     const formatDateTime = useCallback((dateString) => {
-        if (!dateString) return '';
         const date = new Date(dateString);
         return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    }, []);
-
-    const formatCurrency = useCallback((amount) => {
-        return amount ? amount.toLocaleString('vi-VN') + 'đ' : '0đ';
     }, []);
 
     const handleServicePayment = useCallback(async (bookingServiceId) => {
@@ -148,10 +137,6 @@ const BookingServiceScreen = () => {
             );
             return;
         }
-        if (!cancellationPolicy) {
-            Alert.alert('Thông báo', 'Không tìm thấy thông tin chính sách hủy, không thể hoàn tiền');
-            return;
-        }
         const checkInDateObj = checkInDate ? new Date(checkInDate) : new Date(bookingData.bookingDetails?.[0]?.checkInDate);
         const currentDate = new Date();
         const daysUntilCheckIn = Math.ceil((checkInDateObj - currentDate) / (1000 * 60 * 60 * 24));
@@ -181,9 +166,7 @@ const BookingServiceScreen = () => {
                             if (result.success) {
                                 Alert.alert(
                                     'Thành công',
-                                    canRefund
-                                        ? 'Đã gửi yêu cầu hoàn trả thành công'
-                                        : 'Đã hủy dịch vụ thành công'
+                                    canRefund ? 'Đã gửi yêu cầu hoàn trả thành công' : 'Đã hủy dịch vụ thành công'
                                 );
                                 fetchBookingDetails();
                             } else {
@@ -225,7 +208,7 @@ const BookingServiceScreen = () => {
                 bookingID: parseInt(bookingId),
                 bookingServicesDate: new Date().toISOString(),
                 accountID: accountID,
-                homeStayID: bookingData?.homeStay?.homeStayID || homestayId || 0,
+                homeStayID: bookingData?.homeStay?.homeStayID || homestayId,
                 bookingServicesDetails: services.map(service => {
                     let dayRent = 0;
                     if (service.startDate && service.endDate) {
@@ -266,7 +249,6 @@ const BookingServiceScreen = () => {
                 Alert.alert('Lỗi', response.error || 'Không thể thêm dịch vụ, vui lòng thử lại');
             }
         } catch (error) {
-            console.error('Error adding services:', error);
             Alert.alert('Lỗi', 'Đã xảy ra lỗi khi thêm dịch vụ');
         } finally {
             setLoading(false);
@@ -287,10 +269,9 @@ const BookingServiceScreen = () => {
             }
         };
         const statusInfo = getStatusInfo(service.status);
-        const serviceDetail = service.bookingServicesDetails?.[0];
-        const unitPrice = serviceDetail?.unitPrice || 0;
-        const quantity = serviceDetail?.quantity || 1;
-        const dayRent = serviceDetail?.dayRent || 1;
+        const isExpanded = expandedServices[service.bookingServicesID];
+        const servicesToShow = isExpanded ? service.bookingServicesDetails : [service.bookingServicesDetails?.[0]].filter(Boolean);
+        const hasMoreServices = service.bookingServicesDetails?.length > 1;
 
         return (
             <Animated.View
@@ -304,73 +285,72 @@ const BookingServiceScreen = () => {
                 >
                     <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
                         <MaterialCommunityIcons name={statusInfo.icon} size={14} color={statusInfo.color} />
-                        <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>
-                            {statusInfo.text}
-                        </Text>
+                        <Text style={[styles.statusBadgeText, { color: statusInfo.color }]}>{statusInfo.text}</Text>
                     </View>
 
                     <View style={styles.serviceHeader}>
                         <View style={styles.serviceTimeContainer}>
                             <Ionicons name="time-outline" size={16} color={colors.primary} />
                             <Text style={styles.serviceTime}>
-                                {formatDateTime(service.bookingServicesDate)}
+                                {formatDateTime(service.bookingServicesDate)} - #{service.bookingServiceCode}
                             </Text>
                         </View>
                     </View>
 
-                    <View style={styles.serviceInfoContainer}>
-                        <View style={styles.serviceIconContainer}>
-                            <Ionicons name='pricetag-outline' size={24} color={colors.textThird} />
+                    {servicesToShow.map((serviceDetail, detailIndex) => (
+                        <View key={detailIndex} style={[styles.serviceInfoContainer, detailIndex > 0 && styles.serviceDetailDivider]}>
+                            <View style={styles.serviceInfo}>
+                                <Text style={styles.serviceNameText}>Dịch vụ {serviceDetail?.services?.servicesName}</Text>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.priceLabel}>Đơn giá:</Text>
+                                    <Text style={styles.priceValue}>{serviceDetail.unitPrice.toLocaleString()}đ</Text>
+                                </View>
+                                {serviceDetail.quantity > 0 && (
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.priceLabel}>Số lượng:</Text>
+                                        <Text style={styles.priceValue}>{serviceDetail.quantity}</Text>
+                                    </View>
+                                )}
+                                {serviceDetail.dayRent !== null && (
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.priceLabel}>Số ngày thuê:</Text>
+                                        <Text style={styles.priceValue}>{serviceDetail.dayRent}</Text>
+                                    </View>
+                                )}
+                                <View style={styles.servicePriceRow}>
+                                    <Text style={styles.servicePriceLabel}>Thành tiền:</Text>
+                                    <Text style={styles.servicePriceValue}>
+                                        {(serviceDetail.unitPrice * serviceDetail.quantity * (serviceDetail.dayRent || 1)).toLocaleString()}đ
+                                    </Text>
+                                </View>
+                            </View>
                         </View>
-                        <View style={styles.serviceInfo}>
-                            <Text style={styles.serviceNameText}>
-                                {serviceDetail?.services?.servicesName || 'Dịch vụ'}
+                    ))}
+
+                    {hasMoreServices && (
+                        <TouchableOpacity
+                            style={styles.viewDetailsButton}
+                            onPress={() => setExpandedServices(prev => ({
+                                ...prev,
+                                [service.bookingServicesID]: !prev[service.bookingServicesID]
+                            }))}
+                        >
+                            <Text style={styles.viewDetailsText}>
+                                {isExpanded ? 'Thu gọn' : `Xem thêm ${service.bookingServicesDetails.length - 1} dịch vụ khác`}
                             </Text>
-                            <View style={styles.serviceMetaContainer}>
-                                {quantity > 0 && (
-                                    <View style={styles.serviceMeta}>
-                                        <MaterialCommunityIcons name="numeric" size={14} color={colors.textSecondary} />
-                                        <Text style={styles.serviceMetaText}>
-                                            {quantity}
-                                        </Text>
-                                    </View>
-                                )}
-                                {dayRent > 1 && (
-                                    <View style={styles.serviceMeta}>
-                                        <MaterialCommunityIcons name="calendar-range" size={14} color={colors.textSecondary} />
-                                        <Text style={styles.serviceMetaText}>
-                                            {dayRent} ngày
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
+                            <MaterialCommunityIcons
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={20}
+                                color={colors.primary}
+                            />
+                        </TouchableOpacity>
+                    )}
+
+                    <View style={styles.totalPriceContainer}>
+                        <Text style={styles.totalPriceLabel}>Tổng cộng:</Text>
+                        <Text style={styles.totalPriceValue}>{service.total.toLocaleString()}đ</Text>
                     </View>
 
-                    <View style={styles.priceContainer}>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.priceLabel}>Đơn giá:</Text>
-                            <Text style={styles.priceValue}>{formatCurrency(unitPrice)}</Text>
-                        </View>
-                        {quantity > 1 && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Số lượng:</Text>
-                                <Text style={styles.priceValue}>{quantity}</Text>
-                            </View>
-                        )}
-                        {dayRent > 1 && (
-                            <View style={styles.priceRow}>
-                                <Text style={styles.priceLabel}>Ngày thuê:</Text>
-                                <Text style={styles.priceValue}>{dayRent} ngày</Text>
-                            </View>
-                        )}
-                        <View style={styles.servicePriceRow}>
-                            <Text style={styles.servicePriceLabel}>Thành tiền:</Text>
-                            <Text style={styles.servicePriceValue}>{formatCurrency(service.total)}</Text>
-                        </View>
-                    </View>
-
-                    {/* Action buttons - cập nhật theo trạng thái */}
                     {service.status === 0 && (
                         <View style={styles.serviceButtons}>
                             <TouchableOpacity
@@ -404,8 +384,8 @@ const BookingServiceScreen = () => {
                                 style={styles.serviceRefundButton}
                                 onPress={() => handleCancelService(service.bookingServicesID, true)}
                             >
-                                <MaterialCommunityIcons name="cash-refund" size={18} color="#fff" />
-                                <Text style={styles.serviceRefundText}>Yêu cầu hủy và hoàn tiền</Text>
+                                <MaterialCommunityIcons name="close-circle" size={20} color="#fff" />
+                                <Text style={styles.serviceRefundText}>Hủy dịch vụ</Text>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -415,10 +395,7 @@ const BookingServiceScreen = () => {
     };
 
     const renderNoServices = () => (
-        <Animated.View
-            entering={FadeIn.duration(800)}
-            style={styles.emptyContainer}
-        >
+        <Animated.View entering={FadeIn.duration(800)} style={styles.emptyContainer}>
             <MaterialCommunityIcons name="cart-off" size={80} color="#DDD" />
             <Text style={styles.emptyText}>Bạn chưa có dịch vụ nào</Text>
             <Text style={styles.emptySubText}>Hãy thêm dịch vụ để trải nghiệm tốt hơn</Text>
@@ -432,10 +409,7 @@ const BookingServiceScreen = () => {
         return (
             <View style={styles.actionButtons}>
                 {canAddService && (
-                    <TouchableOpacity
-                        style={styles.addServiceButton}
-                        onPress={() => setServicesModalVisible(true)}
-                    >
+                    <TouchableOpacity style={styles.addServiceButton} onPress={() => setServicesModalVisible(true)}>
                         <LinearGradient
                             colors={[colors.primary, colors.secondary]}
                             start={{ x: 0, y: 0 }}
@@ -453,10 +427,7 @@ const BookingServiceScreen = () => {
 
     if (loading) {
         return (
-            <LoadingScreen
-                message="Đang tải thông tin dịch vụ"
-                subMessage="Vui lòng đợi trong giây lát..."
-            />
+            <LoadingScreen message="Đang tải thông tin dịch vụ" subMessage="Vui lòng đợi trong giây lát..." />
         );
     }
 
@@ -530,9 +501,7 @@ const BookingServiceScreen = () => {
                     )}
                 </Animated.View>
             </ScrollView>
-
             {renderActionButtons()}
-
             <ServicesModal
                 visible={servicesModalVisible}
                 onClose={() => setServicesModalVisible(false)}
@@ -653,20 +622,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: colors.primary,
         marginLeft: 6,
-        fontWeight: '500',
+        fontWeight: 'bold',
     },
     serviceInfoContainer: {
         flexDirection: 'row',
-        marginBottom: 16,
-    },
-    serviceIconContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: colors.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
+        marginBottom: 8,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     serviceInfo: {
         flex: 1,
@@ -678,25 +646,6 @@ const styles = StyleSheet.create({
         color: '#333',
         marginBottom: 4,
     },
-    serviceMetaContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-    },
-    serviceMeta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f0f0f0',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 12,
-        marginRight: 8,
-        marginBottom: 4,
-    },
-    serviceMetaText: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        marginLeft: 4,
-    },
     priceContainer: {
         backgroundColor: 'rgba(245, 247, 250, 0.8)',
         borderRadius: 12,
@@ -706,14 +655,16 @@ const styles = StyleSheet.create({
     priceRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 8,
+        alignItems: 'center',
+        marginTop: 8,
+        paddingHorizontal: 8,
     },
     priceLabel: {
         fontSize: 14,
         color: '#666',
     },
     priceValue: {
-        fontSize: 14,
+        fontSize: 15,
         color: '#333',
         fontWeight: '500',
     },
@@ -721,10 +672,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: 4,
-        paddingTop: 8,
+        marginTop: 12,
+        paddingTop: 12,
         borderTopWidth: 1,
         borderTopColor: '#e0e0e0',
+        paddingHorizontal: 8,
     },
     servicePriceLabel: {
         fontSize: 15,
@@ -869,6 +821,43 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 15,
         marginLeft: 8,
+    },
+    serviceDetailDivider: {
+        borderTopWidth: 1,
+        borderTopColor: '#e0e0e0',
+        marginTop: 16,
+        paddingTop: 16,
+    },
+    totalPriceContainer: {
+        backgroundColor: colors.primary + '10',
+        borderRadius: 12,
+        padding: 16,
+        marginTop: 16,
+        marginBottom: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    totalPriceLabel: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textPrimary,
+    },
+    totalPriceValue: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    viewDetailsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    viewDetailsText: {
+        color: colors.primary,
+        fontWeight: '600',
+        fontSize: 14,
+        marginRight: 8,
     },
 });
 
