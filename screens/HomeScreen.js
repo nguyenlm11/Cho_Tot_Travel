@@ -152,6 +152,40 @@ export default function HomeScreen() {
         setLongitude(selectedLocation.longitude);
     };
 
+    const handleTrendingHomestayPress = (homestayItem) => {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const formattedToday = `${today.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+        const formattedTomorrow = `${tomorrow.toLocaleDateString('vi-VN', { weekday: 'long' })}, ${tomorrow.getDate()}/${tomorrow.getMonth() + 1}/${tomorrow.getFullYear()}`;
+        const todayFormatted = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+        const tomorrowFormatted = `${tomorrow.getFullYear()}-${(tomorrow.getMonth() + 1).toString().padStart(2, '0')}-${tomorrow.getDate().toString().padStart(2, '0')}`;
+
+        const searchData = {
+            location: homestayItem.homeStays.address.split(',').slice(-2).join(', '),
+            checkInDate: formattedToday,
+            checkOutDate: formattedTomorrow,
+            adults: 1,
+            children: 0,
+            priceFrom: '',
+            priceTo: '',
+            selectedStar: null,
+            latitude: homestayItem.homeStays.latitude || latitude,
+            longitude: homestayItem.homeStays.longitude || longitude,
+            formattedCheckIn: todayFormatted,
+            formattedCheckOut: tomorrowFormatted,
+            rating: null,
+            minPrice: null,
+            maxPrice: null
+        };
+
+        // Cập nhật SearchContext
+        updateCurrentSearch(searchData);
+
+        // Navigate đến HomeStayDetail
+        navigation.navigate('HomeStayDetail', { id: homestayItem.homeStays.homeStayID });
+    };
+
     const renderSearchHistory = () => (
         <View style={styles.recentSearch}>
             <View style={styles.sectionHeader}>
@@ -413,7 +447,7 @@ export default function HomeScreen() {
                                 <TouchableOpacity
                                     key={index}
                                     style={styles.trendingItem}
-                                    onPress={() => navigation.navigate('HomeStayDetail', { id: item.homeStays.homeStayID })}
+                                    onPress={() => handleTrendingHomestayPress(item)}
                                 >
                                     <Image
                                         source={{ uri: item.homeStays.imageHomeStays[0]?.image || 'https://via.placeholder.com/150' }}
