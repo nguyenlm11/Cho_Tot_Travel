@@ -31,7 +31,7 @@ export default function HomestayDetailScreen() {
   const { clearCart } = useCart();
   const navigation = useNavigation();
   const route = useRoute();
-  const { id: homestayId } = route.params;
+  const { id: homestayId, price } = route.params;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
@@ -621,7 +621,7 @@ export default function HomestayDetailScreen() {
         <View style={styles.bookingBlur}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Giá từ</Text>
-            <Text style={styles.price}>{homestay?.lowestPrice?.toLocaleString() || '0'} <Text style={styles.priceCurrency}>₫</Text></Text>
+            <Text style={styles.price}>{price?.toLocaleString() || '0'} <Text style={styles.priceCurrency}>₫</Text></Text>
             <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
           </View>
           <View style={styles.buttonContainer}>

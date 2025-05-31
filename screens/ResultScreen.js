@@ -56,7 +56,7 @@ const ResultCard = React.memo(({ item, index, onPress }) => {
                             <Text style={styles.areaText}>{item.area}</Text>
                         </View>
                     </View>
-                    
+
                     <View style={styles.locationContainer}>
                         <Ionicons name="location-outline" size={16} color={colors.primary} />
                         <Text style={styles.address} numberOfLines={2}>{item.address}</Text>
@@ -65,7 +65,7 @@ const ResultCard = React.memo(({ item, index, onPress }) => {
                     <View style={styles.priceContainer}>
                         <View style={styles.priceInfo}>
                             <Text style={styles.priceLabel}>Giá từ</Text>
-                            <Text style={styles.priceValue}>{item.defaultRentPrice?.toLocaleString() || '200.000'}đ</Text>
+                            <Text style={styles.priceValue}>{item.defaultRentPrice?.toLocaleString()}đ</Text>
                         </View>
                         <TouchableOpacity
                             style={styles.viewButton}
@@ -104,7 +104,7 @@ export default function ResultScreen() {
         <ResultCard
             item={item}
             index={index}
-            onPress={() => navigation.navigate('HomeStayDetail', { id: item.homeStayID })}
+            onPress={() => navigation.navigate('HomeStayDetail', { id: item.homeStayID, price: item.defaultRentPrice })}
         />
     ), [navigation]);
 
@@ -166,7 +166,7 @@ export default function ResultScreen() {
                         <TouchableOpacity style={styles.filterChip}>
                             <Ionicons name="cash-outline" size={20} color="#ffffff" />
                             <Text style={styles.filterText}>
-                                {currentSearch.minPrice ? `${currentSearch.minPrice.toLocaleString()}đ` : '0đ'} - 
+                                {currentSearch.minPrice ? `${currentSearch.minPrice.toLocaleString()}đ` : '0đ'} -
                                 {currentSearch.maxPrice ? `${currentSearch.maxPrice.toLocaleString()}đ` : 'Không giới hạn'}
                             </Text>
                         </TouchableOpacity>
@@ -175,7 +175,7 @@ export default function ResultScreen() {
             </LinearGradient>
 
             {isLoading ? (
-                <LoadingScreen 
+                <LoadingScreen
                     message="Đang tìm kiếm homestay"
                     subMessage="Vui lòng đợi trong giây lát..."
                 />
