@@ -71,7 +71,7 @@ export default function RoomTypeScreen() {
     if (rentalId) params.rentalId = rentalId;
 
     const handleSelectRoom = (roomType) => {
-        const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name, rentalName: rentalName };
+        const navParams = { roomTypeId: roomType.roomTypesID, roomTypeName: roomType.name, rentalName: rentalName, people: roomType.maxPeople };
         if (homeStayId) navParams.homeStayId = homeStayId;
         if (rentalId) navParams.rentalId = rentalId;
         navigation.navigate('ListRoom', navParams);
