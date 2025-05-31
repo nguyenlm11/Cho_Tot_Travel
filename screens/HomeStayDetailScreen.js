@@ -621,7 +621,7 @@ export default function HomestayDetailScreen() {
         <View style={styles.bookingBlur}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Giá từ</Text>
-            <Text style={styles.price}>{homestay?.cheapestPrice?.toLocaleString() || '0'} <Text style={styles.priceCurrency}>₫</Text></Text>
+            <Text style={styles.price}>{homestay?.lowestPrice?.toLocaleString() || '0'} <Text style={styles.priceCurrency}>₫</Text></Text>
             <Text style={styles.priceNote}>Đã bao gồm thuế và phí</Text>
           </View>
           <View style={styles.buttonContainer}>
