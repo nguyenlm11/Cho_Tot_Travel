@@ -18,7 +18,7 @@ import ImageViewer from '../components/ImageViewer';
 const isIOS = Platform.OS === 'ios';
 const STATUSBAR_HEIGHT = isIOS ? 44 : StatusBar.currentHeight;
 
-const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
+const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected, people }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isImageViewerVisible, setImageViewerVisible] = useState(false);
     const handleOpenImageViewer = () => { setImageViewerVisible(true) };
@@ -104,7 +104,7 @@ const RoomItem = React.memo(({ item, index, onSelectRoom, isSelected }) => {
                                 </View>
                                 <View style={styles.featureItem}>
                                     <MaterialIcons name="people" size={18} color={colors.primary} />
-                                    <Text style={styles.featureText}>{item.maxGuests ? `${item.maxGuests} khách` : '2 khách'}</Text>
+                                    <Text style={styles.featureText}>Tối đa {people} người</Text>
                                 </View>
                             </View>
                         </View>
@@ -209,7 +209,7 @@ export default function ListRoomScreen() {
     const route = useRoute();
     const { currentSearch, updateCurrentSearch } = useSearch();
     const { addRoomToCart, removeRoomFromCart, isRoomInCart, clearCart } = useCart();
-    const { roomTypeId, roomTypeName, homeStayId, rentalId, rentalName } = route.params || {};
+    const { roomTypeId, roomTypeName, homeStayId, rentalId, rentalName, people } = route.params || {};
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -309,6 +309,7 @@ export default function ListRoomScreen() {
                 index={index}
                 isSelected={isSelected}
                 onSelectRoom={toggleRoomSelection}
+                people={people}
             />
         );
     }, [isRoomInCart, toggleRoomSelection]);
